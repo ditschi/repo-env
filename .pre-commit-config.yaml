@@ -1,6 +1,6 @@
 
 default_install_hook_types: [pre-commit, pre-push]
-default_stages: [pre-commit, manual, pre-push]
+default_stages: [pre-commit, manual]
 
 repos:
 
@@ -67,36 +67,45 @@ repos:
       - id: yamlfmt
         files: (?:\.pipelines|\.github)\/.*\.(?:yaml|yml)$
 
-  # repo-env quality gates (mirror the nox sessions). Run via the local venv so
-  # versions stay pinned to pyproject optional-dependencies.
+  # repo-env quality gates (mirror the nox sessions). Run via isolated uv envs
+  # so versions stay pinned to pyproject optional-dependencies without relying
+  # on host-installed executables or a shared .venv.
   - repo: local
     hooks:
       - id: isort
         name: isort
-        entry: isort
+        entry: uv run --isolated --extra lint isort
         language: system
         types: [python]
         args: [--profile, black, --line-length, "110"]
       - id: black
         name: black
-        entry: black
+        entry: uv run --isolated --extra lint black
         language: system
         types: [python]
         args: [--line-length, "110"]
       - id: ruff
         name: ruff
-        entry: ruff
+        entry: uv run --isolated --extra lint ruff
         language: system
         types: [python]
         args: [check, --fix]
       - id: flake8
         name: flake8
-        entry: flake8
+        entry: uv run --isolated --extra lint flake8
         language: system
         types: [python]
       - id: mypy
         name: mypy
-        entry: mypy
+        entry: uv run --isolated --extra type-check mypy
         language: system
         pass_filenames: false
         args: [--package, repoenv]
+
+  # Conventional Commits commit-msg validation (contributor helper)
+  # Primary enforcement is the PR-title lint CI job for squash merges.
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.16.4
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

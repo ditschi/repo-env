@@ -1,0 +1,97 @@
+site_name: repo-env
+site_description: Build and operate isolated git-worktree environments across many repositories.
+site_url: https://ditschi.github.io/repo-env/
+repo_url: https://github.com/ditschi/repo-env
+repo_name: ditschi/repo-env
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - toc.integrate
+
+extra:
+  version:
+    provider: mike
+    default: stable
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ditschi/repo-env
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_in_heading: true
+            members_order: source
+  - mike:
+      alias_type: symlink
+      redirect_template: null
+      deploy_prefix: ""
+      canonical_version: stable
+      version_selector: true
+      css_dir: assets/stylesheets
+      javascript_dir: assets/javascripts
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Installation: user-guide/installation.md
+      - Quick Start: user-guide/quickstart.md
+      - Commands: user-guide/commands.md
+      - Configuration: user-guide/configuration.md
+  - Contributor Guide:
+      - Development Setup: contributor-guide/dev-setup.md
+      - Quality Gates: contributor-guide/quality-gates.md
+      - Commit Convention: contributor-guide/commit-convention.md
+      - Release Process: contributor-guide/release-process.md
+  - API Reference: api-reference.md
+  - Changelog: changelog.md

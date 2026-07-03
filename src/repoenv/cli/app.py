@@ -21,10 +21,10 @@ from repoenv.cli.commands.pr import pr_command
 from repoenv.cli.commands.prune import prune_command
 from repoenv.cli.commands.rename import rename_command
 from repoenv.cli.commands.rm import rm_command
+from repoenv.cli.commands.run import run_command
 from repoenv.cli.commands.sh import sh_command
 from repoenv.cli.commands.status import status_command
 from repoenv.cli.commands.sync import sync_command
-from repoenv.cli.commands.run import run_command
 
 app = typer.Typer(
     name="renv",

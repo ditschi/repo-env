@@ -1,8 +1,7 @@
 """Nox sessions for repo-env.
 
-Ported from the op.cli conventions: uv backend, Python 3.12, the same quality
-gates (ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps). Build/conan/
-flashimage sessions from op.cli are intentionally omitted as not applicable.
+Uses uv backend, Python 3.12 default, and quality gates
+(ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps).
 """
 
 from __future__ import annotations
@@ -15,8 +14,10 @@ nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 
 DEFAULT_PYTHON = "3.12"
+PYTHON_VERSIONS = ["3.12", "3.13", "3.14"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
+GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
 def is_ci() -> bool:
@@ -38,9 +39,9 @@ _CI_DEFAULT = [
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
 
-@nox.session(python=DEFAULT_PYTHON)
+@nox.session(python=PYTHON_VERSIONS)
 def tests(session: nox.Session) -> None:
-    """Run unit tests with coverage and xdist."""
+    """Run unit tests with coverage and xdist (all supported Python versions)."""
     session.install("-e", ".[test]")
     session.run(
         "pytest",
@@ -106,19 +107,19 @@ def check_types(session: nox.Session) -> None:
 def lint(session: nox.Session) -> None:
     """Run ruff, black --check, flake8, isort --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", SRC, "tests")
-    session.run("black", "--check", SRC, "tests")
-    session.run("isort", "--check-only", SRC, "tests")
-    session.run("flake8", SRC, "tests")
+    session.run("ruff", "check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("black", "--check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("isort", "--check-only", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("flake8", "--exclude", GENERATED_VERSION_FILE, SRC, "tests")
 
 
 @nox.session(python=DEFAULT_PYTHON)
-def format(session: nox.Session) -> None:  # noqa: A001 - session name mirrors op.cli
+def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
     """Auto-format with black, isort, and ruff --fix (local only)."""
     session.install("-e", ".[lint]")
-    session.run("isort", SRC, "tests")
-    session.run("black", SRC, "tests")
-    session.run("ruff", "check", "--fix", SRC, "tests")
+    session.run("isort", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("black", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("ruff", "check", "--fix", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -137,9 +138,15 @@ def necessary_imports(session: nox.Session) -> None:
         "--ignore-unused",
         "vulture",
         "black",
+        "commitizen",
         "fawltydeps",
         "flake8",
         "isort",
+        "mike",
+        "mkdocs",
+        "mkdocs-material",
+        "mkdocs-snippets",
+        "mkdocstrings",
         "mypy",
         "nox",
         "pylint",

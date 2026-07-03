@@ -1,4 +1,5 @@
 # codespell ignore list: words that are not typos in this project.
+astroid
 repoenv
 worktree
 worktrees

@@ -1,15 +1,15 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "repo-env"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Build and operate isolated git-worktree environments across many repositories."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "RA6" }]
+authors = [{ name = "ditschi" }]
 keywords = ["git", "worktree", "monorepo", "multi-repo", "cli", "migration"]
 classifiers = [
     "Environment :: Console",
@@ -17,6 +17,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Version Control :: Git",
 ]
 dependencies = [
@@ -30,8 +32,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bosch-rbadas/repo-env"
-Source = "https://github.com/bosch-rbadas/repo-env"
+Homepage = "https://github.com/ditschi/repo-env"
+Source = "https://github.com/ditschi/repo-env"
 
 [project.scripts]
 renv = "repoenv.__main__:main"
@@ -56,10 +58,24 @@ code-quality = [
     "vulture>=2.11",
     "pylint>=3.2",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "mike>=2.1",
+    "mkdocs-snippets>=1.0",
+]
 dev = [
     "nox>=2024.4",
-    "repo-env[test,lint,type-check,code-quality]",
+    "commitizen>=3.29",
+    "repo-env[test,lint,type-check,code-quality,docs]",
 ]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/repoenv/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/repoenv"]
@@ -75,6 +91,16 @@ line_length = 110
 [tool.vulture]
 min_confidence = 80
 paths = ["src/repoenv", "vulture_whitelist.py"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "scm"
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+update_changelog_on_bump = true
+major_version_zero = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

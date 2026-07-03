@@ -1,7 +1,15 @@
 # repo-env
 
+[![CI](https://github.com/ditschi/repo-env/actions/workflows/main.yml/badge.svg)](https://github.com/ditschi/repo-env/actions/workflows/main.yml)
+[![PyPI](https://img.shields.io/pypi/v/repo-env)](https://pypi.org/project/repo-env/)
+[![Python](https://img.shields.io/pypi/pyversions/repo-env)](https://pypi.org/project/repo-env/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://ditschi.github.io/repo-env/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Build and operate isolated **git-worktree environments** across many
 repositories. The command is `renv`; the distribution is `repo-env`.
+
+**[Full documentation →](https://ditschi.github.io/repo-env/)**
 
 An *environment* is a named directory containing one git worktree per selected
 repository. Create it from repos matching a glob in a source directory, run
@@ -42,6 +50,5 @@ nox -s tests        # unit tests with coverage
 nox -s integration  # integration tests (temp git repos, mocked gh)
 ```
 
-Quality settings mirror the RA6 `op.cli` conventions: line length 110,
-target py312, ruff + black + flake8 + isort + pylint + mypy + vulture +
-fawltydeps.
+Quality settings use line length 110, target py312, and the toolchain
+ruff + black + flake8 + isort + pylint + mypy + vulture + fawltydeps.
