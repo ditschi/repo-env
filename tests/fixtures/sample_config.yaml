@@ -1,0 +1,5 @@
+source: "/tmp/src"
+dest: "/tmp/envs"
+default_branch: "main"
+aliases:
+  web: "migration-web"

@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 110
+extend-ignore = E203
+format = pylint
+extend-immutable-calls = typer.Option, typer.Argument
+exclude =
+    .env
+    __pycache__
+    .nox
+    .venv
+    tools
+    tests/*/resources/
+    tests/fixtures/

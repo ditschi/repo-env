@@ -1,0 +1,102 @@
+
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit, manual, pre-push]
+
+repos:
+
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v6.0.0
+    hooks:
+      # using check-json5 instead of check-json to work with comments
+      # - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: forbid-new-submodules
+      - id: end-of-file-fixer
+        types:
+          - text
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        types:
+          - text
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-xml
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        # branches for development must be temporary (contain a "/") no commits to long-lived branches
+        args:
+          - --pattern
+          - "^[^/]+$"
+          - --branch
+          - "main"
+
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.1
+    hooks:
+      # allows to check json with C Style comments
+      - id: check-json5
+        exclude: |
+          (?x)^(
+            .*tools/mt_gen/CustomMTSignals/.*\.json
+          )$
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+     - id: codespell
+       args:
+         - --ignore-words=.codespellignore
+         - --quiet-level=2
+         # - --write-changes
+       exclude: |
+         (?x)^(
+           .*\.(svg|drawio|yml)$|
+           .*tools/sca/.*
+         )$
+
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.21.0
+    hooks:
+      - id: yamlfmt
+        files: (?:\.pipelines|\.github)\/.*\.(?:yaml|yml)$
+
+  # repo-env quality gates (mirror the nox sessions). Run via the local venv so
+  # versions stay pinned to pyproject optional-dependencies.
+  - repo: local
+    hooks:
+      - id: isort
+        name: isort
+        entry: isort
+        language: system
+        types: [python]
+        args: [--profile, black, --line-length, "110"]
+      - id: black
+        name: black
+        entry: black
+        language: system
+        types: [python]
+        args: [--line-length, "110"]
+      - id: ruff
+        name: ruff
+        entry: ruff
+        language: system
+        types: [python]
+        args: [check, --fix]
+      - id: flake8
+        name: flake8
+        entry: flake8
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        pass_filenames: false
+        args: [--package, repoenv]

@@ -1,0 +1,4 @@
+# codespell ignore list: words that are not typos in this project.
+repoenv
+worktree
+worktrees

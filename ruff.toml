@@ -1,0 +1,16 @@
+target-version = "py312"
+line-length = 110
+
+exclude = [
+    "**/resources/**",
+    ".devcontainer",
+    ".github",
+    ".pipeline",
+    ".test_env",
+]
+
+[lint]
+select = ["C90"]
+
+[lint.mccabe]
+max-complexity = 10

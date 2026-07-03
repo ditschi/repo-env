@@ -1,0 +1,21 @@
+[MASTER]
+fail-under=9.80
+fail-on=cyclic-import
+
+[BASIC]
+good-names=i,j,f,ex,Run,pk,fd,x,y,_
+docstring-min-length=-1
+
+[FORMAT]
+max-line-length=110
+
+[MESSAGES CONTROL]
+disable=
+    unspecified-encoding,
+    line-too-long,
+    missing-function-docstring,
+    import-error,
+    wrong-import-order,
+
+[SPELLING]
+spelling-ignore-words=repoenv

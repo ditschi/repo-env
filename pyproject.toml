@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "repo-env"
+version = "0.1.0"
+description = "Build and operate isolated git-worktree environments across many repositories."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "RA6" }]
+keywords = ["git", "worktree", "monorepo", "multi-repo", "cli", "migration"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "questionary>=2.0",
+    "pydantic>=2.7",
+    "ruamel.yaml>=0.18",
+    "platformdirs>=4.2",
+    "filelock>=3.14",
+]
+
+[project.urls]
+Homepage = "https://github.com/bosch-rbadas/repo-env"
+Source = "https://github.com/bosch-rbadas/repo-env"
+
+[project.scripts]
+renv = "repoenv.__main__:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "pytest-xdist>=3.6",
+]
+lint = [
+    "ruff>=0.5",
+    "black>=24.4",
+    "flake8>=7.1",
+    "isort>=5.13",
+]
+type-check = [
+    "mypy>=1.10",
+]
+code-quality = [
+    "fawltydeps>=0.16",
+    "vulture>=2.11",
+    "pylint>=3.2",
+]
+dev = [
+    "nox>=2024.4",
+    "repo-env[test,lint,type-check,code-quality]",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repoenv"]
+
+[tool.black]
+line-length = 110
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 110
+
+[tool.vulture]
+min_confidence = 80
+paths = ["src/repoenv", "vulture_whitelist.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: integration tests using real temp git repos / mocked gh (deselect with -m 'not integration')",
+    "performance: completion cold-start latency budget checks",
+]
