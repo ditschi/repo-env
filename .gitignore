@@ -1,3 +1,6 @@
+# generated files
+src/repoenv/_version.py
+
 # Byte-compiled / caches
 __pycache__/
 *.py[cod]

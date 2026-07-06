@@ -1,6 +1,6 @@
 """Nox sessions for repo-env.
 
-Uses uv backend, Python 3.12 default, and quality gates
+Uses uv backend, Python 3.10 default, and quality gates
 (ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps).
 """
 
@@ -13,8 +13,8 @@ import nox
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 
-DEFAULT_PYTHON = "3.12"
-PYTHON_VERSIONS = ["3.12", "3.13", "3.14"]
+DEFAULT_PYTHON = "3.10"
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
