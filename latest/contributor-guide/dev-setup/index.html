@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://ditschi.github.io/repo-env/stable/contributor-guide/dev-setup/">
       
       
-        <link rel="prev" href="../../user-guide/configuration/">
+        <link rel="prev" href="../../user-guide/troubleshooting/">
       
       
         <link rel="next" href="../quality-gates/">
@@ -102,8 +102,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="repo-env" class="md-header__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -355,8 +354,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="repo-env" class="md-nav__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     repo-env
@@ -520,6 +518,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/workflow-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/commands/" class="md-nav__link">
         
   
@@ -556,6 +610,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -958,7 +1040,7 @@
 <h1 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h1>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Python 3.12 (other supported versions installed on demand by nox via uv)</li>
+<li>Python 3.10+ (3.12 recommended for local dev; nox installs other versions on demand via uv)</li>
 <li><a href="https://docs.astral.sh/uv/">uv</a> — used by nox as the venv backend</li>
 <li><a href="https://nox.thea.codes/">nox</a> — task runner for all quality gates</li>
 <li>Git 2.38+</li>
@@ -986,6 +1068,7 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs<span class="w">          </span><span class="c1"># build docs strict (fails on any warning)</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs_serve<span class="w">    </span><span class="c1"># live-reload local docs at http://127.0.0.1:8000</span>
 </span></code></pre></div>
+<p>CI runs integration tests in a separate job on Python 3.12 only (see <a href="../quality-gates/#ci-jobs">Quality Gates</a>).</p>
 <h2 id="install-pre-commit-hooks">Install pre-commit hooks<a class="headerlink" href="#install-pre-commit-hooks" title="Permanent link">&para;</a></h2>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pre-commit<span class="w"> </span>install<span class="w"> </span>--hook-type<span class="w"> </span>commit-msg<span class="w"> </span>--hook-type<span class="w"> </span>pre-commit<span class="w"> </span>--hook-type<span class="w"> </span>pre-push
 </span></code></pre></div>
@@ -1005,7 +1088,7 @@
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>tests/
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  unit/            Fast, no I/O
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  integration/     Real temp git repos, mocked gh
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>  performance/     CLI cold-start latency budget
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>  performance/     CLI cold-start latency budgets (help + bash completion)
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>docs/              This site
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>.github/workflows/ CI/CD pipelines
 </span></code></pre></div>

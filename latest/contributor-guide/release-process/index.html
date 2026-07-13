@@ -102,8 +102,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="repo-env" class="md-header__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -355,8 +354,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="repo-env" class="md-nav__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     repo-env
@@ -520,6 +518,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/workflow-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/commands/" class="md-nav__link">
         
   
@@ -556,6 +610,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -784,10 +866,71 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#one-time-infrastructure-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        One-time infrastructure setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="One-time infrastructure setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-pypi-trusted-publishing-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. PyPI Trusted Publishing (OIDC)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-github-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. GitHub Environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. GitHub Pages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-verify-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verify locally
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites-every-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites (every release)
       
     </span>
   </a>
@@ -1017,45 +1160,114 @@
 
 
 <h1 id="release-process">Release Process<a class="headerlink" href="#release-process" title="Permanent link">&para;</a></h1>
-<p>Releases are <strong>human-triggered</strong>: a maintainer runs <code>cz bump</code> locally, which computes the new version from Conventional Commits, updates <code>CHANGELOG.md</code>, commits, and creates a signed tag. Pushing the tag fires the <code>release.yml</code> workflow, which publishes to PyPI and deploys the versioned docs.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<p>Install the dev extras (includes <code>commitizen</code> and <code>hatch-vcs</code>):</p>
+<p>Releases are <strong>human-triggered</strong>: a maintainer runs <code>cz bump</code> locally, which computes the new version from Conventional Commits, updates <code>CHANGELOG.md</code>, commits, and creates a signed tag. Pushing the tag fires the <code>release.yml</code> workflow, which publishes to PyPI and deploys versioned docs.</p>
+<h2 id="one-time-infrastructure-setup">One-time infrastructure setup<a class="headerlink" href="#one-time-infrastructure-setup" title="Permanent link">&para;</a></h2>
+<p>Complete these steps <strong>once</strong> before the first <code>v0.1.0</code> tag.</p>
+<h3 id="1-pypi-trusted-publishing-oidc">1. PyPI Trusted Publishing (OIDC)<a class="headerlink" href="#1-pypi-trusted-publishing-oidc" title="Permanent link">&para;</a></h3>
+<p>On <a href="https://pypi.org">pypi.org</a> → Your projects → <code>repo-env</code> → Publishing → <strong>Add a new pending publisher</strong> (or configure after first upload):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PyPI project name</td>
+<td><code>repo-env</code></td>
+</tr>
+<tr>
+<td>Owner</td>
+<td><code>ditschi</code></td>
+</tr>
+<tr>
+<td>Repository name</td>
+<td><code>repo-env</code></td>
+</tr>
+<tr>
+<td>Workflow name</td>
+<td><code>release.yml</code></td>
+</tr>
+<tr>
+<td>Environment name</td>
+<td><code>pypi</code></td>
+</tr>
+</tbody>
+</table>
+<p>Repeat on <a href="https://test.pypi.org">test.pypi.org</a> with environment name <code>testpypi</code>.</p>
+<p>No long-lived API tokens are stored in GitHub secrets — the workflow uses OIDC (<code>id-token: write</code>).</p>
+<h3 id="2-github-environments">2. GitHub Environments<a class="headerlink" href="#2-github-environments" title="Permanent link">&para;</a></h3>
+<p>In the GitHub repo → <strong>Settings → Environments</strong>, create:</p>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Purpose</th>
+<th>Suggested protection</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>testpypi</code></td>
+<td>TestPyPI publish + install smoke test</td>
+<td>Optional reviewers</td>
+</tr>
+<tr>
+<td><code>pypi</code></td>
+<td>Production PyPI publish</td>
+<td>Required reviewers recommended</td>
+</tr>
+</tbody>
+</table>
+<p>Environment names must match <code>release.yml</code> (<code>environment: name: testpypi</code> / <code>pypi</code>).</p>
+<h3 id="3-github-pages">3. GitHub Pages<a class="headerlink" href="#3-github-pages" title="Permanent link">&para;</a></h3>
+<p>Ensure GitHub Pages is enabled for the repo (deploy source: GitHub Actions / <code>gh-pages</code> branch from workflows).</p>
+<h3 id="4-verify-locally">4. Verify locally<a class="headerlink" href="#4-verify-locally" title="Permanent link">&para;</a></h3>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>install_dev
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>integration
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cz<span class="w"> </span>bump<span class="w"> </span>--dry-run
+</span></code></pre></div>
+<h2 id="prerequisites-every-release">Prerequisites (every release)<a class="headerlink" href="#prerequisites-every-release" title="Permanent link">&para;</a></h2>
+<p>Install dev extras (includes <code>commitizen</code> and <code>hatch-vcs</code>):</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>install_dev
 </span></code></pre></div>
 <h2 id="step-by-step">Step-by-step<a class="headerlink" href="#step-by-step" title="Permanent link">&para;</a></h2>
 <h3 id="1-ensure-main-is-clean-and-green">1. Ensure <code>main</code> is clean and green<a class="headerlink" href="#1-ensure-main-is-clean-and-green" title="Permanent link">&para;</a></h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>main<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># Verify CI is green before proceeding</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>main<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Verify CI is green before proceeding</span>
 </span></code></pre></div>
 <h3 id="2-dry-run-bump-see-what-would-change">2. Dry-run bump (see what would change)<a class="headerlink" href="#2-dry-run-bump-see-what-would-change" title="Permanent link">&para;</a></h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cz<span class="w"> </span>bump<span class="w"> </span>--dry-run
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cz<span class="w"> </span>bump<span class="w"> </span>--dry-run
 </span></code></pre></div>
 <p><code>cz</code> inspects all commits since the last tag and prints the computed next version (<code>patch</code> / <code>minor</code> / <code>major</code>) based on commit types.</p>
 <h3 id="3-run-the-bump">3. Run the bump<a class="headerlink" href="#3-run-the-bump" title="Permanent link">&para;</a></h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cz<span class="w"> </span>bump
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cz<span class="w"> </span>bump
 </span></code></pre></div>
-<p>This:
-1. Computes the next <a href="https://semver.org/">SemVer</a> version.
-2. Updates <code>CHANGELOG.md</code>.
-3. Commits with message <code>chore(release): bump version to X.Y.Z</code>.
-4. Creates an annotated git tag <code>vX.Y.Z</code>.</p>
+<p>This:</p>
+<ol>
+<li>Computes the next <a href="https://semver.org/">SemVer</a> version.</li>
+<li>Updates <code>CHANGELOG.md</code>.</li>
+<li>Commits with message <code>chore(release): bump version to X.Y.Z</code>.</li>
+<li>Creates an annotated git tag <code>vX.Y.Z</code>.</li>
+</ol>
+<p>For the <strong>first</strong> release when history predates Conventional Commits, ensure <code>CHANGELOG.md</code> has a sensible <code>[0.1.0]</code> section before bumping, or use <code>cz bump --increment MINOR</code> after reviewing <code>cz bump --dry-run</code>.</p>
 <h3 id="4-push-the-commit-and-tag">4. Push the commit and tag<a class="headerlink" href="#4-push-the-commit-and-tag" title="Permanent link">&para;</a></h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main<span class="w"> </span>--follow-tags
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main<span class="w"> </span>--follow-tags
 </span></code></pre></div>
 <h3 id="5-ci-takes-over">5. CI takes over<a class="headerlink" href="#5-ci-takes-over" title="Permanent link">&para;</a></h3>
-<p>The <code>release.yml</code> workflow fires on <code>vX.Y.Z</code> tags and:
-1. Builds sdist + wheel with <code>hatch build</code>.
-2. Publishes to <strong>TestPyPI</strong> and verifies the install.
-3. Publishes to <strong>PyPI</strong> via OIDC Trusted Publishing (no token stored).
-4. Creates a GitHub Release with the changelog section for this version.
-5. Deploys versioned docs: <code>mike deploy X.Y.Z stable --update-aliases</code>.</p>
-<div class="admonition info">
-<p class="admonition-title">First release</p>
-<p>The first ever release uses TestPyPI to verify the full pipeline before touching PyPI.
-See the <code>release.yml</code> workflow for the <code>TEST_PYPI_FIRST</code> environment gate.</p>
-</div>
+<p>The <code>release.yml</code> workflow fires on <code>vX.Y.Z</code> tags and:</p>
+<ol>
+<li>Builds sdist + wheel with <code>hatch build</code>.</li>
+<li>Publishes to <strong>TestPyPI</strong> and verifies install (<code>uv tool install</code> from TestPyPI).</li>
+<li>Publishes to <strong>PyPI</strong> via OIDC Trusted Publishing.</li>
+<li>Creates a GitHub Release with changelog notes for this version.</li>
+<li>Deploys versioned docs: <code>mike deploy X.Y.Z stable --update-aliases</code>.</li>
+</ol>
+<p>Every release runs TestPyPI first, then PyPI — there is no separate gate flag in the workflow.</p>
 <h3 id="6-verify">6. Verify<a class="headerlink" href="#6-verify" title="Permanent link">&para;</a></h3>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uvx<span class="w"> </span>repo-env@X.Y.Z<span class="w"> </span>--version<span class="w">   </span><span class="c1"># install from PyPI and check</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uvx<span class="w"> </span>repo-env@X.Y.Z<span class="w"> </span>--version<span class="w">   </span><span class="c1"># install from PyPI and check</span>
 </span></code></pre></div>
 <h2 id="patch-vs-minor-vs-major">Patch vs minor vs major<a class="headerlink" href="#patch-vs-minor-vs-major" title="Permanent link">&para;</a></h2>
 <table>
@@ -1083,20 +1295,20 @@ See the <code>release.yml</code> workflow for the <code>TEST_PYPI_FIRST</code> e
 <h2 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h2>
 <p><code>CHANGELOG.md</code> at the repo root is auto-generated by <code>cz changelog</code> and updated on every <code>cz bump</code>. It follows the <a href="https://keepachangelog.com/">Keep a Changelog</a> format.</p>
 <p>To preview the changelog for unreleased commits:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cz<span class="w"> </span>changelog<span class="w"> </span>--unreleased-version<span class="w"> </span>HEAD<span class="w"> </span>--dry-run
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cz<span class="w"> </span>changelog<span class="w"> </span>--unreleased-version<span class="w"> </span>HEAD<span class="w"> </span>--dry-run
 </span></code></pre></div>
 <h2 id="versioned-docs">Versioned docs<a class="headerlink" href="#versioned-docs" title="Permanent link">&para;</a></h2>
 <p><code>mike</code> deploys each release as <code>X.Y.Z</code> and keeps a <code>stable</code> alias pointing to the latest stable release. The version selector dropdown in the docs site shows all deployed versions.</p>
 <p>To list deployed versions:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>mike<span class="w"> </span>list
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>mike<span class="w"> </span>list
 </span></code></pre></div>
 <h2 id="hotfix-releases">Hotfix releases<a class="headerlink" href="#hotfix-releases" title="Permanent link">&para;</a></h2>
 <p>For a hotfix on a previous minor:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>hotfix/v1.2.x<span class="w"> </span>vX.Y.Z<span class="w">   </span><span class="c1"># branch from the tag</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># cherry-pick or apply fix commits</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>cz<span class="w"> </span>bump<span class="w"> </span>--increment<span class="w"> </span>patch
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>hotfix/v1.2.x<span class="w"> </span>--follow-tags
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Open a PR from hotfix/v1.2.x -&gt; main for the cherry-pick too</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>hotfix/v1.2.x<span class="w"> </span>vX.Y.Z<span class="w">   </span><span class="c1"># branch from the tag</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># cherry-pick or apply fix commits</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>cz<span class="w"> </span>bump<span class="w"> </span>--increment<span class="w"> </span>patch
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>hotfix/v1.2.x<span class="w"> </span>--follow-tags
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Open a PR from hotfix/v1.2.x -&gt; main for the cherry-pick too</span>
 </span></code></pre></div>
 
 

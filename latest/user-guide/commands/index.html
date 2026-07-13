@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://ditschi.github.io/repo-env/stable/user-guide/commands/">
       
       
-        <link rel="prev" href="../quickstart/">
+        <link rel="prev" href="../concepts/">
       
       
         <link rel="next" href="../configuration/">
@@ -102,8 +102,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="repo-env" class="md-header__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -355,8 +354,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="repo-env" class="md-nav__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     repo-env
@@ -520,6 +518,62 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../workflow-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -594,13 +648,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#renv-new" class="md-nav__link">
+  <a href="#renv-create" class="md-nav__link">
     <span class="md-ellipsis">
       
-        renv new
+        renv create
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="renv create">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#directory-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Directory layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -609,6 +680,28 @@
     <span class="md-ellipsis">
       
         renv ls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-activate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv activate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv config
       
     </span>
   </a>
@@ -649,10 +742,142 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#renv-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv repair
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#renv-rm" class="md-nav__link">
     <span class="md-ellipsis">
       
         renv rm
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv merge
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-repos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv repos
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv rename
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv sync
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-status-renv-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv status / renv doctor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-prune" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv prune
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv import
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-sh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv completion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-env-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional [ENV] argument
       
     </span>
   </a>
@@ -683,6 +908,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -961,144 +1214,187 @@
 <hr />
 <h2 id="renv-init"><code>renv init</code><a class="headerlink" href="#renv-init" title="Permanent link">&para;</a></h2>
 <p>First-run setup wizard. Writes the user config file.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>renv init [--force]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>renv<span class="w"> </span>init<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--force</code></td>
-<td>Re-run wizard even if config already exists</td>
-</tr>
-</tbody>
-</table>
+<p>Key options:</p>
+<ul>
+<li><code>--source/-s DIR</code>: default source directory of clones</li>
+<li><code>--dest/-d DIR</code>: default destination root for environments</li>
+<li><code>--default-branch BRANCH</code>: fallback default branch</li>
+<li><code>--install-completion</code>: record completion preference</li>
+<li><code>--yes/-y</code>: non-interactive</li>
+</ul>
 <hr />
-<h2 id="renv-new"><code>renv new</code><a class="headerlink" href="#renv-new" title="Permanent link">&para;</a></h2>
+<h2 id="renv-create"><code>renv create</code><a class="headerlink" href="#renv-create" title="Permanent link">&para;</a></h2>
 <p>Create a new environment from repositories in a source directory.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>renv new NAME --source DIR --branch BRANCH [OPTIONS]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>renv<span class="w"> </span>create<span class="w"> </span>NAME<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--source DIR</code></td>
-<td>Root directory to scan for git repositories</td>
-</tr>
-<tr>
-<td><code>--branch BRANCH</code></td>
-<td>Worktree branch name to create in each repo</td>
-</tr>
-<tr>
-<td><code>--glob PATTERN</code></td>
-<td>Filter repos by name glob (default: <code>*</code>)</td>
-</tr>
-<tr>
-<td><code>--base BRANCH</code></td>
-<td>Base branch to create the worktree from (default: <code>main</code>)</td>
-</tr>
-<tr>
-<td><code>--no-create</code></td>
-<td>Dry-run: show what would be created</td>
-</tr>
-</tbody>
-</table>
+<p><code>renv new</code> remains available as a compatibility alias.</p>
+<p>Highlights:</p>
+<ul>
+<li><code>--source/-s DIR</code>, <code>--dest/-d DIR</code></li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (repeatable; CSV also supported)</li>
+<li><code>--branch/-b BRANCH</code> (create branch in each repo)</li>
+<li><code>--default-branch/-B BRANCH</code> (fallback when auto-detect fails)</li>
+<li><code>--preserve</code> (skip fetch/update; use source repos as-is)</li>
+<li><code>--activate</code> (set as default environment)</li>
+<li><code>--on-branch-conflict detach|reclaim|fail</code> (when branch already checked out elsewhere)</li>
+<li><code>--dry-run/-n</code></li>
+</ul>
+<h3 id="directory-layout">Directory layout<a class="headerlink" href="#directory-layout" title="Permanent link">&para;</a></h3>
+<p>Each environment is a directory under your <code>--dest</code> root:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&lt;dest&gt;/&lt;env-name&gt;/
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  .repoenv.json          # environment metadata (also the renv-root marker)
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  &lt;repo-a&gt;/              # git worktree for repo-a
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  &lt;repo-b&gt;/              # git worktree for repo-b
+</span></code></pre></div>
+<p>The env directory is a container; each repository gets its own subdirectory worktree.</p>
 <hr />
 <h2 id="renv-ls"><code>renv ls</code><a class="headerlink" href="#renv-ls" title="Permanent link">&para;</a></h2>
 <p>List all environments and their worktree status.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>renv ls [--json]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>ls<span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
 </span></code></pre></div>
+<hr />
+<h2 id="renv-activate"><code>renv activate</code><a class="headerlink" href="#renv-activate" title="Permanent link">&para;</a></h2>
+<p>Set the default active environment for future commands (when not inside an env directory).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv<span class="w"> </span>activate<span class="w"> </span>NAME
+</span></code></pre></div>
+<hr />
+<h2 id="renv-config"><code>renv config</code><a class="headerlink" href="#renv-config" title="Permanent link">&para;</a></h2>
+<p>Inspect and edit configuration/state.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv<span class="w"> </span>config<span class="w"> </span><span class="o">[</span>KEY<span class="w"> </span><span class="o">[</span>VALUE<span class="o">]]</span><span class="w"> </span><span class="o">[</span>--unset<span class="o">]</span><span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
+</span></code></pre></div>
+<p>Examples:</p>
+<ul>
+<li><code>renv config</code> (dump effective config + paths + active env)</li>
+<li><code>renv config source ~/src</code></li>
+<li><code>renv config autocorrect 0.5</code></li>
+</ul>
 <hr />
 <h2 id="renv-path"><code>renv path</code><a class="headerlink" href="#renv-path" title="Permanent link">&para;</a></h2>
 <p>Print the filesystem path to a named environment (suitable for <code>cd</code>).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv path NAME
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>path<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--repo<span class="w"> </span>NAME<span class="o">]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="renv-run"><code>renv run</code><a class="headerlink" href="#renv-run" title="Permanent link">&para;</a></h2>
 <p>Run an arbitrary shell command inside every worktree of an environment.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv run NAME -- COMMAND [ARGS...]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>--<span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS...<span class="o">]</span>
 </span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--fail-fast</code></td>
-<td>Stop on first non-zero exit code</td>
-</tr>
-<tr>
-<td><code>--parallel</code></td>
-<td>Run across worktrees in parallel</td>
-</tr>
-</tbody>
-</table>
+<p>Highlights:</p>
+<ul>
+<li><code>--jobs/-j N</code> (parallel workers)</li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
+<li><code>--shell</code> (run via shell to enable pipes/globs)</li>
+<li><code>--json</code></li>
+</ul>
 <hr />
 <h2 id="renv-pr"><code>renv pr</code><a class="headerlink" href="#renv-pr" title="Permanent link">&para;</a></h2>
 <p>Open bulk pull requests for every worktree with unpushed commits.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv pr NAME --title TITLE [OPTIONS]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>renv<span class="w"> </span>pr<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span>--title<span class="w"> </span>TITLE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--title TEXT</code></td>
-<td>PR title (must follow Conventional Commits if enforced by the target repo)</td>
-</tr>
-<tr>
-<td><code>--body TEXT</code></td>
-<td>PR body text</td>
-</tr>
-<tr>
-<td><code>--draft</code></td>
-<td>Open as draft PRs</td>
-</tr>
-<tr>
-<td><code>--base BRANCH</code></td>
-<td>Target base branch (default: <code>main</code>)</td>
-</tr>
-</tbody>
-</table>
+<p>Highlights:</p>
+<ul>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
+<li><code>--push</code> (push branches before creating PRs)</li>
+<li><code>--skip-no-diff</code> (skip repos with no commits vs base)</li>
+<li><code>--if-exists skip|fail</code></li>
+</ul>
 <div class="admonition warning">
 <p class="admonition-title">No auto-push</p>
-<p><code>renv pr</code> never pushes your branches automatically. Push first, then run <code>renv pr</code>.</p>
+<p><code>renv pr</code> never pushes unless <code>--push</code> is given.</p>
 </div>
+<hr />
+<h2 id="renv-repair"><code>renv repair</code><a class="headerlink" href="#renv-repair" title="Permanent link">&para;</a></h2>
+<p>Recreate worktrees that are missing or marked failed/stale, using metadata stored in the registry.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>renv<span class="w"> </span>repair<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>Highlights:</p>
+<ul>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
+<li><code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li><code>--preserve</code> (skip fetch/update)</li>
+<li><code>--dry-run/-n</code></li>
+</ul>
+<p>Use after manual deletion of individual worktree directories, or when <code>renv create</code>/<code>add</code> left some repos in a failed state.</p>
 <hr />
 <h2 id="renv-rm"><code>renv rm</code><a class="headerlink" href="#renv-rm" title="Permanent link">&para;</a></h2>
 <p>Remove an environment (deletes worktrees, leaves source clones).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv rm NAME [--force]
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>renv<span class="w"> </span>rm<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--delete-files<span class="o">]</span><span class="w"> </span><span class="o">[</span>--force<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
 </span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--force</code></td>
-<td>Skip confirmation prompt (dangerous in non-interactive mode; blocked)</td>
-</tr>
-</tbody>
-</table>
+<p>By default, <code>renv rm</code> removes the environment from the registry only. Use <code>--delete-files</code> to also remove worktrees and the env directory.</p>
+<hr />
+<h2 id="renv-add"><code>renv add</code><a class="headerlink" href="#renv-add" title="Permanent link">&para;</a></h2>
+<p>Add repositories to an existing environment.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>renv<span class="w"> </span>add<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>Highlights:</p>
+<ul>
+<li><code>--source/-s DIR</code> (defaults to env source or config)</li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code></li>
+<li><code>--branch/-b BRANCH</code>, <code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li><code>--preserve</code>, <code>--activate</code>, <code>--dry-run/-n</code></li>
+</ul>
+<hr />
+<h2 id="renv-merge"><code>renv merge</code><a class="headerlink" href="#renv-merge" title="Permanent link">&para;</a></h2>
+<p>Combine two environments into a newly created environment.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>renv<span class="w"> </span>merge<span class="w"> </span>NAME<span class="w"> </span>LEFT<span class="w"> </span>RIGHT<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>Highlights:</p>
+<ul>
+<li><code>--op union|intersect|difference</code> (default: <code>union</code>)</li>
+<li><code>--dest/-d DIR</code>, <code>--alias/-a NAME</code>, <code>--dry-run/-n</code></li>
+</ul>
+<hr />
+<h2 id="renv-repos"><code>renv repos</code><a class="headerlink" href="#renv-repos" title="Permanent link">&para;</a></h2>
+<p>List all repository names across every registered environment (multi-column).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>renv<span class="w"> </span>repos
+</span></code></pre></div>
+<hr />
+<h2 id="renv-rename"><code>renv rename</code><a class="headerlink" href="#renv-rename" title="Permanent link">&para;</a></h2>
+<p>Rename an environment in the registry and update its metadata.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>renv<span class="w"> </span>rename<span class="w"> </span>OLD<span class="w"> </span>NEW
+</span></code></pre></div>
+<hr />
+<h2 id="renv-sync"><code>renv sync</code><a class="headerlink" href="#renv-sync" title="Permanent link">&para;</a></h2>
+<p>Fetch updates from each repository's remote for an environment.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>renv<span class="w"> </span>sync<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+</span></code></pre></div>
+<hr />
+<h2 id="renv-status-renv-doctor"><code>renv status</code> / <code>renv doctor</code><a class="headerlink" href="#renv-status-renv-doctor" title="Permanent link">&para;</a></h2>
+<p>Report per-repo health: present/missing worktrees and dirty state. <code>doctor</code> is an alias for <code>status</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>renv<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
+</span></code></pre></div>
+<p>Start here when something looks wrong — see <a href="../troubleshooting/">Troubleshooting</a>.</p>
+<hr />
+<h2 id="renv-prune"><code>renv prune</code><a class="headerlink" href="#renv-prune" title="Permanent link">&para;</a></h2>
+<p>Run <code>git worktree prune</code> across an environment's source repositories.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>renv<span class="w"> </span>prune<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+</span></code></pre></div>
+<p>Use when git remembers worktrees whose directories were removed manually.</p>
+<hr />
+<h2 id="renv-import"><code>renv import</code><a class="headerlink" href="#renv-import" title="Permanent link">&para;</a></h2>
+<p>Register an environment from worktrees already present on disk.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>renv<span class="w"> </span>import<span class="w"> </span>DIRECTORY<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>Highlights:</p>
+<ul>
+<li><code>--name NAME</code> (default: directory basename)</li>
+<li><code>--source DIR</code>, <code>--alias NAME</code></li>
+</ul>
+<hr />
+<h2 id="renv-sh"><code>renv sh</code><a class="headerlink" href="#renv-sh" title="Permanent link">&para;</a></h2>
+<p>Open an interactive subshell with the environment context loaded (<code>REPOENV_ACTIVE</code>, prompt marker).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>renv<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+</span></code></pre></div>
+<hr />
+<h2 id="renv-completion"><code>renv completion</code><a class="headerlink" href="#renv-completion" title="Permanent link">&para;</a></h2>
+<p>Print a shell completion script to stdout (for manual installation in dotfiles).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>renv<span class="w"> </span>completion<span class="w"> </span><span class="o">[</span>bash<span class="p">|</span>zsh<span class="p">|</span>fish<span class="o">]</span>
+</span></code></pre></div>
+<p>See <a href="../installation/">Installation</a> for setup examples.</p>
+<hr />
+<h2 id="optional-env-argument">Optional <code>[ENV]</code> argument<a class="headerlink" href="#optional-env-argument" title="Permanent link">&para;</a></h2>
+<p>Most commands accept an optional environment name. When omitted, resolution follows <a href="../concepts/#environment-resolution">Concepts → Environment resolution</a>. Use <code>-</code> or rely on CWD inside an environment directory.</p>
 
 
 

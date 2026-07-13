@@ -100,8 +100,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="repo-env" class="md-header__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -353,8 +352,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="repo-env" class="md-nav__button md-logo" aria-label="repo-env" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../assets/brand/renv-icon.png" alt="logo">
 
     </a>
     repo-env
@@ -518,6 +516,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../user-guide/workflow-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-guide/commands/" class="md-nav__link">
         
   
@@ -554,6 +608,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -843,8 +925,31 @@
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format follows <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>.
 Versions follow <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.
-This file is updated automatically by <code>cz bump</code> — do not edit manually.</p>
-<h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+This file is updated automatically by <code>cz bump</code> — do not edit manually except before the first tagged release.</p>
+<h2 id="unreleased"><a href="https://github.com/ditschi/repo-env/compare/v0.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="010-2026-07-13"><a href="https://github.com/ditschi/repo-env/releases/tag/v0.1.0">0.1.0</a> - 2026-07-13<a class="headerlink" href="#010-2026-07-13" title="Permanent link">&para;</a></h2>
+<p>First public release of <code>repo-env</code> / the <code>renv</code> CLI.</p>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>renv</code> CLI for managing multi-repository git worktree environments</li>
+<li>Commands: <code>init</code>, <code>create</code>, <code>add</code>, <code>merge</code>, <code>ls</code>, <code>repos</code>, <code>path</code>, <code>run</code>, <code>rm</code>, <code>rename</code>, <code>sync</code>, <code>status</code>, <code>doctor</code>, <code>prune</code>, <code>repair</code>, <code>import</code>, <code>pr</code>, <code>sh</code>, <code>completion</code>, <code>activate</code>, <code>config</code></li>
+<li>Environment resolution: explicit name, environment alias, config alias, CWD-in-env, <code>REPOENV_ACTIVE</code>, persisted active env</li>
+<li>User config (<code>repoenv.yaml</code>) and registry (<code>registry.json</code>) under <code>REPOENV_HOME</code></li>
+<li>Per-environment metadata in <code>.repoenv.json</code> (includes reproduction marker)</li>
+<li>Branch conflict strategies: <code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li>Bulk PR creation via GitHub CLI (<code>gh</code>); optional <code>--push</code></li>
+<li>Shell completion for environment names; <code>autocorrect</code> for unknown subcommands</li>
+<li>Integration, performance, and multi-Python (3.10–3.14) test coverage</li>
+<li>Documentation site (MkDocs Material) with user and contributor guides</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>N/A (initial release)</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>N/A (initial release)</li>
+</ul>
 
 
 

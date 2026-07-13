@@ -2,46 +2,58 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/api-reference/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/changelog/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/contributor-guide/commit-convention/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/contributor-guide/dev-setup/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/contributor-guide/quality-gates/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/contributor-guide/release-process/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/user-guide/commands/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/repo-env/stable/user-guide/concepts/</loc>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/user-guide/configuration/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/user-guide/installation/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
     </url>
     <url>
          <loc>https://ditschi.github.io/repo-env/stable/user-guide/quickstart/</loc>
-         <lastmod>2026-07-06</lastmod>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/repo-env/stable/user-guide/troubleshooting/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://ditschi.github.io/repo-env/stable/user-guide/workflow-example/</loc>
+         <lastmod>2026-07-13</lastmod>
     </url>
 </urlset>
