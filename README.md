@@ -26,7 +26,7 @@ renv --help
 
 ```sh
 renv init                                  # first-run setup wizard
-renv new web --source ~/src --branch feature/x   # create env from repos
+renv create web --source ~/src --branch feature/x   # create env from repos
 renv ls                                    # list environments
 cd "$(renv path web)"                       # cd into an environment
 renv run web -- git status                 # run a command across worktrees

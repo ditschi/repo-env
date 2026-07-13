@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import getpass
+import socket
 from pathlib import Path
 from typing import Optional
 
 import typer
 
+from repoenv import __version__
 from repoenv.adapters import state_store
 from repoenv.domain.selection import SetOp
 from repoenv.errors import UsageError
@@ -15,6 +18,7 @@ from repoenv.ui import console
 
 
 def merge_command(
+    ctx: typer.Context,
     name: str = typer.Argument(..., help="New environment name."),
     left: str = typer.Argument(..., help="First source environment."),
     right: str = typer.Argument(..., help="Second source environment."),
@@ -60,4 +64,28 @@ def merge_command(
     registry.add(merged)
     state_store.save_registry(registry)
     state_store.write_env_metadata(merged)
+    command_name = ctx.info_name or "merge"
+    marker = {
+        "schema_version": 1,
+        "kind": "repo-env-marker",
+        "tool": "repo-env",
+        "tool_version": __version__,
+        "environment_name": merged.name,
+        "environment_path": str(merged.path),
+        "source_path": str(merged.source),
+        "created_at": merged.created_at.isoformat(),
+        "created_by": getpass.getuser(),
+        "host": socket.gethostname(),
+        "command": {
+            "cwd": str(Path.cwd()),
+            "name": command_name,
+            "recreate": f"renv {command_name} {name} {left} {right} --op {op.value}",
+            "options": {
+                "dest": str(dest_root),
+                "alias": alias,
+                "op": op.value,
+            },
+        },
+    }
+    state_store.write_env_marker(merged, marker)
     console.print_info(f"Created merged environment '{name}'.")

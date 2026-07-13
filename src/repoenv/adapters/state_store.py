@@ -95,3 +95,11 @@ def write_env_metadata(env: Environment) -> Path:
     text = json.dumps(env.model_dump(mode="json"), indent=2) + "\n"
     atomic_write_text(meta_path, text, mode=0o600, backup=False)
     return meta_path
+
+
+def write_env_marker(env: Environment, marker: dict[str, object]) -> Path:
+    """Write marker metadata used to detect renv roots and reproduce creation."""
+    marker_path = env.path / paths.ENV_MARKER_FILENAME
+    text = json.dumps(marker, indent=2, sort_keys=True) + "\n"
+    atomic_write_text(marker_path, text, mode=0o600, backup=False)
+    return marker_path

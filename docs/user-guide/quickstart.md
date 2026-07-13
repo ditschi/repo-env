@@ -11,7 +11,7 @@ The setup wizard asks for your source directory (where all your git clones live)
 ## 2. Create an environment
 
 ```sh
-renv new web --source ~/src --branch feature/my-task
+renv create web --source ~/src --branch feature/my-task
 ```
 
 `renv` scans `~/src` for git repositories, creates a worktree at the branch `feature/my-task` inside each one, and links them all under a named environment called `web`.

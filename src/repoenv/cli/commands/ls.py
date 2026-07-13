@@ -23,7 +23,7 @@ def ls_command(
         return
 
     if not environments:
-        console.print_info("No environments yet. Create one with 'renv new'.")
+        console.print_info("No environments yet. Create one with 'renv create'.")
         return
 
     console.render_environments(environments)

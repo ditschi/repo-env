@@ -20,13 +20,15 @@ renv init [--force]
 
 ---
 
-## `renv new`
+## `renv create`
 
 Create a new environment from repositories in a source directory.
 
 ```
-renv new NAME --source DIR --branch BRANCH [OPTIONS]
+renv create NAME --source DIR --branch BRANCH [OPTIONS]
 ```
+
+`renv new` remains available as a compatibility alias.
 
 | Option | Description |
 |--------|-------------|

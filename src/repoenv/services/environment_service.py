@@ -10,10 +10,54 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from repoenv.adapters import git_adapter
+from repoenv.adapters import git_adapter, paths
 from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import SetOp, resolve_selection, set_combine
 from repoenv.errors import NothingMatchedError, UsageError
+
+_RENV_MARKER_FILENAMES = (paths.ENV_MARKER_FILENAME, paths.ENV_META_FILENAME)
+
+
+def _is_renv_root(path: Path) -> bool:
+    return any((path / marker).is_file() for marker in _RENV_MARKER_FILENAMES)
+
+
+def _is_under_nested_renv_root(source: Path, candidate_path: Path) -> bool:
+    """Return True if candidate is at or under a nested renv root below source."""
+    current = candidate_path
+    while current != source:
+        if _is_renv_root(current):
+            return True
+        current = current.parent
+    return False
+
+
+def _filter_candidates(
+    *,
+    source: Path,
+    candidates: list[str],
+    dest: Path | None,
+    include_renv: bool,
+) -> list[str]:
+    filtered = list(candidates)
+
+    # Exclude any candidates that live under dest to avoid matching previously
+    # created worktrees when dest is a subdirectory of source.
+    if dest is not None and dest.is_relative_to(source):
+        dest_rel = dest.relative_to(source).as_posix()
+        filtered = [c for c in filtered if c != dest_rel and not c.startswith(dest_rel + "/")]
+
+    # If source itself is a renv root, user explicitly targets it; keep repos.
+    if include_renv or _is_renv_root(source):
+        return filtered
+
+    result: list[str] = []
+    for candidate in filtered:
+        candidate_path = source / candidate
+        if _is_under_nested_renv_root(source, candidate_path):
+            continue
+        result.append(candidate)
+    return result
 
 
 @dataclass
@@ -51,7 +95,7 @@ def build_create_plan(
     branch: str | None,
     alias: str | None,
     default_branch: str | None,
-    force: bool,
+    include_renv: bool = False,
 ) -> CreatePlan:
     """Validate inputs and return a plan without touching the filesystem."""
     if not name:
@@ -65,6 +109,10 @@ def build_create_plan(
             f"No git repositories found under {source}.",
             hint="Point --source at a directory containing cloned repositories.",
         )
+
+    candidates = _filter_candidates(
+        source=source, candidates=candidates, dest=dest, include_renv=include_renv
+    )
 
     selected = resolve_selection(candidates, include=include, exclude=exclude)
     if not selected:
@@ -84,22 +132,17 @@ def build_create_plan(
     )
 
     for repo_name in selected:
-        repo_path = source / repo_name
-        if not force and not git_adapter.is_clean(repo_path):
-            plan.skipped[repo_name] = "source has uncommitted changes"
-            continue
         plan.repos.append(repo_name)
 
-    if not plan.repos:
-        raise NothingMatchedError(
-            "All matched repositories were skipped.",
-            hint="Commit/stash changes in the source repos, or pass --force.",
-        )
     return plan
 
 
-def execute_create_plan(plan: CreatePlan) -> Environment:
-    """Execute a validated plan: create worktrees and return the environment."""
+def execute_create_plan(plan: CreatePlan, *, preserve: bool = False) -> Environment:
+    """Execute a validated plan: create worktrees and return the environment.
+
+    If ``preserve=True``, use source repos as-is without fetching or updating.
+    Otherwise fetch latest from remote and update to default branch.
+    """
     plan.env_path.mkdir(parents=True, exist_ok=True)
     env = Environment(
         name=plan.name,
@@ -117,14 +160,17 @@ def execute_create_plan(plan: CreatePlan) -> Environment:
         create_branch = plan.new_branch is not None
         worktree_path = plan.env_path / repo_name
 
-        git_adapter.fetch(repo_path, remote)
-        git_adapter.add_worktree(
-            repo_path,
-            worktree_path,
-            branch=target_branch,
-            base=f"{remote}/{base}",
-            create_branch=create_branch,
-        )
+        already_exists = worktree_path.exists() and git_adapter.is_git_repo(worktree_path)
+        if not already_exists:
+            if not preserve:
+                git_adapter.fetch(repo_path, remote)
+            git_adapter.add_worktree(
+                repo_path,
+                worktree_path,
+                branch=target_branch,
+                base=f"{remote}/{base}" if not preserve else "HEAD",
+                create_branch=create_branch,
+            )
         env.repos.append(
             RepoEntry(
                 repo=repo_name,
@@ -133,7 +179,7 @@ def execute_create_plan(plan: CreatePlan) -> Environment:
                 base=base,
                 branch=target_branch,
                 branch_created=create_branch,
-                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}"),
+                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}" if not preserve else "HEAD"),
                 status=RepoStatus.OK,
             )
         )
@@ -145,7 +191,7 @@ def build_add_plan(
     env: Environment,
     include: list[str] | None,
     exclude: list[str] | None,
-    force: bool,
+    include_renv: bool = False,
 ) -> AddPlan:
     """Validate inputs and build a plan to add repos into ``env``."""
     candidates = git_adapter.discover_repos(env.source)
@@ -155,6 +201,9 @@ def build_add_plan(
             hint="Point source to a directory containing cloned repositories.",
         )
 
+    candidates = _filter_candidates(
+        source=env.source, candidates=candidates, dest=None, include_renv=include_renv
+    )
     selected = resolve_selection(candidates, include=include, exclude=exclude)
     if not selected:
         raise NothingMatchedError(
@@ -168,22 +217,23 @@ def build_add_plan(
         if repo_name in existing:
             plan.skipped[repo_name] = "already present in environment"
             continue
-        repo_path = env.source / repo_name
-        if not force and not git_adapter.is_clean(repo_path):
-            plan.skipped[repo_name] = "source has uncommitted changes"
-            continue
         plan.repos.append(repo_name)
 
     if not plan.repos:
         raise NothingMatchedError(
             "No repositories eligible to add.",
-            hint="Adjust selection or pass --force to include dirty repositories.",
+            hint="Adjust selection or all selected repos already present.",
         )
     return plan
 
 
-def execute_add_plan(env: Environment, plan: AddPlan, *, branch: str | None = None) -> Environment:
-    """Execute a validated add plan and append new repo entries to ``env``."""
+def execute_add_plan(
+    env: Environment, plan: AddPlan, *, branch: str | None = None, preserve: bool = False
+) -> Environment:
+    """Execute a validated add plan and append new repo entries to ``env``.
+
+    If ``preserve=True``, use source repos as-is without fetching or updating.
+    """
     for repo_name in plan.repos:
         repo_path = plan.source / repo_name
         remote = "origin"
@@ -192,12 +242,13 @@ def execute_add_plan(env: Environment, plan: AddPlan, *, branch: str | None = No
         create_branch = branch is not None
         worktree_path = plan.env_path / repo_name
 
-        git_adapter.fetch(repo_path, remote)
+        if not preserve:
+            git_adapter.fetch(repo_path, remote)
         git_adapter.add_worktree(
             repo_path,
             worktree_path,
             branch=target_branch,
-            base=f"{remote}/{base}",
+            base=f"{remote}/{base}" if not preserve else "HEAD",
             create_branch=create_branch,
         )
         env.repos.append(
@@ -208,7 +259,7 @@ def execute_add_plan(env: Environment, plan: AddPlan, *, branch: str | None = No
                 base=base,
                 branch=target_branch,
                 branch_created=create_branch,
-                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}"),
+                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}" if not preserve else "HEAD"),
                 status=RepoStatus.OK,
             )
         )
@@ -244,5 +295,4 @@ def build_merge_plan(
         branch=None,
         alias=alias,
         default_branch=left.base_branch,
-        force=True,
     )

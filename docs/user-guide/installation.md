@@ -36,6 +36,14 @@ renv --version
 
 ## Shell completion
 
+Add to `~/.bashrc` / `~/.zshrc` / `~/.config/fish/config.fish`:
+
+```sh
+eval "$(renv completion)"          # auto-detects shell from $SHELL
+```
+
+Or specify explicitly:
+
 === "bash"
 
     ```sh

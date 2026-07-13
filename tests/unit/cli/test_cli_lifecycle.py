@@ -120,6 +120,14 @@ def test_completion_unsupported_shell(repoenv_home: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_completion_zsh_outputs_compdef(repoenv_home: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(app, ["completion", "zsh"])
+    assert result.exit_code == 0
+    assert "#compdef renv" in result.stdout
+    assert "_RENV_COMPLETE=complete_zsh" in result.stdout
+
+
 def test_pr_requires_gh(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _register(repoenv_home)
     monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: False)

@@ -12,7 +12,7 @@ Run `renv init` to generate the file interactively, or create it manually.
 ## Schema
 
 ```yaml
-# Default source directory scanned by `renv new`
+# Default source directory scanned by `renv create`
 default_source: ~/src
 
 # Default base branch when creating worktrees
@@ -33,7 +33,7 @@ parallelism: 4
 All config keys can be overridden by environment variables using the prefix `REPO_ENV_` and uppercasing the key:
 
 ```sh
-REPO_ENV_DEFAULT_SOURCE=~/projects renv new web --branch fix/x
+REPO_ENV_DEFAULT_SOURCE=~/projects renv create web --branch fix/x
 REPO_ENV_PARALLELISM=8 renv run web -- make test
 ```
 

@@ -48,7 +48,7 @@ def test_add_and_merge_commands(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 
     runner = CliRunner()
     assert runner.invoke(app, ["init", "-y", "--source", str(source), "--dest", str(dest)]).exit_code == 0
-    assert runner.invoke(app, ["new", "a", "--include", "alpha"]).exit_code == 0
+    assert runner.invoke(app, ["create", "a", "--include", "alpha"]).exit_code == 0
     assert runner.invoke(app, ["new", "b", "--include", "beta"]).exit_code == 0
 
     add_result = runner.invoke(app, ["add", "a", "--include", "gamma"])

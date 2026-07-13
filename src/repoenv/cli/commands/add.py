@@ -19,7 +19,7 @@ def add_command(
     branch: Optional[str] = typer.Option(
         None, "--branch", "-b", help="Create and check out this new branch."
     ),
-    force: bool = typer.Option(False, "--force", help="Include repos with a dirty working tree."),
+    preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
 ) -> None:
     """Add repositories to an existing environment."""
@@ -30,18 +30,14 @@ def add_command(
         env=environment,
         include=include or None,
         exclude=exclude or None,
-        force=force,
     )
     console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
-    if plan.skipped:
-        for repo, reason in plan.skipped.items():
-            console.print_info(f"  skip {repo}: {reason}")
 
     if dry_run:
         console.print_info("Dry run: no changes made.")
         return
 
-    environment_service.execute_add_plan(environment, plan, branch=branch)
+    environment_service.execute_add_plan(environment, plan, branch=branch, preserve=preserve)
     registry.add(environment)
     state_store.save_registry(registry)
     state_store.write_env_metadata(environment)

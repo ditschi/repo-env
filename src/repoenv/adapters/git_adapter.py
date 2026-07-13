@@ -7,11 +7,29 @@ services can mock this module in unit tests.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from repoenv.errors import GitError
+
+
+def _parse_remote_head_names(ls_remote_output: str) -> list[str]:
+    """Extract head branch names from ``git ls-remote --heads`` output."""
+    names: list[str] = []
+    prefix = "refs/heads/"
+    for line in ls_remote_output.splitlines():
+        parts = line.strip().split()
+        if len(parts) < 2:
+            continue
+        ref = parts[1]
+        if not ref.startswith(prefix):
+            continue
+        branch = ref[len(prefix) :]
+        if branch:
+            names.append(branch)
+    return names
 
 
 @dataclass(frozen=True)
@@ -47,37 +65,73 @@ def is_git_repo(path: Path) -> bool:
 
 
 def discover_repos(source: Path) -> list[str]:
-    """Return sorted names of immediate subdirectories of ``source`` that are git repos."""
+    """Return sorted relative paths of git repos discovered recursively under ``source``."""
     if not source.exists():
         return []
-    names = [child.name for child in source.iterdir() if child.is_dir() and (child / ".git").exists()]
+
+    names: set[str] = set()
+    ignored_dirs = {".git", ".hg", ".svn", "__pycache__", ".venv", "venv", "node_modules"}
+
+    for root, dirs, files in os.walk(source):
+        root_path = Path(root)
+
+        if ".git" in dirs or ".git" in files:
+            rel = root_path.relative_to(source)
+            if rel != Path("."):
+                names.add(rel.as_posix())
+            # Repository root found; don't scan nested internals.
+            dirs[:] = []
+            continue
+
+        dirs[:] = [d for d in dirs if d not in ignored_dirs]
+
     return sorted(names)
 
 
 def default_branch(repo: Path, remote: str = "origin") -> str:
     """Resolve the remote's default branch.
 
-    Fallback chain: ``ls-remote --symref`` -> ``remote show`` -> error. We never
-    guess ``main``/``master``.
+    Fallback chain:
+    1) ``ls-remote --symref``
+    2) ``remote show``
+    3) ``ls-remote --heads`` heuristic: prefer ``main`` -> ``develop`` -> ``master``
+    4) if remote exposes exactly one head branch, use it
+    5) error
     """
     symref = _run(["ls-remote", "--symref", remote, "HEAD"], cwd=repo, check=False)
     if symref.returncode == 0:
         for line in symref.stdout.splitlines():
             if line.startswith("ref:"):
                 # Format: "ref: refs/heads/<branch>\tHEAD"
-                ref = line.split()[1]
-                return ref.rsplit("/", 1)[-1]
+                parts = line.split()
+                if len(parts) >= 2:
+                    ref = parts[1]
+                    branch = ref.rsplit("/", 1)[-1]
+                    if branch and branch != "(unknown)":
+                        return branch
 
     show = _run(["remote", "show", remote], cwd=repo, check=False)
     if show.returncode == 0:
         for line in show.stdout.splitlines():
             stripped = line.strip()
             if stripped.startswith("HEAD branch:"):
-                return stripped.split(":", 1)[1].strip()
+                branch = stripped.split(":", 1)[1].strip()
+                if branch and branch != "(unknown)":
+                    return branch
+
+    heads = _run(["ls-remote", "--heads", remote], cwd=repo, check=False)
+    if heads.returncode == 0:
+        names = _parse_remote_head_names(heads.stdout)
+        for preferred in ("main", "develop", "master"):
+            if preferred in names:
+                return preferred
+        unique_names = sorted(set(names))
+        if len(unique_names) == 1:
+            return unique_names[0]
 
     raise GitError(
         f"Could not determine the default branch for remote '{remote}'.",
-        hint="Pass --branch explicitly or set default_branch in the config.",
+        hint="Pass --branch explicitly, set default_branch in config, or ensure remote HEAD is published.",
     )
 
 
@@ -103,6 +157,7 @@ def add_worktree(repo: Path, worktree_path: Path, *, branch: str, base: str, cre
     - ``create_branch=True`` creates ``branch`` from ``base`` (``git worktree add -b``).
     - Otherwise checks out the existing ``branch``.
     """
+    worktree_path.parent.mkdir(parents=True, exist_ok=True)
     args = ["worktree", "add"]
     if create_branch:
         args += ["-b", branch, str(worktree_path), base]

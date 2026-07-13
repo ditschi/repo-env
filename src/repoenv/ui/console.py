@@ -6,6 +6,8 @@ stdout/stderr split strict is what makes ``cd "$(renv path web)"`` safe.
 
 from __future__ import annotations
 
+import shutil
+
 from rich.console import Console
 from rich.table import Table
 
@@ -64,3 +66,27 @@ def render_run_results(results: list[RunResult]) -> None:
     table.add_column("skipped", justify="right", style="yellow")
     table.add_row(str(summary.total), str(summary.succeeded), str(summary.failed), str(summary.skipped))
     _err.print(table)
+
+
+def render_repositories(repo_names: list[str]) -> None:
+    """Print repositories in multi-column format to stdout."""
+    if not repo_names:
+        print_info("No repositories found.")
+        return
+
+    # Get terminal width and calculate column width
+    term_width = shutil.get_terminal_size().columns
+    col_width = max(len(name) for name in repo_names) + 2
+    num_cols = max(1, term_width // col_width)
+
+    # Sort and arrange into columns
+    sorted_names = sorted(repo_names)
+    rows = []
+    for i in range(0, len(sorted_names), num_cols):
+        row = sorted_names[i : i + num_cols]
+        rows.append(row)
+
+    # Print each row
+    for row in rows:
+        line = "".join(name.ljust(col_width) for name in row)
+        print_data(line.rstrip())

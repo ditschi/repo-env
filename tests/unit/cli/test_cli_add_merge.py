@@ -26,7 +26,7 @@ def test_add_resolves_cwd_environment(repoenv_home: Path, monkeypatch) -> None:
 
     monkeypatch.chdir(env_path)
 
-    def fake_build_add_plan(*, env, include, exclude, force):
+    def fake_build_add_plan(*, env, include, exclude):
         assert env.name == "demo"
 
         class _Plan:

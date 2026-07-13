@@ -23,15 +23,20 @@ def init_command(
 ) -> None:
     """Create the user config, prompting for anything not passed as a flag."""
     interactive = not yes and sys.stdin.isatty() and sys.stdout.isatty()
+    existing = config_store.load_config()
 
-    resolved_source = source
-    resolved_dest = dest
-    resolved_branch = default_branch
+    resolved_source = source if source is not None else existing.source
+    resolved_dest = dest if dest is not None else existing.dest
+    resolved_branch = default_branch if default_branch is not None else existing.default_branch
 
     if interactive:
-        resolved_source = resolved_source or _ask_path("Source directory of clones", Path.cwd())
-        resolved_dest = resolved_dest or _ask_path("Directory for environments", Path.cwd() / "envs")
-        resolved_branch = resolved_branch or _ask_text("Fallback default branch (blank = auto)", "")
+        try:
+            resolved_source = _ask_path("Source directory of clones", resolved_source or Path.cwd())
+            resolved_dest = _ask_path("Directory for environments", resolved_dest or Path.cwd() / "envs")
+            resolved_branch = _ask_text("Fallback default branch (blank = auto)", resolved_branch or "")
+        except KeyboardInterrupt:
+            console.print_info("Init aborted by user; config not changed.")
+            raise typer.Exit(code=130) from None
 
     config = config_store.UserConfig(
         source=resolved_source,
@@ -46,12 +51,20 @@ def init_command(
 def _ask_path(prompt: str, default: Path) -> Path:
     import questionary
 
-    answer = questionary.text(f"{prompt}:", default=str(default)).ask()
+    answer = questionary.path(
+        f"{prompt}:",
+        default=str(default),
+        only_directories=True,
+    ).unsafe_ask()
+    if answer is None:
+        raise KeyboardInterrupt
     return Path(answer).expanduser() if answer else default
 
 
 def _ask_text(prompt: str, default: str) -> str:
     import questionary
 
-    answer = questionary.text(f"{prompt}:", default=default).ask()
+    answer = questionary.text(f"{prompt}:", default=default).unsafe_ask()
+    if answer is None:
+        raise KeyboardInterrupt
     return answer if answer is not None else default

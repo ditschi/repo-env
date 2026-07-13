@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,7 @@ def _make_repo_pair(tmp_path: Path, name: str) -> Path:
 
 
 @pytest.mark.integration
-def test_new_creates_worktrees(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_create_creates_worktrees(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     source = tmp_path / "src"
     dest = tmp_path / "envs"
 
@@ -50,8 +51,19 @@ def test_new_creates_worktrees(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     result = runner.invoke(app, ["init", "-y", "--source", str(source), "--dest", str(dest)])
     assert result.exit_code == 0
 
-    result = runner.invoke(app, ["new", "feat", "--branch", "feature/x"])
+    result = runner.invoke(app, ["create", "feat", "--branch", "feature/x"])
     assert result.exit_code == 0
+
+    # Keep compatibility alias covered.
+    alias_result = runner.invoke(app, ["new", "compat", "--dry-run"])
+    assert alias_result.exit_code == 0
 
     assert (dest / "feat" / "alpha" / ".git").exists()
     assert (dest / "feat" / "beta" / ".git").exists()
+    marker = dest / "feat" / ".repoenv.marker.json"
+    assert marker.exists()
+    marker_data = json.loads(marker.read_text(encoding="utf-8"))
+    assert marker_data["kind"] == "repo-env-marker"
+    assert marker_data["environment_name"] == "feat"
+    assert marker_data["command"]["name"] == "create"
+    assert "renv create feat" in marker_data["command"]["recreate"]
