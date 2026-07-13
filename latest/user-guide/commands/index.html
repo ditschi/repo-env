@@ -819,10 +819,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#renv-status-renv-doctor" class="md-nav__link">
+  <a href="#renv-status-renv-check" class="md-nav__link">
     <span class="md-ellipsis">
       
-        renv status / renv doctor
+        renv status / renv check
       
     </span>
   </a>
@@ -1238,7 +1238,7 @@
 <li><code>--default-branch/-B BRANCH</code> (fallback when auto-detect fails)</li>
 <li><code>--preserve</code> (skip fetch/update; use source repos as-is)</li>
 <li><code>--activate</code> (set as default environment)</li>
-<li><code>--on-branch-conflict detach|reclaim|fail</code> (when branch already checked out elsewhere)</li>
+<li><code>--on-branch-conflict detach|move|fail</code> (when branch already checked out elsewhere)</li>
 <li><code>--dry-run/-n</code></li>
 </ul>
 <h3 id="directory-layout">Directory layout<a class="headerlink" href="#directory-layout" title="Permanent link">&para;</a></h3>
@@ -1311,7 +1311,7 @@
 <p>Highlights:</p>
 <ul>
 <li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
-<li><code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li><code>--on-branch-conflict detach|move|fail</code></li>
 <li><code>--preserve</code> (skip fetch/update)</li>
 <li><code>--dry-run/-n</code></li>
 </ul>
@@ -1331,7 +1331,7 @@
 <ul>
 <li><code>--source/-s DIR</code> (defaults to env source or config)</li>
 <li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code></li>
-<li><code>--branch/-b BRANCH</code>, <code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li><code>--branch/-b BRANCH</code>, <code>--on-branch-conflict detach|move|fail</code></li>
 <li><code>--preserve</code>, <code>--activate</code>, <code>--dry-run/-n</code></li>
 </ul>
 <hr />
@@ -1360,8 +1360,8 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>renv<span class="w"> </span>sync<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
 </span></code></pre></div>
 <hr />
-<h2 id="renv-status-renv-doctor"><code>renv status</code> / <code>renv doctor</code><a class="headerlink" href="#renv-status-renv-doctor" title="Permanent link">&para;</a></h2>
-<p>Report per-repo health: present/missing worktrees and dirty state. <code>doctor</code> is an alias for <code>status</code>.</p>
+<h2 id="renv-status-renv-check"><code>renv status</code> / <code>renv check</code><a class="headerlink" href="#renv-status-renv-check" title="Permanent link">&para;</a></h2>
+<p>Report per-repo health: present/missing worktrees and dirty state. <code>check</code> is an alias for <code>status</code>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>renv<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
 </span></code></pre></div>
 <p>Start here when something looks wrong — see <a href="../troubleshooting/">Troubleshooting</a>.</p>

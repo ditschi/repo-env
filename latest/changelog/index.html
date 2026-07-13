@@ -932,11 +932,11 @@ This file is updated automatically by <code>cz bump</code> — do not edit manua
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>renv</code> CLI for managing multi-repository git worktree environments</li>
-<li>Commands: <code>init</code>, <code>create</code>, <code>add</code>, <code>merge</code>, <code>ls</code>, <code>repos</code>, <code>path</code>, <code>run</code>, <code>rm</code>, <code>rename</code>, <code>sync</code>, <code>status</code>, <code>doctor</code>, <code>prune</code>, <code>repair</code>, <code>import</code>, <code>pr</code>, <code>sh</code>, <code>completion</code>, <code>activate</code>, <code>config</code></li>
+<li>Commands: <code>init</code>, <code>create</code>, <code>add</code>, <code>merge</code>, <code>ls</code>, <code>repos</code>, <code>path</code>, <code>run</code>, <code>rm</code>, <code>rename</code>, <code>sync</code>, <code>status</code>, <code>check</code>, <code>prune</code>, <code>repair</code>, <code>import</code>, <code>pr</code>, <code>sh</code>, <code>completion</code>, <code>activate</code>, <code>config</code></li>
 <li>Environment resolution: explicit name, environment alias, config alias, CWD-in-env, <code>REPOENV_ACTIVE</code>, persisted active env</li>
 <li>User config (<code>repoenv.yaml</code>) and registry (<code>registry.json</code>) under <code>REPOENV_HOME</code></li>
 <li>Per-environment metadata in <code>.repoenv.json</code> (includes reproduction marker)</li>
-<li>Branch conflict strategies: <code>--on-branch-conflict detach|reclaim|fail</code></li>
+<li>Branch conflict strategies: <code>--on-branch-conflict detach|move|fail</code></li>
 <li>Bulk PR creation via GitHub CLI (<code>gh</code>); optional <code>--push</code></li>
 <li>Shell completion for environment names; <code>autocorrect</code> for unknown subcommands</li>
 <li>Integration, performance, and multi-Python (3.10–3.14) test coverage</li>

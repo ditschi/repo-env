@@ -1108,7 +1108,7 @@
 <p>Both are checked when resolving an environment selector. Use config aliases for stable shortcuts in scripts; use <code>--alias</code> when the alias is intrinsic to one environment.</p>
 <h2 id="worktrees-and-branches">Worktrees and branches<a class="headerlink" href="#worktrees-and-branches" title="Permanent link">&para;</a></h2>
 <p>Each repo worktree is a normal git worktree linked to the source clone. With <code>--branch</code>, <code>renv</code> creates a new branch from the detected default branch. Without <code>--branch</code>, worktrees start detached at the default branch tip.</p>
-<p>If a local branch already exists and is unused, <code>renv</code> attaches it automatically. If the branch is checked out elsewhere, use <code>--on-branch-conflict detach|reclaim|fail</code> (default: <code>detach</code>).</p>
+<p>If a local branch already exists and is unused, <code>renv</code> attaches it automatically. If the branch is checked out elsewhere, use <code>--on-branch-conflict detach|move|fail</code> (default: <code>detach</code>).</p>
 <p>Before each worktree creation, <code>renv</code> runs <code>git worktree prune</code> in the source repo to drop stale metadata.</p>
 <h2 id="safety-model">Safety model<a class="headerlink" href="#safety-model" title="Permanent link">&para;</a></h2>
 <ul>
