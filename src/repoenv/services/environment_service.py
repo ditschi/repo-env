@@ -8,6 +8,7 @@ mid-batch leaves a consistent, resumable state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from repoenv.adapters import git_adapter, paths
@@ -15,7 +16,13 @@ from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import SetOp, resolve_selection, set_combine
 from repoenv.errors import NothingMatchedError, UsageError
 
-_RENV_MARKER_FILENAMES = (paths.ENV_MARKER_FILENAME, paths.ENV_META_FILENAME)
+_RENV_MARKER_FILENAMES = (paths.ENV_META_FILENAME, paths.ENV_MARKER_FILENAME)
+
+
+class BranchConflictStrategy(str, Enum):
+    DETACH = "detach"
+    MOVE = "move"
+    FAIL = "fail"
 
 
 def _is_renv_root(path: Path) -> bool:
@@ -137,7 +144,104 @@ def build_create_plan(
     return plan
 
 
-def execute_create_plan(plan: CreatePlan, *, preserve: bool = False) -> Environment:
+def _ensure_worktree_path_is_clean(worktree_path: Path) -> None:
+    if not worktree_path.exists():
+        return
+    if git_adapter.is_worktree_root(worktree_path):
+        return
+    raise UsageError(
+        f"Worktree path exists but is not a git repo: {worktree_path}",
+        hint="Remove the directory or choose a different --dest.",
+    )
+
+
+def _resolve_source_sha(repo_path: Path, *, remote: str, base: str, preserve: bool) -> str | None:
+    """Best-effort resolve of the source ref SHA for metadata."""
+    try:
+        ref = f"{remote}/{base}" if not preserve else "HEAD"
+        return git_adapter.rev_parse(repo_path, ref)
+    except Exception:  # noqa: BLE001 - per-repo robustness for optional metadata
+        return None
+
+
+def _create_or_attach_worktree(
+    *,
+    repo_path: Path,
+    worktree_path: Path,
+    remote: str,
+    base: str,
+    target_branch: str,
+    create_branch: bool,
+    preserve: bool,
+    on_branch_conflict: BranchConflictStrategy,
+    move_context: str,
+) -> str | None:
+    """Ensure a worktree exists; return an optional note for the RepoEntry."""
+    git_adapter.prune_worktrees(repo_path)
+    if not preserve:
+        git_adapter.fetch(repo_path, remote)
+
+    if not create_branch:
+        git_adapter.add_worktree(
+            repo_path,
+            worktree_path,
+            branch=target_branch,
+            base=f"{remote}/{base}" if not preserve else "HEAD",
+            create_branch=False,
+        )
+        return None
+
+    in_use = git_adapter.find_worktree_for_branch(repo_path, target_branch)
+    if in_use is not None:
+        if on_branch_conflict is BranchConflictStrategy.FAIL:
+            raise UsageError(
+                f"Branch '{target_branch}' is already checked out in {in_use}.",
+                hint="Free the branch, or pass --on-branch-conflict=detach|move.",
+            )
+        if on_branch_conflict is BranchConflictStrategy.MOVE:
+            created = git_adapter.stash_push(
+                in_use,
+                include_untracked=True,
+                message=f"repo-env move {move_context}",
+            )
+            if Path(in_use).resolve() == Path(repo_path).resolve():
+                git_adapter.checkout(in_use, base)
+            else:
+                git_adapter.checkout(in_use, "--detach")
+            git_adapter.add_worktree_existing_branch(repo_path, worktree_path, target_branch)
+            if created:
+                git_adapter.stash_pop(worktree_path)
+            return f"moved branch '{target_branch}' from {in_use}"
+
+        git_adapter.add_worktree(
+            repo_path,
+            worktree_path,
+            branch=target_branch,
+            base=f"{remote}/{base}" if not preserve else "HEAD",
+            create_branch=False,
+        )
+        return f"branch '{target_branch}' in use at {in_use}; created detached worktree"
+
+    if git_adapter.branch_exists(repo_path, target_branch):
+        git_adapter.add_worktree_existing_branch(repo_path, worktree_path, target_branch)
+        return None
+
+    git_adapter.add_worktree(
+        repo_path,
+        worktree_path,
+        branch=target_branch,
+        base=f"{remote}/{base}" if not preserve else "HEAD",
+        create_branch=True,
+    )
+    return None
+
+
+def execute_create_plan(
+    plan: CreatePlan,
+    *,
+    preserve: bool = False,
+    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
+) -> Environment:
     """Execute a validated plan: create worktrees and return the environment.
 
     If ``preserve=True``, use source repos as-is without fetching or updating.
@@ -152,38 +256,59 @@ def execute_create_plan(plan: CreatePlan, *, preserve: bool = False) -> Environm
         base_branch=plan.base_branch,
     )
 
+    failures: list[str] = []
     for repo_name in plan.repos:
         repo_path = plan.source / repo_name
         remote = "origin"
-        base = plan.base_branch or git_adapter.default_branch(repo_path, remote)
-        target_branch = plan.new_branch or base
+        resolved_base: str | None = plan.base_branch
+        target_branch: str | None = plan.new_branch
         create_branch = plan.new_branch is not None
         worktree_path = plan.env_path / repo_name
 
-        already_exists = worktree_path.exists() and git_adapter.is_git_repo(worktree_path)
-        if not already_exists:
-            if not preserve:
-                git_adapter.fetch(repo_path, remote)
-            git_adapter.add_worktree(
-                repo_path,
-                worktree_path,
-                branch=target_branch,
-                base=f"{remote}/{base}" if not preserve else "HEAD",
-                create_branch=create_branch,
-            )
+        already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
+        note: str | None = None
+        try:
+            if resolved_base is None:
+                resolved_base = git_adapter.default_branch(repo_path, remote)
+            if target_branch is None:
+                target_branch = resolved_base
+            if not already_exists:
+                _ensure_worktree_path_is_clean(worktree_path)
+                note = _create_or_attach_worktree(
+                    repo_path=repo_path,
+                    worktree_path=worktree_path,
+                    remote=remote,
+                    base=resolved_base,
+                    target_branch=target_branch,
+                    create_branch=create_branch,
+                    preserve=preserve,
+                    on_branch_conflict=on_branch_conflict,
+                    move_context=f"{plan.name}/{repo_name}/{target_branch}",
+                )
+        except Exception as exc:  # noqa: BLE001 - per-repo robustness
+            failures.append(repo_name)
+            note = f"failed: {exc}"
+        base = resolved_base or plan.base_branch or "unknown"
+        branch_name = target_branch or plan.new_branch or base
         env.repos.append(
             RepoEntry(
                 repo=repo_name,
                 worktree_path=worktree_path,
                 remote=remote,
                 base=base,
-                branch=target_branch,
+                branch=branch_name,
                 branch_created=create_branch,
-                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}" if not preserve else "HEAD"),
-                status=RepoStatus.OK,
+                source_sha=_resolve_source_sha(repo_path, remote=remote, base=base, preserve=preserve),
+                status=RepoStatus.FAILED if repo_name in failures else RepoStatus.OK,
+                note=note,
             )
         )
     return env
+
+
+def failed_repos(env: Environment) -> list[str]:
+    """Return repo names whose worktree creation failed."""
+    return [entry.repo for entry in env.repos if entry.status is RepoStatus.FAILED]
 
 
 def build_add_plan(
@@ -228,39 +353,62 @@ def build_add_plan(
 
 
 def execute_add_plan(
-    env: Environment, plan: AddPlan, *, branch: str | None = None, preserve: bool = False
+    env: Environment,
+    plan: AddPlan,
+    *,
+    branch: str | None = None,
+    preserve: bool = False,
+    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
 ) -> Environment:
     """Execute a validated add plan and append new repo entries to ``env``.
 
     If ``preserve=True``, use source repos as-is without fetching or updating.
     """
+    failures: list[str] = []
     for repo_name in plan.repos:
         repo_path = plan.source / repo_name
         remote = "origin"
-        base = env.base_branch or git_adapter.default_branch(repo_path, remote)
-        target_branch = branch or base
+        resolved_base: str | None = env.base_branch
+        target_branch: str | None = branch
         create_branch = branch is not None
         worktree_path = plan.env_path / repo_name
 
-        if not preserve:
-            git_adapter.fetch(repo_path, remote)
-        git_adapter.add_worktree(
-            repo_path,
-            worktree_path,
-            branch=target_branch,
-            base=f"{remote}/{base}" if not preserve else "HEAD",
-            create_branch=create_branch,
-        )
+        already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
+        note: str | None = None
+        try:
+            if resolved_base is None:
+                resolved_base = git_adapter.default_branch(repo_path, remote)
+            if target_branch is None:
+                target_branch = resolved_base
+            if not already_exists:
+                _ensure_worktree_path_is_clean(worktree_path)
+                note = _create_or_attach_worktree(
+                    repo_path=repo_path,
+                    worktree_path=worktree_path,
+                    remote=remote,
+                    base=resolved_base,
+                    target_branch=target_branch,
+                    create_branch=create_branch,
+                    preserve=preserve,
+                    on_branch_conflict=on_branch_conflict,
+                    move_context=f"{env.name}/{repo_name}/{target_branch}",
+                )
+        except Exception as exc:  # noqa: BLE001 - per-repo robustness
+            failures.append(repo_name)
+            note = f"failed: {exc}"
+        base = resolved_base or env.base_branch or "unknown"
+        branch_name = target_branch or branch or base
         env.repos.append(
             RepoEntry(
                 repo=repo_name,
                 worktree_path=worktree_path,
                 remote=remote,
                 base=base,
-                branch=target_branch,
+                branch=branch_name,
                 branch_created=create_branch,
-                source_sha=git_adapter.rev_parse(repo_path, f"{remote}/{base}" if not preserve else "HEAD"),
-                status=RepoStatus.OK,
+                source_sha=_resolve_source_sha(repo_path, remote=remote, base=base, preserve=preserve),
+                status=RepoStatus.FAILED if repo_name in failures else RepoStatus.OK,
+                note=note,
             )
         )
     env.touch()

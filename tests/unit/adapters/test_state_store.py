@@ -25,12 +25,13 @@ def test_find_by_alias(repoenv_home: Path) -> None:
     assert registry.find_by_alias("x") is None
 
 
-def test_write_env_marker_creates_marker_file(tmp_path: Path) -> None:
+def test_write_env_metadata_includes_optional_marker(tmp_path: Path) -> None:
     env_path = tmp_path / "envs" / "demo"
     env_path.mkdir(parents=True)
     env = Environment(name="demo", path=env_path, source=tmp_path / "src")
 
-    marker_path = state_store.write_env_marker(env, {"kind": "repo-env-marker", "schema_version": 1})
+    marker = {"kind": "repo-env-marker", "schema_version": 1}
+    meta_path = state_store.write_env_metadata(env, marker=marker)
 
-    assert marker_path == env_path / ".repoenv.marker.json"
-    assert marker_path.exists()
+    assert meta_path == env_path / ".repoenv.json"
+    assert meta_path.exists()

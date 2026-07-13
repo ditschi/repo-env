@@ -9,6 +9,12 @@ def test_resolve_selection_include_exclude_ordered() -> None:
     assert selected == ["alpha", "beta"]
 
 
+def test_resolve_selection_supports_csv_lists() -> None:
+    candidates = ["dummy-repo", "test-repo", "this-repo", "other"]
+    selected = resolve_selection(candidates, include=["dummy-repo,*test*,this-repo"], exclude=["other"])
+    assert selected == ["dummy-repo", "test-repo", "this-repo"]
+
+
 def test_set_combine_union_intersect_difference() -> None:
     left = ["a", "b", "c"]
     right = ["b", "c", "d"]

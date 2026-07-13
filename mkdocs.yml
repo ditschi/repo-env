@@ -7,6 +7,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  logo: assets/brand/renv-icon.png
+  favicon: assets/images/favicon.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -42,6 +44,21 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/ditschi/repo-env
+  meta:
+    - property: og:type
+      content: website
+    - property: og:title
+      content: repo-env
+    - property: og:description
+      content: Build and operate isolated git-worktree environments across many repositories.
+    - property: og:url
+      content: https://ditschi.github.io/repo-env/
+    - property: og:image
+      content: https://ditschi.github.io/repo-env/assets/images/social-preview.png
+    - name: twitter:card
+      content: summary_large_image
+    - name: twitter:image
+      content: https://ditschi.github.io/repo-env/assets/images/social-preview.png
 
 plugins:
   - search
@@ -86,8 +103,11 @@ nav:
   - User Guide:
       - Installation: user-guide/installation.md
       - Quick Start: user-guide/quickstart.md
+      - Workflow Example: user-guide/workflow-example.md
+      - Concepts: user-guide/concepts.md
       - Commands: user-guide/commands.md
       - Configuration: user-guide/configuration.md
+      - Troubleshooting: user-guide/troubleshooting.md
   - Contributor Guide:
       - Development Setup: contributor-guide/dev-setup.md
       - Quality Gates: contributor-guide/quality-gates.md

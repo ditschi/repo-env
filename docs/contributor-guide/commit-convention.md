@@ -44,7 +44,7 @@ feat!: remove --legacy flag
 ```
 feat(cli): redesign pr command
 
-BREAKING CHANGE: --push flag removed; use `git push` before `renv pr`
+BREAKING CHANGE: `--push` is now opt-in; branches are not pushed automatically
 ```
 
 Breaking changes trigger a **major** version bump.

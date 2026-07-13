@@ -26,3 +26,9 @@ htmlcov/
 # Editor
 .idea/
 *.swp
+
+# Local integration-test git fixtures (manual inspection)
+.testenv/
+
+# MkDocs build output
+site/

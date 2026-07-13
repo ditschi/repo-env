@@ -163,3 +163,58 @@ def test_default_branch_raises_when_ambiguous(monkeypatch: pytest.MonkeyPatch, t
 
     with pytest.raises(GitError, match="Could not determine the default branch"):
         git_adapter.default_branch(repo, "origin")
+
+
+def _init_local_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git_adapter._run(["init", "-b", "main"], cwd=repo)
+    git_adapter._run(["config", "user.email", "t@example.com"], cwd=repo)
+    git_adapter._run(["config", "user.name", "t"], cwd=repo)
+    (repo / "f").write_text("x", encoding="utf-8")
+    git_adapter._run(["add", "f"], cwd=repo)
+    git_adapter._run(["commit", "-m", "init"], cwd=repo)
+    return repo
+
+
+def test_branch_exists_and_find_worktree_for_branch(tmp_path: Path) -> None:
+    repo = _init_local_repo(tmp_path)
+    assert git_adapter.branch_exists(repo, "main") is True
+    assert git_adapter.branch_exists(repo, "missing") is False
+
+    git_adapter._run(["checkout", "-b", "feature/x"], cwd=repo)
+    found = git_adapter.find_worktree_for_branch(repo, "feature/x")
+    assert found is not None
+    assert found.resolve() == repo.resolve()
+
+
+def test_add_worktree_existing_branch_and_detach_checkout(tmp_path: Path) -> None:
+    repo = _init_local_repo(tmp_path)
+    git_adapter._run(["checkout", "-b", "feature/y"], cwd=repo)
+    git_adapter._run(["checkout", "main"], cwd=repo)
+
+    wt = tmp_path / "wt"
+    git_adapter.add_worktree_existing_branch(repo, wt, "feature/y")
+    assert git_adapter.current_branch(wt) == "feature/y"
+
+    git_adapter.checkout(wt, "--detach")
+    assert git_adapter.current_branch(wt) is None
+
+
+def test_stash_push_and_pop(tmp_path: Path) -> None:
+    repo = _init_local_repo(tmp_path)
+    (repo / "dirty.txt").write_text("dirty", encoding="utf-8")
+    created = git_adapter.stash_push(repo, include_untracked=True, message="test stash")
+    assert created is True
+    assert git_adapter.is_clean(repo) is True
+    git_adapter.stash_pop(repo)
+    assert (repo / "dirty.txt").read_text(encoding="utf-8") == "dirty"
+
+
+def test_is_worktree_root_distinguishes_nested_paths(tmp_path: Path) -> None:
+    repo = _init_local_repo(tmp_path)
+    nested = repo / "nested"
+    nested.mkdir()
+    assert git_adapter.is_worktree_root(repo) is True
+    assert git_adapter.is_worktree_root(nested) is False
+    assert git_adapter.is_git_repo(nested) is True

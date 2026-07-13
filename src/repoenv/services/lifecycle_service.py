@@ -1,4 +1,4 @@
-"""Lifecycle service: remove, rename, sync, status/doctor, prune reconciliation."""
+"""Lifecycle service: remove, rename, sync, status/check, prune reconciliation."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from repoenv.adapters import git_adapter
-from repoenv.domain.models import Environment, RepoStatus
+from repoenv.domain.models import Environment, RepoEntry, RepoStatus
+from repoenv.domain.selection import resolve_selection
+from repoenv.services import environment_service
+from repoenv.services.environment_service import BranchConflictStrategy
 
 
 @dataclass
@@ -58,7 +61,8 @@ def assess_health(env: Environment) -> list[RepoHealth]:
         present = entry.worktree_path.exists()
         dirty = present and not git_adapter.is_clean(entry.worktree_path)
         if not present:
-            entry.status = RepoStatus.STALE
+            if entry.status is not RepoStatus.FAILED:
+                entry.status = RepoStatus.STALE
         health.append(
             RepoHealth(
                 repo=entry.repo,
@@ -79,3 +83,70 @@ def prune_environment(env: Environment) -> int:
             git_adapter.prune_worktrees(repo_path)
             pruned += 1
     return pruned
+
+
+def _is_healthy_worktree(entry: RepoEntry) -> bool:
+    return entry.worktree_path.exists() and git_adapter.is_worktree_root(entry.worktree_path)
+
+
+def list_repair_candidates(
+    env: Environment,
+    *,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+) -> list[str]:
+    """Return repo names whose worktrees are missing or otherwise need repair."""
+    repo_names = [entry.repo for entry in env.repos]
+    if include is not None or exclude is not None:
+        repo_names = resolve_selection(repo_names, include=include, exclude=exclude)
+    allowed = set(repo_names)
+    return [entry.repo for entry in env.repos if entry.repo in allowed and not _is_healthy_worktree(entry)]
+
+
+def repair_environment(
+    env: Environment,
+    *,
+    preserve: bool = False,
+    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Recreate missing or failed worktrees from registry metadata."""
+    candidates = set(list_repair_candidates(env, include=include, exclude=exclude))
+    repaired: list[str] = []
+    failed: list[str] = []
+
+    for entry in env.repos:
+        if entry.repo not in candidates:
+            continue
+        if _is_healthy_worktree(entry):
+            continue
+
+        repo_path = env.source / entry.repo
+        try:
+            environment_service._ensure_worktree_path_is_clean(entry.worktree_path)
+            note = environment_service._create_or_attach_worktree(
+                repo_path=repo_path,
+                worktree_path=entry.worktree_path,
+                remote=entry.remote,
+                base=entry.base,
+                target_branch=entry.branch,
+                create_branch=entry.branch_created,
+                preserve=preserve,
+                on_branch_conflict=on_branch_conflict,
+                move_context=f"{env.name}/{entry.repo}/{entry.branch}",
+            )
+            entry.status = RepoStatus.OK
+            entry.note = note
+            entry.source_sha = environment_service._resolve_source_sha(
+                repo_path, remote=entry.remote, base=entry.base, preserve=preserve
+            )
+            repaired.append(entry.repo)
+        except Exception as exc:  # noqa: BLE001 - per-repo robustness
+            failed.append(entry.repo)
+            entry.status = RepoStatus.FAILED
+            entry.note = f"failed: {exc}"
+
+    if repaired or failed:
+        env.touch()
+    return repaired, failed

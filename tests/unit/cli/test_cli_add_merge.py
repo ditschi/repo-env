@@ -4,7 +4,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from repoenv.adapters import state_store
+from repoenv.adapters import config_store, state_store
 from repoenv.cli.app import app
 from repoenv.domain.models import Environment
 
@@ -43,3 +43,31 @@ def test_add_resolves_cwd_environment(repoenv_home: Path, monkeypatch) -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["add", "--dry-run"])
     assert result.exit_code == 0
+    assert "Hint: run 'renv activate demo'" in result.output
+
+
+def test_create_dry_run_shows_activate_hint(repoenv_home: Path, monkeypatch) -> None:
+    source = repoenv_home / "src"
+    dest = repoenv_home / "envs"
+    source.mkdir()
+    dest.mkdir()
+    config_store.save_config(config_store.UserConfig(source=source, dest=dest))
+
+    def fake_build_create_plan(**kwargs):
+        class _Plan:
+            name = kwargs["name"]
+            env_path = dest / kwargs["name"]
+            repos = ["r1"]
+
+        return _Plan()
+
+    monkeypatch.setattr(
+        "repoenv.cli.commands.create.environment_service.build_create_plan",
+        fake_build_create_plan,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["create", "web", "--dry-run"])
+    assert result.exit_code == 0
+    assert "Dry run: no changes made." in result.output
+    assert "Hint: run 'renv activate web'" in result.output

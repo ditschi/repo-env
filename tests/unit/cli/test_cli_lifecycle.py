@@ -98,6 +98,15 @@ def test_status_json(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert '"environment": "demo"' in result.stdout
 
 
+def test_check_alias_for_status(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _register(repoenv_home)
+    monkeypatch.setattr("repoenv.adapters.git_adapter.is_clean", lambda path: True)
+    runner = CliRunner()
+    result = runner.invoke(app, ["check", "demo", "--json"])
+    assert result.exit_code == 0
+    assert '"environment": "demo"' in result.stdout
+
+
 def test_prune(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _register(repoenv_home)
     monkeypatch.setattr("repoenv.services.lifecycle_service.prune_environment", lambda env: 1)

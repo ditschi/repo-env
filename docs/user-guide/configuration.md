@@ -2,43 +2,71 @@
 
 ## Config file location
 
-| Platform | Path |
-|----------|------|
-| Linux | `~/.config/repo-env/config.yaml` |
-| macOS | `~/Library/Application Support/repo-env/config.yaml` |
+`renv` stores its config and registry under a single home directory.
+
+- **Default**: platform config dir for app name `repoenv` (Linux: `~/.config/repoenv/`)
+- **Override**: set `REPOENV_HOME` to relocate everything (CI, multiple profiles)
+
+Important files (relative to `REPOENV_HOME`):
+
+- `repoenv.yaml` — user-authored config
+- `registry.json` — machine-owned environment registry (includes the active environment)
 
 Run `renv init` to generate the file interactively, or create it manually.
 
 ## Schema
 
 ```yaml
-# Default source directory scanned by `renv create`
-default_source: ~/src
+# Default source directory for `renv create` / `renv add` (overridable by flags)
+source: ~/src
 
-# Default base branch when creating worktrees
-default_base_branch: main
+# Default destination root for new environments
+dest: ~/envs
 
-# Root directory where environments are stored
-environments_root: ~/.local/share/repo-env/envs
+# Fallback default branch when auto-detection fails
+default_branch: develop
 
-# GitHub token (optional; falls back to gh CLI auth if absent)
-github_token: ""   # or use REPO_ENV_GITHUB_TOKEN env var
+# Record completion preference (`renv init`; scripts are still user-managed)
+install_completion: false
 
-# Parallel job limit for `renv run --parallel`
-parallelism: 4
+# Auto-correct unknown subcommands after N seconds (git-like behavior)
+# autocorrect: 0.5
+autocorrect: null
+
+# Optional shorthand: alias name -> environment name (see Concepts)
+aliases:
+  web: ado
+```
+
+## Aliases
+
+Two alias mechanisms exist; see [Concepts](concepts.md#aliases-two-kinds) for resolution order.
+
+| Mechanism | How to set | Example |
+|-----------|------------|---------|
+| **Config alias** | YAML `aliases:` or `renv config aliases.web ado` | type `web`, runs env `ado` |
+| **Environment alias** | `renv create --alias`, `renv import --alias`, `renv merge --alias` | env `ado` also known as `web` |
+
+Manage config aliases:
+
+```bash
+renv config aliases.web ado
+renv config aliases.web --unset
+renv config aliases.web          # read one alias
 ```
 
 ## Environment variables
 
-All config keys can be overridden by environment variables using the prefix `REPO_ENV_` and uppercasing the key:
+`REPOENV_HOME` relocates config, registry, and state:
 
-```sh
-REPO_ENV_DEFAULT_SOURCE=~/projects renv create web --branch fix/x
-REPO_ENV_PARALLELISM=8 renv run web -- make test
+```bash
+REPOENV_HOME=/tmp/repoenv-profile renv ls
 ```
 
-Environment variables take precedence over config file values.
+Inside `renv sh`, `REPOENV_ACTIVE` is set for subshell context.
 
 ## Machine state
 
-`renv` stores environment metadata in JSON under the `environments_root`. These files are managed by `renv` and should not be edited manually.
+Per-environment metadata lives in `.repoenv.json` inside the environment directory (also the renv-root marker). It may include a `marker` block with a reproducible `renv create …` command.
+
+Lock files (`.lock`) guard concurrent JSON writes; see [Troubleshooting](troubleshooting.md).

@@ -9,8 +9,10 @@ from __future__ import annotations
 import typer
 
 from repoenv import __version__
+from repoenv.cli.commands.activate import activate_command
 from repoenv.cli.commands.add import add_command
 from repoenv.cli.commands.completion import completion_command
+from repoenv.cli.commands.config import config_command
 from repoenv.cli.commands.create import create_command
 from repoenv.cli.commands.import_env import import_command
 from repoenv.cli.commands.init import init_command
@@ -20,12 +22,14 @@ from repoenv.cli.commands.path import path_command
 from repoenv.cli.commands.pr import pr_command
 from repoenv.cli.commands.prune import prune_command
 from repoenv.cli.commands.rename import rename_command
+from repoenv.cli.commands.repair import repair_command
 from repoenv.cli.commands.repos import repos_command
 from repoenv.cli.commands.rm import rm_command
 from repoenv.cli.commands.run import run_command
 from repoenv.cli.commands.sh import sh_command
 from repoenv.cli.commands.status import status_command
 from repoenv.cli.commands.sync import sync_command
+from repoenv.cli.didyoumean import RepoEnvGroup
 
 app = typer.Typer(
     name="renv",
@@ -33,6 +37,7 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    cls=RepoEnvGroup,
 )
 
 
@@ -58,6 +63,8 @@ def main_callback(
 
 
 app.command("init")(init_command)
+app.command("activate")(activate_command)
+app.command("config")(config_command)
 app.command("create")(create_command)
 app.command("new", hidden=True)(create_command)
 app.command("add")(add_command)
@@ -73,8 +80,9 @@ app.command("rm")(rm_command)
 app.command("rename")(rename_command)
 app.command("sync")(sync_command)
 app.command("status")(status_command)
-app.command("doctor")(status_command)
+app.command("check")(status_command)
 app.command("prune")(prune_command)
+app.command("repair")(repair_command)
 app.command("import")(import_command)
 app.command("pr")(pr_command)
 app.command("sh")(sh_command)

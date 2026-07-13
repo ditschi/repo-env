@@ -64,6 +64,25 @@ def is_git_repo(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def worktree_root(path: Path) -> Path | None:
+    """Return the resolved root of the worktree containing ``path``, if any."""
+    if not path.exists():
+        return None
+    result = _run(["rev-parse", "--show-toplevel"], cwd=path, check=False)
+    if result.returncode != 0:
+        return None
+    top = Path(result.stdout.strip())
+    return top.resolve() if top.exists() else None
+
+
+def is_worktree_root(path: Path) -> bool:
+    """Return True when ``path`` is itself a git worktree root (not merely nested in one)."""
+    if not path.is_dir():
+        return False
+    root = worktree_root(path)
+    return root is not None and root == path.resolve()
+
+
 def discover_repos(source: Path) -> list[str]:
     """Return sorted relative paths of git repos discovered recursively under ``source``."""
     if not source.exists():
@@ -88,6 +107,52 @@ def discover_repos(source: Path) -> list[str]:
     return sorted(names)
 
 
+def _default_branch_from_symref(repo: Path, remote: str) -> str | None:
+    symref = _run(["ls-remote", "--symref", remote, "HEAD"], cwd=repo, check=False)
+    if symref.returncode != 0:
+        return None
+    for line in symref.stdout.splitlines():
+        if not line.startswith("ref:"):
+            continue
+        # Format: "ref: refs/heads/<branch>\tHEAD"
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        ref = parts[1]
+        branch = ref.rsplit("/", 1)[-1]
+        if branch and branch != "(unknown)":
+            return branch
+    return None
+
+
+def _default_branch_from_remote_show(repo: Path, remote: str) -> str | None:
+    show = _run(["remote", "show", remote], cwd=repo, check=False)
+    if show.returncode != 0:
+        return None
+    for line in show.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("HEAD branch:"):
+            continue
+        branch = stripped.split(":", 1)[1].strip()
+        if branch and branch != "(unknown)":
+            return branch
+    return None
+
+
+def _default_branch_from_heads(repo: Path, remote: str) -> str | None:
+    heads = _run(["ls-remote", "--heads", remote], cwd=repo, check=False)
+    if heads.returncode != 0:
+        return None
+    names = _parse_remote_head_names(heads.stdout)
+    for preferred in ("main", "develop", "master"):
+        if preferred in names:
+            return preferred
+    unique_names = sorted(set(names))
+    if len(unique_names) == 1:
+        return unique_names[0]
+    return None
+
+
 def default_branch(repo: Path, remote: str = "origin") -> str:
     """Resolve the remote's default branch.
 
@@ -98,36 +163,17 @@ def default_branch(repo: Path, remote: str = "origin") -> str:
     4) if remote exposes exactly one head branch, use it
     5) error
     """
-    symref = _run(["ls-remote", "--symref", remote, "HEAD"], cwd=repo, check=False)
-    if symref.returncode == 0:
-        for line in symref.stdout.splitlines():
-            if line.startswith("ref:"):
-                # Format: "ref: refs/heads/<branch>\tHEAD"
-                parts = line.split()
-                if len(parts) >= 2:
-                    ref = parts[1]
-                    branch = ref.rsplit("/", 1)[-1]
-                    if branch and branch != "(unknown)":
-                        return branch
+    branch = _default_branch_from_symref(repo, remote)
+    if branch:
+        return branch
 
-    show = _run(["remote", "show", remote], cwd=repo, check=False)
-    if show.returncode == 0:
-        for line in show.stdout.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("HEAD branch:"):
-                branch = stripped.split(":", 1)[1].strip()
-                if branch and branch != "(unknown)":
-                    return branch
+    branch = _default_branch_from_remote_show(repo, remote)
+    if branch:
+        return branch
 
-    heads = _run(["ls-remote", "--heads", remote], cwd=repo, check=False)
-    if heads.returncode == 0:
-        names = _parse_remote_head_names(heads.stdout)
-        for preferred in ("main", "develop", "master"):
-            if preferred in names:
-                return preferred
-        unique_names = sorted(set(names))
-        if len(unique_names) == 1:
-            return unique_names[0]
+    branch = _default_branch_from_heads(repo, remote)
+    if branch:
+        return branch
 
     raise GitError(
         f"Could not determine the default branch for remote '{remote}'.",
@@ -155,7 +201,7 @@ def add_worktree(repo: Path, worktree_path: Path, *, branch: str, base: str, cre
     """Create a git worktree at ``worktree_path``.
 
     - ``create_branch=True`` creates ``branch`` from ``base`` (``git worktree add -b``).
-    - Otherwise checks out the existing ``branch``.
+    - Otherwise creates a detached checkout at ``base``.
     """
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
     args = ["worktree", "add"]
@@ -165,6 +211,54 @@ def add_worktree(repo: Path, worktree_path: Path, *, branch: str, base: str, cre
         # Detached checkout avoids "branch already checked out" conflicts with source repos.
         args += ["--detach", str(worktree_path), base]
     _run(args, cwd=repo)
+
+
+def branch_exists(repo: Path, branch: str) -> bool:
+    """Return True if a local branch ``branch`` exists in ``repo``."""
+    result = _run(["show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], cwd=repo, check=False)
+    return result.returncode == 0
+
+
+def add_worktree_existing_branch(repo: Path, worktree_path: Path, branch: str) -> None:
+    """Create a worktree that checks out an existing local branch."""
+    worktree_path.parent.mkdir(parents=True, exist_ok=True)
+    _run(["worktree", "add", str(worktree_path), branch], cwd=repo)
+
+
+def find_worktree_for_branch(repo: Path, branch: str) -> Path | None:
+    """Return the worktree path currently checking out ``branch`` (if any)."""
+    target_ref = f"refs/heads/{branch}"
+    for record in list_worktrees(repo):
+        if record.get("branch") == target_ref:
+            path = record.get("worktree")
+            if path:
+                return Path(path)
+    return None
+
+
+def checkout(worktree: Path, ref: str) -> None:
+    """Check out ``ref`` in an existing working tree/worktree."""
+    _run(["checkout", ref], cwd=worktree)
+
+
+def stash_push(worktree: Path, *, include_untracked: bool = True, message: str | None = None) -> bool:
+    """Stash local changes in ``worktree``. Return True if a stash was created."""
+    before = _run(["stash", "list"], cwd=worktree, check=False).stdout.strip()
+    args = ["stash", "push"]
+    if include_untracked:
+        args.append("-u")
+    if message:
+        args += ["-m", message]
+    result = _run(args, cwd=worktree, check=False)
+    if result.returncode != 0:
+        return False
+    after = _run(["stash", "list"], cwd=worktree, check=False).stdout.strip()
+    return after != before
+
+
+def stash_pop(worktree: Path) -> None:
+    """Pop the most recent stash in ``worktree`` (fails if conflicts occur)."""
+    _run(["stash", "pop"], cwd=worktree)
 
 
 def list_worktrees(repo: Path) -> list[dict[str, str]]:

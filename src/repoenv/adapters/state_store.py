@@ -7,8 +7,11 @@ schema is a stable typed contract. Writes are atomic and locked.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
+from filelock import FileLock
 from pydantic import ValidationError
 
 from repoenv.adapters import paths
@@ -20,8 +23,11 @@ from repoenv.errors import ConfigError
 class Registry:
     """In-memory view of all known environments, keyed by name."""
 
-    def __init__(self, environments: dict[str, Environment] | None = None) -> None:
+    def __init__(
+        self, environments: dict[str, Environment] | None = None, *, active: str | None = None
+    ) -> None:
         self._environments: dict[str, Environment] = environments or {}
+        self._active: str | None = active
 
     def list(self) -> list[Environment]:
         """Return environments sorted by name for deterministic output."""
@@ -44,7 +50,17 @@ class Registry:
 
     def remove(self, name: str) -> bool:
         """Remove an environment; return True if it existed."""
+        if self._active == name:
+            self._active = None
         return self._environments.pop(name, None) is not None
+
+    def get_active(self) -> str | None:
+        """Return the active environment name, if any."""
+        return self._active
+
+    def set_active(self, name: str | None) -> None:
+        """Set the active environment name (or clear it with None)."""
+        self._active = name
 
     def __contains__(self, name: object) -> bool:
         return name in self._environments
@@ -61,7 +77,7 @@ def load_registry(path: Path | None = None) -> Registry:
     except (json.JSONDecodeError, OSError) as exc:
         raise ConfigError(
             f"Could not read registry at {registry_path}: {exc}",
-            hint="Run 'renv doctor' to reconcile, or remove the corrupt registry.",
+            hint="Run 'renv repair' to restore missing worktrees, or 'renv status' for details.",
         ) from exc
 
     environments: dict[str, Environment] = {}
@@ -71,10 +87,19 @@ def load_registry(path: Path | None = None) -> Registry:
         except ValidationError as exc:
             raise ConfigError(
                 f"Registry entry is invalid:\n{exc}",
-                hint="Run 'renv doctor' to reconcile the registry with disk.",
+                hint="Run 'renv repair' or fix the registry entry manually.",
             ) from exc
         environments[env.name] = env
-    return Registry(environments)
+    active = raw.get("active")
+    if active is not None and not isinstance(active, str):
+        raise ConfigError(
+            f"Registry field 'active' must be a string or null, not {type(active).__name__}.",
+            hint="Remove or fix the 'active' field in the registry JSON.",
+        )
+    if active is not None and active not in environments:
+        # Don't fail hard: an env may have been removed manually.
+        active = None
+    return Registry(environments, active=active)
 
 
 def save_registry(registry: Registry, path: Path | None = None) -> Path:
@@ -82,6 +107,7 @@ def save_registry(registry: Registry, path: Path | None = None) -> Path:
     registry_path = path or paths.registry_path()
     payload = {
         "schema_version": SCHEMA_VERSION,
+        "active": registry.get_active(),
         "environments": [env.model_dump(mode="json") for env in registry.list()],
     }
     text = json.dumps(payload, indent=2, sort_keys=False) + "\n"
@@ -89,17 +115,33 @@ def save_registry(registry: Registry, path: Path | None = None) -> Path:
     return registry_path
 
 
-def write_env_metadata(env: Environment) -> Path:
-    """Write per-environment metadata inside the environment directory."""
+@contextmanager
+def registry_transaction(path: Path | None = None) -> Iterator[Registry]:
+    """Load-modify-save the registry under a single file lock.
+
+    This prevents lost updates when multiple repo-env processes mutate the
+    registry concurrently (e.g. parallel ``renv add`` runs).
+    """
+    registry_path = path or paths.registry_path()
+    lock = FileLock(str(paths.lock_path(registry_path)), is_singleton=True)
+    with lock:
+        registry = load_registry(registry_path)
+        yield registry
+        save_registry(registry, registry_path)
+
+
+def write_env_metadata(env: Environment, *, marker: dict[str, object] | None = None) -> Path:
+    """Write per-environment metadata inside the environment directory.
+
+    This file also serves as the renv-root marker (replacing the older dedicated
+    marker file) and may optionally include a reproduction marker block.
+    """
     meta_path = env.path / paths.ENV_META_FILENAME
-    text = json.dumps(env.model_dump(mode="json"), indent=2) + "\n"
+    payload: dict[str, object] = {
+        "schema_version": SCHEMA_VERSION,
+        "environment": env.model_dump(mode="json"),
+        "marker": marker,
+    }
+    text = json.dumps(payload, indent=2, sort_keys=False) + "\n"
     atomic_write_text(meta_path, text, mode=0o600, backup=False)
     return meta_path
-
-
-def write_env_marker(env: Environment, marker: dict[str, object]) -> Path:
-    """Write marker metadata used to detect renv roots and reproduce creation."""
-    marker_path = env.path / paths.ENV_MARKER_FILENAME
-    text = json.dumps(marker, indent=2, sort_keys=True) + "\n"
-    atomic_write_text(marker_path, text, mode=0o600, backup=False)
-    return marker_path
