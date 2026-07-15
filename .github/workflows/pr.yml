@@ -66,6 +66,9 @@ jobs:
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    # Windows support is still experimental (POSIX-first project); keep it
+    # non-blocking so it provides signal without gating merges.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     # Use bash everywhere; on Windows this is Git Bash (POSIX-ish) which the CLI
     # targets, rather than PowerShell/cmd.
     defaults:
