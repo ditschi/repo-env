@@ -35,6 +35,11 @@ jobs:
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    # Use bash everywhere; on Windows this is Git Bash (POSIX-ish) which the CLI
+    # targets, rather than PowerShell/cmd.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +48,9 @@ jobs:
         include:
           # macOS is a supported target (POSIX); smoke-test the primary Python.
           - os: macos-latest
+            python-version: "3.12"
+          # Windows via Git Bash; smoke-test the primary Python.
+          - os: windows-latest
             python-version: "3.12"
     steps:
       - uses: actions/checkout@v7
