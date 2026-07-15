@@ -7,6 +7,11 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    # Emit Conventional-Commit titles (e.g. "build(deps): bump X") so the
+    # PR-title lint (amannn/action-semantic-pull-request) accepts them.
+    commit-message:
+      prefix: "build"
+      include: "scope"
     groups:
       dev-tools:
         patterns: ["nox", "pytest*", "ruff", "black", "mypy", "isort", "flake8*", "pylint", "vulture", "fawltydeps", "commitizen"]
@@ -22,3 +27,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns: ["*"]
