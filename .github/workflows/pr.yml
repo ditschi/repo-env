@@ -42,10 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
       - name: Install nox
         run: uv tool install nox
       - name: Syntax check
@@ -72,16 +72,44 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
       - name: Install nox
         run: uv tool install nox
       - name: Unit tests
         run: nox -s tests-${{ matrix.python-version }}
-  # ── 4. Docs build (strict) ───────────────────────────────────────────────────
+  # ── 4. Integration tests (single Python — see quality-gates.md) ─────────────
+  integration:
+    name: Integration tests (3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Integration tests
+        run: nox -s integration
+  # ── 5. CLI cold-start performance budgets ────────────────────────────────────
+  performance:
+    name: Performance budgets (3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install nox
+        run: uv tool install nox
+      - name: Performance budgets
+        run: nox -s performance
+  # ── 6. Docs build (strict) ───────────────────────────────────────────────────
   docs-build:
     name: Docs build (strict)
     runs-on: ubuntu-latest
@@ -90,15 +118,15 @@ jobs:
         with:
           # mike needs the full history to list existing versions
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
       - name: Install nox
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
-  # ── 5. Docs preview (only when docs files changed) ──────────────────────────
+  # ── 7. Docs preview (only when docs files changed) ──────────────────────────
   docs-preview:
     name: Docs preview
     runs-on: ubuntu-latest
@@ -110,10 +138,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
       - name: Install docs deps
         run: uv pip install -e ".[docs]" --system
       - name: Configure git for mike
@@ -122,7 +150,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Check if docs changed
         id: docs-changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v47
+
         with:
           files: |
             docs/**
@@ -130,6 +159,8 @@ jobs:
             src/repoenv/**/*.py
       - name: Build docs for preview
         if: steps.docs-changed.outputs.any_changed == 'true'
+        env:
+          NO_MKDOCS_2_WARNING: "1"
         run: mkdocs build --strict --site-dir site
       - name: Deploy docs preview
         if: steps.docs-changed.outputs.any_changed == 'true'

@@ -33,6 +33,18 @@ def resolve_selection(
     include = include or ["*"]
     exclude = exclude or []
 
+    def _split_csv(values: list[str]) -> list[str]:
+        parts: list[str] = []
+        for raw in values:
+            for item in raw.split(","):
+                trimmed = item.strip()
+                if trimmed:
+                    parts.append(trimmed)
+        return parts
+
+    include = _split_csv(include)
+    exclude = _split_csv(exclude)
+
     seen: set[str] = set()
     result: list[str] = []
     for name in candidates:

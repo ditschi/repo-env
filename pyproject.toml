@@ -7,7 +7,7 @@ name = "repo-env"
 dynamic = ["version"]
 description = "Build and operate isolated git-worktree environments across many repositories."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "ditschi" }]
 keywords = ["git", "worktree", "monorepo", "multi-repo", "cli", "migration"]
@@ -16,6 +16,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -25,7 +27,8 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.7",
     "questionary>=2.0",
-    "pydantic>=2.7",
+    "pydantic>=2.7; python_version < '3.14'",
+    "pydantic>=2.14.0a1; python_version >= '3.14'",
     "ruamel.yaml>=0.18",
     "platformdirs>=4.2",
     "filelock>=3.14",
@@ -59,8 +62,8 @@ code-quality = [
     "pylint>=3.2",
 ]
 docs = [
-    "mkdocs>=1.6",
-    "mkdocs-material>=9.5",
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.7.5,<10",
     "mkdocstrings[python]>=0.25",
     "mike>=2.1",
     "mkdocs-snippets>=1.0",
@@ -82,7 +85,7 @@ packages = ["src/repoenv"]
 
 [tool.black]
 line-length = 110
-target-version = ["py312"]
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"
@@ -106,5 +109,6 @@ major_version_zero = true
 testpaths = ["tests"]
 markers = [
     "integration: integration tests using real temp git repos / mocked gh (deselect with -m 'not integration')",
-    "performance: completion cold-start latency budget checks",
+    "int: alias for integration (deselect with -m 'not int')",
+    "performance: CLI cold-start latency budget checks (help and bash completion)",
 ]

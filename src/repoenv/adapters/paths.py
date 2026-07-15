@@ -17,6 +17,7 @@ _ENV_OVERRIDE = "REPOENV_HOME"
 CONFIG_FILENAME = "repoenv.yaml"
 REGISTRY_FILENAME = "registry.json"
 ENV_META_FILENAME = ".repoenv.json"
+ENV_MARKER_FILENAME = ".repoenv.marker.json"
 
 
 def home_dir() -> Path:
