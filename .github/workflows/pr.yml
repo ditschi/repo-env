@@ -150,7 +150,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Check if docs changed
         id: docs-changed
-        uses: tj-actions/changed-files@v46
+        uses: tj-actions/changed-files@v47
+
         with:
           files: |
             docs/**
