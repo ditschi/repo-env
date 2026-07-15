@@ -105,6 +105,7 @@ nav:
       - Quick Start: user-guide/quickstart.md
       - Workflow Example: user-guide/workflow-example.md
       - Concepts: user-guide/concepts.md
+      - Multi-branch: user-guide/multi-branch.md
       - Commands: user-guide/commands.md
       - Configuration: user-guide/configuration.md
       - Troubleshooting: user-guide/troubleshooting.md
