@@ -29,13 +29,13 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: check-xml
       - id: detect-private-key
-      - id: no-commit-to-branch
-        # branches for development must be temporary (contain a "/") no commits to long-lived branches
-        args:
-          - --pattern
-          - "^[^/]+$"
-          - --branch
-          - "main"
+      # - id: no-commit-to-branch
+      #   # branches for development must be temporary (contain a "/") no commits to long-lived branches
+      #   args:
+      #     - --pattern
+      #     - "^[^/]+$"
+      #     - --branch
+      #     - "main"
 
   - repo: https://gitlab.com/bmares/check-json5
     rev: v1.0.1

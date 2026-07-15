@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.12 (other supported versions installed on demand by nox via uv)
+- Python 3.10+ (3.12 recommended for local dev; nox installs other versions on demand via uv)
 - [uv](https://docs.astral.sh/uv/) — used by nox as the venv backend
 - [nox](https://nox.thea.codes/) — task runner for all quality gates
 - Git 2.38+
@@ -42,6 +42,8 @@ nox -s docs          # build docs strict (fails on any warning)
 nox -s docs_serve    # live-reload local docs at http://127.0.0.1:8000
 ```
 
+CI runs integration tests in a separate job on Python 3.12 only (see [Quality Gates](quality-gates.md#ci-jobs)).
+
 ## Install pre-commit hooks
 
 ```sh
@@ -66,7 +68,7 @@ src/repoenv/       Core package
 tests/
   unit/            Fast, no I/O
   integration/     Real temp git repos, mocked gh
-  performance/     CLI cold-start latency budget
+  performance/     CLI cold-start latency budgets (help + bash completion)
 docs/              This site
 .github/workflows/ CI/CD pipelines
 ```

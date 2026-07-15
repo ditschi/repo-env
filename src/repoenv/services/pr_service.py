@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from repoenv.adapters import gh_adapter, git_adapter
 from repoenv.domain.models import Environment
+from repoenv.domain.selection import resolve_selection
 
 
 @dataclass
@@ -44,10 +45,17 @@ def create_prs(
     push: bool,
     skip_no_diff: bool,
     if_exists: str,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
 ) -> PrOutcome:
     """Create PRs for each repo in ``env``. Never pushes unless ``push`` is True."""
     outcome = PrOutcome()
-    for entry in env.repos:
+    entries = list(env.repos)
+    if include is not None or exclude is not None:
+        selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
+        entries = [e for e in entries if e.repo in selected]
+
+    for entry in entries:
         worktree = entry.worktree_path
         branch = git_adapter.current_branch(worktree) or entry.branch
 
