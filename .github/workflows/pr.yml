@@ -64,12 +64,17 @@ jobs:
         run: nox -s cyclic_imports
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────
   tests:
-    name: Tests (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # macOS is a supported target (POSIX); smoke-test the primary Python.
+          - os: macos-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
@@ -151,7 +156,6 @@ jobs:
       - name: Check if docs changed
         id: docs-changed
         uses: tj-actions/changed-files@v47
-
         with:
           files: |
             docs/**
