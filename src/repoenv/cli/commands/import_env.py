@@ -25,43 +25,44 @@ def import_command(
         raise UsageError(f"Not a directory: {directory}")
 
     env_name = name or directory.name
-    registry = state_store.load_registry()
-    if env_name in registry:
-        raise UsageError(f"Environment '{env_name}' already exists.", hint="Pass --name to choose another.")
-
-    entries: list[RepoEntry] = []
-    for child in sorted(p for p in directory.iterdir() if p.is_dir()):
-        if not git_adapter.is_git_repo(child):
-            continue
-        branch = git_adapter.rev_parse(child, "HEAD")
-        entries.append(
-            RepoEntry(
-                repo=child.name,
-                worktree_path=child,
-                remote="origin",
-                base=branch,
-                branch=branch,
-                branch_created=False,
-                source_sha=branch,
-                status=RepoStatus.OK,
+    with state_store.registry_transaction() as registry:
+        if env_name in registry:
+            raise UsageError(
+                f"Environment '{env_name}' already exists.", hint="Pass --name to choose another."
             )
-        )
 
-    if not entries:
-        raise NothingMatchedError(
-            f"No git worktrees found under {directory}.",
-            hint="Point at a directory containing checked-out repositories.",
-        )
+        entries: list[RepoEntry] = []
+        for child in sorted(p for p in directory.iterdir() if p.is_dir()):
+            if not git_adapter.is_git_repo(child):
+                continue
+            branch = git_adapter.rev_parse(child, "HEAD")
+            entries.append(
+                RepoEntry(
+                    repo=child.name,
+                    worktree_path=child,
+                    remote="origin",
+                    base=branch,
+                    branch=branch,
+                    branch_created=False,
+                    source_sha=branch,
+                    status=RepoStatus.OK,
+                )
+            )
 
-    environment = Environment(
-        name=env_name,
-        alias=alias,
-        path=directory,
-        source=(source or directory).resolve(),
-        base_branch=None,
-        repos=entries,
-    )
-    registry.add(environment)
-    state_store.save_registry(registry)
-    state_store.write_env_metadata(environment)
-    console.print_info(f"Imported environment '{env_name}' with {len(entries)} repo(s).")
+        if not entries:
+            raise NothingMatchedError(
+                f"No git worktrees found under {directory}.",
+                hint="Point at a directory containing checked-out repositories.",
+            )
+
+        environment = Environment(
+            name=env_name,
+            alias=alias,
+            path=directory,
+            source=(source or directory).resolve(),
+            base_branch=None,
+            repos=entries,
+        )
+        registry.add(environment)
+        state_store.write_env_metadata(environment)
+        console.print_info(f"Imported environment '{env_name}' with {len(entries)} repo(s).")

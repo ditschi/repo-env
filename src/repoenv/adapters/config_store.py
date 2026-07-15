@@ -25,6 +25,7 @@ from ruamel.yaml.error import YAMLError
 from repoenv.adapters import paths
 from repoenv.adapters.atomic import atomic_write_text
 from repoenv.errors import ConfigError
+from repoenv.typing_compat import patch_typing_eval_type
 
 _FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"(^|\s)&[\w-]+", "YAML anchors are not allowed in the config"),
@@ -32,6 +33,8 @@ _FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"<<\s*:", "YAML merge keys are not allowed in the config"),
     (r"!!", "YAML explicit tags are not allowed in the config"),
 )
+
+patch_typing_eval_type()
 
 
 class UserConfig(BaseModel):
@@ -43,6 +46,7 @@ class UserConfig(BaseModel):
     dest: Path | None = None
     default_branch: StrictStr | None = None
     install_completion: StrictBool = False
+    autocorrect: float | None = None
     aliases: dict[StrictStr, StrictStr] = Field(default_factory=dict)
 
 

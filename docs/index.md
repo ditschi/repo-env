@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/renv-lockup.png" alt="repo-env — renv CLI" width="280">
+</p>
+
 # repo-env
 
 > Build and operate isolated **git-worktree environments** across many repositories.
@@ -16,8 +20,11 @@ Working across many related repositories is tedious: context-switching between c
 
 | I want to… | Go to… |
 |---|---|
-| Install and get started | [Installation](user-guide/installation.md) |
+| Install and get started | [Installation](user-guide/installation.md) → [Quick Start](user-guide/quickstart.md) |
+| Follow a full workflow | [Workflow example](user-guide/workflow-example.md) |
 | Learn the commands | [Commands](user-guide/commands.md) |
+| Understand layout and env resolution | [Concepts](user-guide/concepts.md) |
+| Fix broken worktrees / registry | [Troubleshooting](user-guide/troubleshooting.md) |
 | Understand config options | [Configuration](user-guide/configuration.md) |
 | Contribute to the project | [Development Setup](contributor-guide/dev-setup.md) |
 | See what changed | [Changelog](changelog.md) |

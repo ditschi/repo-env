@@ -1,6 +1,8 @@
 # API Reference
 
-The `repoenv` package exposes a stable Python API for tooling integration. Direct CLI users can skip this section.
+The `repoenv` Python package is primarily an implementation detail of the `renv` CLI. Symbols and module layout **may change** before v1.0 — pin your dependency if you integrate programmatically.
+
+Direct CLI users can skip this section.
 
 ## repoenv
 

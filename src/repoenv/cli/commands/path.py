@@ -7,13 +7,18 @@ from typing import Optional
 import typer
 
 from repoenv.adapters import state_store
+from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import NothingMatchedError
 from repoenv.ui import console
 
 
 def path_command(
-    env: Optional[str] = typer.Argument(None, help="Environment name or alias ('-' = cwd)."),
+    env: Optional[str] = typer.Argument(
+        None,
+        help="Environment name or alias ('-' = cwd).",
+        autocompletion=complete_env_name,
+    ),
     repo: Optional[str] = typer.Option(None, "--repo", "-r", help="Print a single worktree path."),
 ) -> None:
     """Print an absolute path to stdout (for ``cd "$(renv path web)"``)."""
