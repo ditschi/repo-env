@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
       - name: Install hatch
         run: uv tool install hatch
       - name: Build
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
       - name: Install commitizen
         run: uv tool install commitizen
       - name: Extract changelog for this version
@@ -120,7 +120,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
       - name: Install docs deps
         run: uv pip install -e ".[docs]" --system
       - name: Configure git for mike
