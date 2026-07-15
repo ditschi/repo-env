@@ -10,31 +10,53 @@ Run `renv --help` or `renv <command> --help` for the latest flags.
 
 First-run setup wizard. Writes the user config file.
 
-```
-renv init [--force]
+```bash
+renv init [OPTIONS]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--force` | Re-run wizard even if config already exists |
+Key options:
+
+- `--source/-s DIR`: default source directory of clones
+- `--dest/-d DIR`: default destination root for environments
+- `--default-branch BRANCH`: fallback default branch
+- `--install-completion`: record completion preference
+- `--yes/-y`: non-interactive
 
 ---
 
-## `renv new`
+## `renv create`
 
 Create a new environment from repositories in a source directory.
 
-```
-renv new NAME --source DIR --branch BRANCH [OPTIONS]
+```bash
+renv create NAME [OPTIONS]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--source DIR` | Root directory to scan for git repositories |
-| `--branch BRANCH` | Worktree branch name to create in each repo |
-| `--glob PATTERN` | Filter repos by name glob (default: `*`) |
-| `--base BRANCH` | Base branch to create the worktree from (default: `main`) |
-| `--no-create` | Dry-run: show what would be created |
+`renv new` remains available as a compatibility alias.
+
+Highlights:
+
+- `--source/-s DIR`, `--dest/-d DIR`
+- `--include/-i GLOB` / `--exclude/-x GLOB` (repeatable; CSV also supported)
+- `--branch/-b BRANCH` (create branch in each repo)
+- `--default-branch/-B BRANCH` (fallback when auto-detect fails)
+- `--preserve` (skip fetch/update; use source repos as-is)
+- `--activate` (set as default environment)
+- `--on-branch-conflict detach|move|fail` (when branch already checked out elsewhere)
+- `--dry-run/-n`
+
+### Directory layout
+
+Each environment is a directory under your `--dest` root:
+
+```text
+<dest>/<env-name>/
+  .repoenv.json          # environment metadata (also the renv-root marker)
+  <repo-a>/              # git worktree for repo-a
+  <repo-b>/              # git worktree for repo-b
+```
+
+The env directory is a container; each repository gets its own subdirectory worktree.
 
 ---
 
@@ -42,9 +64,35 @@ renv new NAME --source DIR --branch BRANCH [OPTIONS]
 
 List all environments and their worktree status.
 
-```
+```bash
 renv ls [--json]
 ```
+
+---
+
+## `renv activate`
+
+Set the default active environment for future commands (when not inside an env directory).
+
+```bash
+renv activate NAME
+```
+
+---
+
+## `renv config`
+
+Inspect and edit configuration/state.
+
+```bash
+renv config [KEY [VALUE]] [--unset] [--json]
+```
+
+Examples:
+
+- `renv config` (dump effective config + paths + active env)
+- `renv config source ~/src`
+- `renv config autocorrect 0.5`
 
 ---
 
@@ -52,8 +100,8 @@ renv ls [--json]
 
 Print the filesystem path to a named environment (suitable for `cd`).
 
-```
-renv path NAME
+```bash
+renv path [ENV] [--repo NAME]
 ```
 
 ---
@@ -62,14 +110,16 @@ renv path NAME
 
 Run an arbitrary shell command inside every worktree of an environment.
 
-```
-renv run NAME -- COMMAND [ARGS...]
+```bash
+renv run [ENV] [OPTIONS] -- COMMAND [ARGS...]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--fail-fast` | Stop on first non-zero exit code |
-| `--parallel` | Run across worktrees in parallel |
+Highlights:
+
+- `--jobs/-j N` (parallel workers)
+- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV supported)
+- `--shell` (run via shell to enable pipes/globs)
+- `--json`
 
 ---
 
@@ -77,19 +127,38 @@ renv run NAME -- COMMAND [ARGS...]
 
 Open bulk pull requests for every worktree with unpushed commits.
 
-```
-renv pr NAME --title TITLE [OPTIONS]
+```bash
+renv pr [ENV] --title TITLE [OPTIONS]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--title TEXT` | PR title (must follow Conventional Commits if enforced by the target repo) |
-| `--body TEXT` | PR body text |
-| `--draft` | Open as draft PRs |
-| `--base BRANCH` | Target base branch (default: `main`) |
+Highlights:
+
+- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV supported)
+- `--push` (push branches before creating PRs)
+- `--skip-no-diff` (skip repos with no commits vs base)
+- `--if-exists skip|fail`
 
 !!! warning "No auto-push"
-    `renv pr` never pushes your branches automatically. Push first, then run `renv pr`.
+    `renv pr` never pushes unless `--push` is given.
+
+---
+
+## `renv repair`
+
+Recreate worktrees that are missing or marked failed/stale, using metadata stored in the registry.
+
+```bash
+renv repair [ENV] [OPTIONS]
+```
+
+Highlights:
+
+- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV supported)
+- `--on-branch-conflict detach|move|fail`
+- `--preserve` (skip fetch/update)
+- `--dry-run/-n`
+
+Use after manual deletion of individual worktree directories, or when `renv create`/`add` left some repos in a failed state.
 
 ---
 
@@ -97,10 +166,137 @@ renv pr NAME --title TITLE [OPTIONS]
 
 Remove an environment (deletes worktrees, leaves source clones).
 
-```
-renv rm NAME [--force]
+```bash
+renv rm [ENV] [--delete-files] [--force] [--dry-run]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--force` | Skip confirmation prompt (dangerous in non-interactive mode; blocked) |
+By default, `renv rm` removes the environment from the registry only. Use `--delete-files` to also remove worktrees and the env directory.
+
+---
+
+## `renv add`
+
+Add repositories to an existing environment.
+
+```bash
+renv add [ENV] [OPTIONS]
+```
+
+Highlights:
+
+- `--source/-s DIR` (defaults to env source or config)
+- `--include/-i GLOB` / `--exclude/-x GLOB`
+- `--branch/-b BRANCH`, `--on-branch-conflict detach|move|fail`
+- `--preserve`, `--activate`, `--dry-run/-n`
+
+---
+
+## `renv merge`
+
+Combine two environments into a newly created environment.
+
+```bash
+renv merge NAME LEFT RIGHT [OPTIONS]
+```
+
+Highlights:
+
+- `--op union|intersect|difference` (default: `union`)
+- `--dest/-d DIR`, `--alias/-a NAME`, `--dry-run/-n`
+
+---
+
+## `renv repos`
+
+List all repository names across every registered environment (multi-column).
+
+```bash
+renv repos
+```
+
+---
+
+## `renv rename`
+
+Rename an environment in the registry and update its metadata.
+
+```bash
+renv rename OLD NEW
+```
+
+---
+
+## `renv sync`
+
+Fetch updates from each repository's remote for an environment.
+
+```bash
+renv sync [ENV]
+```
+
+---
+
+## `renv status` / `renv check`
+
+Report per-repo health: present/missing worktrees and dirty state. `check` is an alias for `status`.
+
+```bash
+renv status [ENV] [--json]
+```
+
+Start here when something looks wrong — see [Troubleshooting](troubleshooting.md).
+
+---
+
+## `renv prune`
+
+Run `git worktree prune` across an environment's source repositories.
+
+```bash
+renv prune [ENV]
+```
+
+Use when git remembers worktrees whose directories were removed manually.
+
+---
+
+## `renv import`
+
+Register an environment from worktrees already present on disk.
+
+```bash
+renv import DIRECTORY [OPTIONS]
+```
+
+Highlights:
+
+- `--name NAME` (default: directory basename)
+- `--source DIR`, `--alias NAME`
+
+---
+
+## `renv sh`
+
+Open an interactive subshell with the environment context loaded (`REPOENV_ACTIVE`, prompt marker).
+
+```bash
+renv sh [ENV]
+```
+
+---
+
+## `renv completion`
+
+Print a shell completion script to stdout (for manual installation in dotfiles).
+
+```bash
+renv completion [bash|zsh|fish]
+```
+
+See [Installation](installation.md) for setup examples.
+
+---
+
+## Optional `[ENV]` argument
+
+Most commands accept an optional environment name. When omitted, resolution follows [Concepts → Environment resolution](concepts.md#environment-resolution). Use `-` or rely on CWD inside an environment directory.

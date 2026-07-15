@@ -1,3 +1,6 @@
+# generated files
+src/repoenv/_version.py
+
 # Byte-compiled / caches
 __pycache__/
 *.py[cod]
@@ -23,3 +26,9 @@ htmlcov/
 # Editor
 .idea/
 *.swp
+
+# Local integration-test git fixtures (manual inspection)
+.testenv/
+
+# MkDocs build output
+site/

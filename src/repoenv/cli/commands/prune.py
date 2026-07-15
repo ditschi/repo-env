@@ -7,13 +7,18 @@ from typing import Optional
 import typer
 
 from repoenv.adapters import state_store
+from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.services import lifecycle_service
 from repoenv.ui import console
 
 
 def prune_command(
-    env: Optional[str] = typer.Argument(None, help="Environment name or alias ('-' = cwd)."),
+    env: Optional[str] = typer.Argument(
+        None,
+        help="Environment name or alias ('-' = cwd).",
+        autocompletion=complete_env_name,
+    ),
 ) -> None:
     """Run ``git worktree prune`` across an environment's repositories."""
     registry = state_store.load_registry()

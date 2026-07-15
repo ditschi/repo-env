@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from repoenv.adapters import gh_adapter, state_store
+from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import UsageError
 from repoenv.services import pr_service
@@ -15,11 +16,17 @@ from repoenv.ui import console
 
 
 def pr_command(
-    env: Optional[str] = typer.Argument(None, help="Environment name or alias ('-' = cwd)."),
+    env: Optional[str] = typer.Argument(
+        None,
+        help="Environment name or alias ('-' = cwd).",
+        autocompletion=complete_env_name,
+    ),
     title: str = typer.Option(..., "--title", "-t", help="PR title. Supports {repo}/{branch}/{env}."),
     body: str = typer.Option("", "--body", "-b", help="PR body. Supports {repo}/{branch}/{env}."),
     base: Optional[str] = typer.Option(None, "--base", help="Base branch for the PRs."),
     draft: bool = typer.Option(False, "--draft", help="Create draft pull requests."),
+    include: List[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to include."),
+    exclude: List[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to exclude."),
     reviewer: List[str] = typer.Option([], "--reviewer", help="Reviewer (repeatable)."),
     label: List[str] = typer.Option([], "--label", help="Label (repeatable)."),
     assignee: List[str] = typer.Option([], "--assignee", help="Assignee (repeatable)."),
@@ -56,6 +63,8 @@ def pr_command(
         push=push,
         skip_no_diff=skip_no_diff,
         if_exists=if_exists,
+        include=include or None,
+        exclude=exclude or None,
     )
 
     if as_json:

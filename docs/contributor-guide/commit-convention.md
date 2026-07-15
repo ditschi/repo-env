@@ -44,7 +44,7 @@ feat!: remove --legacy flag
 ```
 feat(cli): redesign pr command
 
-BREAKING CHANGE: --push flag removed; use `git push` before `renv pr`
+BREAKING CHANGE: `--push` is now opt-in; branches are not pushed automatically
 ```
 
 Breaking changes trigger a **major** version bump.
@@ -90,7 +90,7 @@ cz commit   # guided prompt that writes a valid message for you
 ## Examples
 
 ```
-feat(cli): add --glob filter to renv new
+feat(cli): add --glob filter to renv create
 fix(adapters/git): avoid crash when worktree already exists
 docs: add configuration reference page
 ci: add multi-python test matrix (3.12/3.13/3.14)
