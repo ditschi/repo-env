@@ -57,7 +57,7 @@ def _build_create_marker(
     source: Path | None,
     dest: Path | None,
     branch: str | None,
-    default_branch: str | None,
+    from_branches: list[str],
     alias: str | None,
     preserve: bool,
 ) -> dict[str, object]:
@@ -75,8 +75,8 @@ def _build_create_marker(
         recreate_parts.extend(["--dest", str(dest)])
     if branch is not None:
         recreate_parts.extend(["--branch", branch])
-    if default_branch is not None:
-        recreate_parts.extend(["--default-branch", default_branch])
+    for from_branch in from_branches:
+        recreate_parts.extend(["--from", from_branch])
     if alias is not None:
         recreate_parts.extend(["--alias", alias])
     if preserve:
@@ -111,15 +111,18 @@ def create_command(
         help="Include repositories found under nested renv roots.",
     ),
     branch: Optional[str] = typer.Option(
-        None, "--branch", "-b", help="Create and check out this new branch."
+        None, "--branch", "-b", help="Create and check out this new branch (postfixed per base on multi)."
+    ),
+    from_branch: list[str] = typer.Option(
+        [],
+        "--from",
+        "-f",
+        help="Base branch(es) to start from; repeatable or comma-separated. Multiple => one worktree each.",
     ),
     on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
         environment_service.BranchConflictStrategy.DETACH,
         "--on-branch-conflict",
         help="When the target branch is already checked out elsewhere: detach|move|fail.",
-    ),
-    default_branch: Optional[str] = typer.Option(
-        None, "--default-branch", "-B", help="Fallback default branch when auto-detection fails."
     ),
     alias: Optional[str] = typer.Option(None, "--alias", "-a", help="Short alias for the environment."),
     preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
@@ -131,6 +134,7 @@ def create_command(
     resolved_source, resolved_dest = _resolve_create_paths(source=source, dest=dest, config=config)
     _reconcile_existing_env(name)
 
+    from_branches = environment_service.parse_branch_list(from_branch)
     plan = environment_service.build_create_plan(
         name=name,
         source=resolved_source,
@@ -139,13 +143,14 @@ def create_command(
         exclude=exclude or None,
         branch=branch,
         alias=alias,
-        default_branch=default_branch or config.default_branch,
+        default_branch=config.default_branch,
+        from_branches=from_branches or None,
         include_renv=include_renv,
     )
 
     console.print_info(f"Environment '{name}' -> {plan.env_path}")
-    console.print_info(f"Repositories ({len(plan.repos)}):")
-    console.render_repositories(plan.repos)
+    console.print_info(f"Worktrees ({len(plan.worktrees)}):")
+    console.render_repositories(plan.labels)
 
     with state_store.registry_transaction() as registry:
         active_set = registry.get_active() is not None
@@ -176,7 +181,7 @@ def create_command(
         source=source,
         dest=dest,
         branch=branch,
-        default_branch=default_branch,
+        from_branches=from_branches,
         alias=alias,
         preserve=preserve,
     )

@@ -38,8 +38,8 @@ Highlights:
 
 - `--source/-s DIR`, `--dest/-d DIR`
 - `--include/-i GLOB` / `--exclude/-x GLOB` (repeatable; CSV also supported)
-- `--branch/-b BRANCH` (create branch in each repo)
-- `--default-branch/-B BRANCH` (fallback when auto-detect fails)
+- `--branch/-b BRANCH` (create branch in each worktree)
+- `--from/-f BRANCH` (base branch(es) to start from; repeatable or comma-separated). A single value keeps the classic one-worktree-per-repo layout; multiple values create one worktree per repo **per** base branch — see [Multi-branch](multi-branch.md).
 - `--preserve` (skip fetch/update; use source repos as-is)
 - `--activate` (set as default environment)
 - `--on-branch-conflict detach|move|fail` (when branch already checked out elsewhere)
@@ -56,7 +56,7 @@ Each environment is a directory under your `--dest` root:
   <repo-b>/              # git worktree for repo-b
 ```
 
-The env directory is a container; each repository gets its own subdirectory worktree.
+The env directory is a container; each repository gets its own subdirectory worktree. With multiple `--from` branches the worktree directories are postfixed by the base branch (`<repo>-<base>`); see [Multi-branch](multi-branch.md).
 
 ---
 
@@ -187,6 +187,7 @@ Highlights:
 - `--source/-s DIR` (defaults to env source or config)
 - `--include/-i GLOB` / `--exclude/-x GLOB`
 - `--branch/-b BRANCH`, `--on-branch-conflict detach|move|fail`
+- `--from/-f BRANCH` (base branch(es); repeatable or comma-separated). Adds one worktree per base, so the **same repo can be added again on another branch** — see [Multi-branch](multi-branch.md).
 - `--preserve`, `--activate`, `--dry-run/-n`
 
 ---

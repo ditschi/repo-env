@@ -21,7 +21,7 @@ def test_build_add_plan_skips_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     plan = environment_service.build_add_plan(env=env, include=["*"], exclude=None)
-    assert plan.repos == ["beta", "gamma"]
+    assert [w.repo for w in plan.worktrees] == ["beta", "gamma"]
     assert plan.skipped["alpha"] == "already present in environment"
 
 
@@ -45,7 +45,7 @@ def test_build_merge_plan_union(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
         alias=None,
     )
     assert plan.name == "merged"
-    assert plan.repos == ["alpha", "beta"]
+    assert [w.repo for w in plan.worktrees] == ["alpha", "beta"]
 
 
 def test_execute_create_plan_preserves_nested_repo_structure(
@@ -59,10 +59,16 @@ def test_execute_create_plan_preserves_nested_repo_structure(
         name="test",
         env_path=env_root / "test",
         source=source,
-        base_branch="main",
-        new_branch=None,
         alias=None,
-        repos=["org-a/shared", "org-b/shared"],
+        default_base="main",
+        worktrees=[
+            environment_service.PlannedWorktree(
+                repo="org-a/shared", worktree_dir="org-a/shared", base="main", new_branch=None
+            ),
+            environment_service.PlannedWorktree(
+                repo="org-b/shared", worktree_dir="org-b/shared", base="main", new_branch=None
+            ),
+        ],
     )
 
     calls: list[Path] = []
@@ -96,10 +102,16 @@ def test_execute_create_plan_continues_when_rev_parse_fails(
         name="test",
         env_path=env_root / "test",
         source=source,
-        base_branch="main",
-        new_branch=None,
         alias=None,
-        repos=["alpha", "beta"],
+        default_base="main",
+        worktrees=[
+            environment_service.PlannedWorktree(
+                repo="alpha", worktree_dir="alpha", base="main", new_branch=None
+            ),
+            environment_service.PlannedWorktree(
+                repo="beta", worktree_dir="beta", base="main", new_branch=None
+            ),
+        ],
     )
 
     monkeypatch.setattr(environment_service.git_adapter, "default_branch", lambda _repo, _remote: "main")
@@ -142,10 +154,14 @@ def test_execute_create_plan_marks_repo_failed_when_default_branch_fails(
         name="test",
         env_path=env_root / "test",
         source=source,
-        base_branch=None,
-        new_branch=None,
         alias=None,
-        repos=["alpha", "beta"],
+        default_base=None,
+        worktrees=[
+            environment_service.PlannedWorktree(
+                repo="alpha", worktree_dir="alpha", base=None, new_branch=None
+            ),
+            environment_service.PlannedWorktree(repo="beta", worktree_dir="beta", base=None, new_branch=None),
+        ],
     )
 
     def _default_branch(repo: Path, _remote: str) -> str:
@@ -184,7 +200,15 @@ def test_execute_add_plan_marks_repo_failed_when_default_branch_fails(
 
     env = Environment(name="web", path=env_path, source=source, base_branch=None)
     plan = environment_service.AddPlan(
-        env_name="web", source=source, env_path=env_path, repos=["alpha", "beta"]
+        env_name="web",
+        source=source,
+        env_path=env_path,
+        worktrees=[
+            environment_service.PlannedWorktree(
+                repo="alpha", worktree_dir="alpha", base=None, new_branch=None
+            ),
+            environment_service.PlannedWorktree(repo="beta", worktree_dir="beta", base=None, new_branch=None),
+        ],
     )
 
     def _default_branch(repo: Path, _remote: str) -> str:
@@ -223,7 +247,17 @@ def test_execute_add_plan_continues_when_rev_parse_fails(
 
     env = Environment(name="web", path=env_path, source=source, base_branch="main")
     plan = environment_service.AddPlan(
-        env_name="web", source=source, env_path=env_path, repos=["alpha", "beta"]
+        env_name="web",
+        source=source,
+        env_path=env_path,
+        worktrees=[
+            environment_service.PlannedWorktree(
+                repo="alpha", worktree_dir="alpha", base="main", new_branch=None
+            ),
+            environment_service.PlannedWorktree(
+                repo="beta", worktree_dir="beta", base="main", new_branch=None
+            ),
+        ],
     )
 
     monkeypatch.setattr(environment_service.git_adapter, "default_branch", lambda _repo, _remote: "main")
@@ -280,7 +314,7 @@ def test_build_create_plan_excludes_nested_renv_by_default(
         default_branch="main",
     )
 
-    assert plan.repos == ["alpha"]
+    assert [w.repo for w in plan.worktrees] == ["alpha"]
 
 
 def test_build_create_plan_keeps_repos_when_source_is_renv_root(
@@ -304,7 +338,7 @@ def test_build_create_plan_keeps_repos_when_source_is_renv_root(
         default_branch="main",
     )
 
-    assert plan.repos == ["alpha", "beta"]
+    assert [w.repo for w in plan.worktrees] == ["alpha", "beta"]
 
 
 def test_build_create_plan_include_renv_overrides_default_exclusion(
@@ -335,4 +369,4 @@ def test_build_create_plan_include_renv_overrides_default_exclusion(
         include_renv=True,
     )
 
-    assert plan.repos == ["alpha", "nested-renv/alpha"]
+    assert [w.repo for w in plan.worktrees] == ["alpha", "nested-renv/alpha"]

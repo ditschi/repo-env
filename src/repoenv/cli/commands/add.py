@@ -25,7 +25,13 @@ def add_command(
     include: list[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to include."),
     exclude: list[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to exclude."),
     branch: Optional[str] = typer.Option(
-        None, "--branch", "-b", help="Create and check out this new branch."
+        None, "--branch", "-b", help="Create and check out this new branch (postfixed per base on multi)."
+    ),
+    from_branch: list[str] = typer.Option(
+        [],
+        "--from",
+        "-f",
+        help="Base branch(es) to start from; repeatable or comma-separated. Adds a worktree per base.",
     ),
     on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
         environment_service.BranchConflictStrategy.DETACH,
@@ -42,12 +48,15 @@ def add_command(
         if source is not None:
             environment.source = source.expanduser()
 
+        from_branches = environment_service.parse_branch_list(from_branch)
         plan = environment_service.build_add_plan(
             env=environment,
             include=include or None,
             exclude=exclude or None,
+            from_branches=from_branches or None,
+            branch=branch,
         )
-        console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
+        console.print_info(f"Add to '{environment.name}' ({len(plan.labels)}): {', '.join(plan.labels)}")
 
         active_set = registry.get_active() is not None
 
@@ -55,7 +64,7 @@ def add_command(
             console.print_info("Dry run: no changes made.")
         else:
             environment_service.execute_add_plan(
-                environment, plan, branch=branch, preserve=preserve, on_branch_conflict=on_branch_conflict
+                environment, plan, preserve=preserve, on_branch_conflict=on_branch_conflict
             )
             registry.add(environment)
             if activate:
@@ -75,4 +84,4 @@ def add_command(
             f"Some repositories failed: {', '.join(failed)}.",
             hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
         )
-    console.print_info(f"Added {len(plan.repos)} repository(ies) to '{environment.name}'.")
+    console.print_info(f"Added {len(plan.worktrees)} worktree(s) to '{environment.name}'.")
