@@ -1,10 +1,54 @@
 # Release Process
 
-Releases are **human-triggered**: a maintainer runs `cz bump` locally, which computes the new version from Conventional Commits, updates `CHANGELOG.md`, commits, and creates a signed tag. Pushing the tag fires the `release.yml` workflow, which publishes to PyPI and deploys the versioned docs.
+Releases are **human-triggered**: a maintainer runs `cz bump` locally, which computes the new version from Conventional Commits, updates `CHANGELOG.md`, commits, and creates a signed tag. Pushing the tag fires the `release.yml` workflow, which publishes to PyPI and deploys versioned docs.
 
-## Prerequisites
+## One-time infrastructure setup
 
-Install the dev extras (includes `commitizen` and `hatch-vcs`):
+Complete these steps **once** before the first `v0.1.0` tag.
+
+### 1. PyPI Trusted Publishing (OIDC)
+
+On [pypi.org](https://pypi.org) → Your projects → `repo-env` → Publishing → **Add a new pending publisher** (or configure after first upload):
+
+| Field | Value |
+|-------|-------|
+| PyPI project name | `repo-env` |
+| Owner | `ditschi` |
+| Repository name | `repo-env` |
+| Workflow name | `release.yml` |
+| Environment name | `pypi` |
+
+Repeat on [test.pypi.org](https://test.pypi.org) with environment name `testpypi`.
+
+No long-lived API tokens are stored in GitHub secrets — the workflow uses OIDC (`id-token: write`).
+
+### 2. GitHub Environments
+
+In the GitHub repo → **Settings → Environments**, create:
+
+| Environment | Purpose | Suggested protection |
+|-------------|---------|----------------------|
+| `testpypi` | TestPyPI publish + install smoke test | Optional reviewers |
+| `pypi` | Production PyPI publish | Required reviewers recommended |
+
+Environment names must match `release.yml` (`environment: name: testpypi` / `pypi`).
+
+### 3. GitHub Pages
+
+Ensure GitHub Pages is enabled for the repo (deploy source: GitHub Actions / `gh-pages` branch from workflows).
+
+### 4. Verify locally
+
+```sh
+nox -s install_dev
+nox -s docs
+nox -s integration
+cz bump --dry-run
+```
+
+## Prerequisites (every release)
+
+Install dev extras (includes `commitizen` and `hatch-vcs`):
 
 ```sh
 nox -s install_dev
@@ -34,10 +78,13 @@ cz bump
 ```
 
 This:
+
 1. Computes the next [SemVer](https://semver.org/) version.
 2. Updates `CHANGELOG.md`.
 3. Commits with message `chore(release): bump version to X.Y.Z`.
 4. Creates an annotated git tag `vX.Y.Z`.
+
+For the **first** release when history predates Conventional Commits, ensure `CHANGELOG.md` has a sensible `[0.1.0]` section before bumping, or use `cz bump --increment MINOR` after reviewing `cz bump --dry-run`.
 
 ### 4. Push the commit and tag
 
@@ -48,15 +95,14 @@ git push origin main --follow-tags
 ### 5. CI takes over
 
 The `release.yml` workflow fires on `vX.Y.Z` tags and:
+
 1. Builds sdist + wheel with `hatch build`.
-2. Publishes to **TestPyPI** and verifies the install.
-3. Publishes to **PyPI** via OIDC Trusted Publishing (no token stored).
-4. Creates a GitHub Release with the changelog section for this version.
+2. Publishes to **TestPyPI** and verifies install (`uv tool install` from TestPyPI).
+3. Publishes to **PyPI** via OIDC Trusted Publishing.
+4. Creates a GitHub Release with changelog notes for this version.
 5. Deploys versioned docs: `mike deploy X.Y.Z stable --update-aliases`.
 
-!!! info "First release"
-    The first ever release uses TestPyPI to verify the full pipeline before touching PyPI.
-    See the `release.yml` workflow for the `TEST_PYPI_FIRST` environment gate.
+Every release runs TestPyPI first, then PyPI — there is no separate gate flag in the workflow.
 
 ### 6. Verify
 
