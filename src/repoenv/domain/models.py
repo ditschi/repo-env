@@ -13,7 +13,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
+from repoenv.typing_compat import patch_typing_eval_type
+
 SCHEMA_VERSION = 1
+
+patch_typing_eval_type()
 
 
 def _utcnow() -> datetime:
@@ -43,6 +47,7 @@ class RepoEntry(BaseModel):
     branch_created: bool = False
     source_sha: StrictStr | None = None
     status: RepoStatus = RepoStatus.PENDING
+    note: StrictStr | None = None
 
 
 class Environment(BaseModel):

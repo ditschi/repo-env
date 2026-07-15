@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from repoenv.adapters import shell_adapter
 from repoenv.domain.models import Environment, RepoEntry, RunResult
+from repoenv.domain.selection import resolve_selection
 
 
 def _repo_env(
@@ -70,9 +71,14 @@ def run_across(
     *,
     jobs: int = 1,
     use_shell: bool = False,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
 ) -> list[RunResult]:
     """Run ``argv`` in each worktree and return results ordered by repo name."""
     entries = sorted(env.repos, key=lambda e: e.repo)
+    if include is not None or exclude is not None:
+        selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
+        entries = [e for e in entries if e.repo in selected]
     total = len(entries)
 
     if jobs <= 1:

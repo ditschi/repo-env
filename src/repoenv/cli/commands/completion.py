@@ -8,10 +8,11 @@ manually or vendor it into their dotfiles.
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
+from pathlib import Path
+from typing import Optional
 
 import typer
+from typer.completion import get_completion_script
 
 from repoenv.errors import UsageError
 from repoenv.ui import console
@@ -19,20 +20,34 @@ from repoenv.ui import console
 _SUPPORTED = ("bash", "zsh", "fish")
 
 
-def completion_command(
-    shell: str = typer.Argument(..., help="Shell to generate completion for: bash|zsh|fish."),
-) -> None:
-    """Print a shell completion script to stdout."""
-    if shell not in _SUPPORTED:
-        raise UsageError(f"Unsupported shell '{shell}'.", hint=f"Choose one of: {', '.join(_SUPPORTED)}.")
-
-    child_env = dict(os.environ)
-    child_env["_RENV_COMPLETE"] = f"{shell}_source"
-    result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "repoenv"],
-        env=child_env,
-        capture_output=True,
-        text=True,
-        check=False,
+def _detect_shell() -> str:
+    """Return the current shell name derived from $SHELL, or raise UsageError."""
+    shell_path = os.environ.get("SHELL", "")
+    name = Path(shell_path).name
+    if name in _SUPPORTED:
+        return name
+    raise UsageError(
+        f"Could not auto-detect a supported shell from $SHELL={shell_path!r}.",
+        hint=f"Pass a shell explicitly: {', '.join(_SUPPORTED)}.",
     )
-    console.print_data(result.stdout.rstrip("\n"))
+
+
+def completion_command(
+    shell: Optional[str] = typer.Argument(
+        None, help="Shell to generate completion for: bash|zsh|fish. Auto-detected from $SHELL when omitted."
+    ),
+) -> None:
+    """Print a shell completion script to stdout.
+
+    Usage (like ado-pipeline-manager):  eval "$(renv completion)"
+    """
+    resolved = shell or _detect_shell()
+    if resolved not in _SUPPORTED:
+        raise UsageError(f"Unsupported shell '{resolved}'.", hint=f"Choose one of: {', '.join(_SUPPORTED)}.")
+
+    script = get_completion_script(
+        prog_name="renv",
+        complete_var="_RENV_COMPLETE",
+        shell=resolved,
+    )
+    console.print_data(script)
