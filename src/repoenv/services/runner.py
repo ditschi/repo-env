@@ -44,7 +44,7 @@ def _run_one(
 ) -> RunResult:
     if not entry.worktree_path.exists():
         return RunResult(
-            repo=entry.repo,
+            repo=entry.worktree_path.name,
             worktree_path=entry.worktree_path,
             exit_code=0,
             duration_s=0.0,
@@ -56,7 +56,7 @@ def _run_one(
         argv, cwd=entry.worktree_path, env=child_env, use_shell=use_shell
     )
     return RunResult(
-        repo=entry.repo,
+        repo=entry.worktree_path.name,
         worktree_path=entry.worktree_path,
         exit_code=code,
         duration_s=duration,
@@ -75,7 +75,7 @@ def run_across(
     exclude: list[str] | None = None,
 ) -> list[RunResult]:
     """Run ``argv`` in each worktree and return results ordered by repo name."""
-    entries = sorted(env.repos, key=lambda e: e.repo)
+    entries = sorted(env.repos, key=lambda e: e.worktree_path.name)
     if include is not None or exclude is not None:
         selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
         entries = [e for e in entries if e.repo in selected]
@@ -93,4 +93,4 @@ def run_across(
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         results = list(pool.map(_task, enumerate(entries, start=1)))
-    return sorted(results, key=lambda r: r.repo)
+    return sorted(results, key=lambda r: r.worktree_path.name)

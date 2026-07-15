@@ -27,7 +27,7 @@ def check_dirty(env: Environment) -> list[str]:
     dirty: list[str] = []
     for entry in env.repos:
         if entry.worktree_path.exists() and not git_adapter.is_clean(entry.worktree_path):
-            dirty.append(entry.repo)
+            dirty.append(entry.worktree_path.name)
     return dirty
 
 
@@ -100,7 +100,11 @@ def list_repair_candidates(
     if include is not None or exclude is not None:
         repo_names = resolve_selection(repo_names, include=include, exclude=exclude)
     allowed = set(repo_names)
-    return [entry.repo for entry in env.repos if entry.repo in allowed and not _is_healthy_worktree(entry)]
+    return [
+        entry.worktree_path.name
+        for entry in env.repos
+        if entry.repo in allowed and not _is_healthy_worktree(entry)
+    ]
 
 
 def repair_environment(
@@ -117,7 +121,7 @@ def repair_environment(
     failed: list[str] = []
 
     for entry in env.repos:
-        if entry.repo not in candidates:
+        if entry.worktree_path.name not in candidates:
             continue
         if _is_healthy_worktree(entry):
             continue
@@ -141,9 +145,9 @@ def repair_environment(
             entry.source_sha = environment_service._resolve_source_sha(
                 repo_path, remote=entry.remote, base=entry.base, preserve=preserve
             )
-            repaired.append(entry.repo)
+            repaired.append(entry.worktree_path.name)
         except Exception as exc:  # noqa: BLE001 - per-repo robustness
-            failed.append(entry.repo)
+            failed.append(entry.worktree_path.name)
             entry.status = RepoStatus.FAILED
             entry.note = f"failed: {exc}"
 

@@ -63,7 +63,7 @@ def merge_command(
             alias=alias,
         )
         console.print_info(
-            f"Merge {left_env.name} {op.value} {right_env.name} -> {name} ({len(plan.repos)} repos)"
+            f"Merge {left_env.name} {op.value} {right_env.name} -> {name} ({len(plan.worktrees)} repos)"
         )
 
         if dry_run:
