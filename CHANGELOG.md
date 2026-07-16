@@ -15,6 +15,9 @@ First public release of `repo-env` / the `renv` CLI.
 ### Added
 
 - `renv` CLI for managing multi-repository git worktree environments
+- `renv clone` — clone repositories into the source tree (`host/owner/repo` layout) via
+  `--url` and `owner/repo` `--include`/`--exclude` globs; GitHub discovery through `gh`
+  when globs need the API; `--update`, `--reset-default`, and `--force` for existing clones
 - Commands: `init`, `create`, `add`, `merge`, `ls`, `repos`, `path`, `run`, `rm`, `rename`, `sync`, `status`, `check`, `prune`, `repair`, `import`, `pr`, `sh`, `completion`, `activate`, `config`
 - Environment resolution: explicit name, environment alias, config alias, CWD-in-env, `REPOENV_ACTIVE`, persisted active env
 - User config (`repoenv.yaml`) and registry (`registry.json`) under `REPOENV_HOME`

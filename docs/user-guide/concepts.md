@@ -6,13 +6,17 @@ How `renv` organizes repositories, environments, and configuration.
 
 | Term | Meaning |
 |------|---------|
-| **Source** | Directory tree of your **read-only clones** (`--source` / config `source`). `renv create` and `renv add` scan here for git repos. |
+| **Source** | Directory tree of your **read-only clones** (`--source` / config `source`). `renv create` and `renv add` scan here for git repos. Use `renv clone` to populate it (layout `host/owner/repo` recommended). |
 | **Destination (`dest`)** | Root directory where **environment folders** are created (`--dest` / config `dest`). |
 | **Environment** | Named folder under `dest` containing one worktree subdirectory per selected repo. |
 
 ```text
 ~/src/                          # source (clones — never modified by renv)
-  service-a/
+  github.com/                   # optional host/owner/repo layout (renv clone)
+    my-org/
+      service-a/
+      service-b/
+  service-a/                    # flat layout also works
   service-b/
 
 ~/envs/                         # dest

@@ -13,6 +13,7 @@ import typer
 from repoenv import __version__
 from repoenv.cli.commands.activate import activate_command
 from repoenv.cli.commands.add import add_command
+from repoenv.cli.commands.clone import clone_command
 from repoenv.cli.commands.config import config_command
 from repoenv.cli.commands.create import create_command
 from repoenv.cli.commands.import_env import import_command
@@ -76,6 +77,7 @@ app.command("config")(config_command)
 app.command("create")(create_command)
 app.command("new", hidden=True)(create_command)
 app.command("add")(add_command)
+app.command("clone")(clone_command)
 app.command("merge")(merge_command)
 app.command("ls")(ls_command)
 app.command("repos")(repos_command)

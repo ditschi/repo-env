@@ -21,6 +21,23 @@ class SetOp(str, Enum):
     DIFFERENCE = "difference"
 
 
+def split_csv(values: list[str]) -> list[str]:
+    """Flatten repeatable ``--flag a --flag b,c`` options into ``["a", "b", "c"]``.
+
+    Every glob-taking option in the CLI (``--include``, ``--exclude``, and
+    ``renv clone``'s ``--url``/``--include``/``--exclude``) accepts both a
+    repeated flag and comma-separated values within one occurrence; this is
+    the single place that flattening happens.
+    """
+    parts: list[str] = []
+    for raw in values:
+        for item in raw.split(","):
+            trimmed = item.strip()
+            if trimmed:
+                parts.append(trimmed)
+    return parts
+
+
 def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     """Convert a glob pattern (with ``**`` support) to a compiled regex.
 
@@ -75,20 +92,8 @@ def resolve_selection(
     - Patterns may contain ``**`` to match across path separators.
     - Comma-separated values within a single pattern string are split.
     """
-    include = include or ["*"]
-    exclude = exclude or []
-
-    def _split_csv(values: list[str]) -> list[str]:
-        parts: list[str] = []
-        for raw in values:
-            for item in raw.split(","):
-                trimmed = item.strip()
-                if trimmed:
-                    parts.append(trimmed)
-        return parts
-
-    include = _split_csv(include)
-    exclude = _split_csv(exclude)
+    include = split_csv(include or ["*"])
+    exclude = split_csv(exclude or [])
 
     seen: set[str] = set()
     result: list[str] = []
