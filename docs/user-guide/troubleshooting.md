@@ -121,6 +121,27 @@ renv pr web --title "feat: …" --push
 2. Fix invalid entries manually (see [Configuration](configuration.md)).
 3. As last resort, remove the registry and re-import environments with `renv import`.
 
+## Unexpected errors / unknown commands
+
+**Symptom:** `renv ll` (typo) or another internal error used to print a raw Python
+traceback.
+
+By default `renv` never shows a stack trace — known errors print a short
+`error:`/`hint:` pair, and any *unexpected* failure prints a one-line message
+instead of crashing with a traceback. Add `--debug` (or set `REPOENV_DEBUG=1`)
+to see the full traceback for bug reports:
+
+```bash
+renv --debug create web -i 'service-*'
+REPOENV_DEBUG=1 renv create web -i 'service-*'
+```
+
+Typos of read-only commands (`ls`, `repos`, `path`, `status`/`check`,
+`completion`) auto-correct immediately, e.g. `renv ll` runs `renv ls`. Typos of
+state-changing commands (`create`, `rm`, `sync`, …) are never auto-run silently
+— set `autocorrect` in the config to opt in (see [Configuration](configuration.md)),
+otherwise `renv` reports the closest match and exits without running anything.
+
 ## Getting more help
 
 - `renv <command> --help` — authoritative flags for your installed version

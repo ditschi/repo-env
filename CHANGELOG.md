@@ -8,6 +8,15 @@ This file is updated automatically by `cz bump` — do not edit manually except 
 
 ## [Unreleased]
 
+### Added
+
+- `--debug` flag (also `REPOENV_DEBUG=1`) to show full tracebacks; without it, unexpected errors print a short message instead of a stack trace
+- Typos of read-only commands (`ls`, `repos`, `path`, `status`/`check`, `completion`) now auto-correct immediately regardless of the `autocorrect` setting
+
+### Fixed
+
+- An unknown command with a close match (e.g. `renv ll`) used to raise a raw `RuntimeError` with a Python traceback instead of a clean CLI error
+
 ## [0.1.0] - 2026-07-13
 
 First public release of `repo-env` / the `renv` CLI.

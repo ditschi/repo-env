@@ -29,7 +29,9 @@ default_branch: develop
 # Record completion preference (`renv init`; scripts are still user-managed)
 install_completion: false
 
-# Auto-correct unknown subcommands after N seconds (git-like behavior)
+# Auto-correct unknown *state-changing* subcommands after N seconds
+# (git-like behavior). Read-only commands (ls, repos, path, status, check,
+# completion) always auto-correct immediately and ignore this setting.
 # autocorrect: 0.5
 autocorrect: null
 

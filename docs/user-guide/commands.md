@@ -4,6 +4,11 @@ All commands are invoked as `renv <command> [OPTIONS] [ARGS]`.
 
 Run `renv --help` or `renv <command> --help` for the latest flags.
 
+## Global options
+
+- `--version/-V`: print the version and exit
+- `--debug`: show full tracebacks on error instead of a short message (also via `REPOENV_DEBUG=1`); see [Troubleshooting](troubleshooting.md#unexpected-errors-unknown-commands)
+
 ---
 
 ## `renv init`
