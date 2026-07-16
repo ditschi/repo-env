@@ -191,6 +191,90 @@ Highlights:
 
 ---
 
+## `renv clone`
+
+Clone repositories into the **source** tree so you can run `renv create` / `renv add` later.
+Does **not** create or modify any renv environment.
+
+```bash
+renv clone [OPTIONS]
+```
+
+Clones land under `--source` (default: config `source`) using a `host/owner/repo` layout:
+
+```text
+~/src/
+  github.com/
+    my-org/
+      service-a/
+      service-b/
+  github.company.com/
+    team/
+      internal-tool/
+```
+
+### Selecting repositories
+
+- `--url/-u URL` (required, repeatable; CSV supported): a host (`https://github.com`),
+  host+owner (`https://github.com/my-org`), or a full repo URL
+  (`https://github.com/owner/repo`, `git@github.com:owner/repo.git`).
+- `--include/-i PATTERN` / `--exclude/-x PATTERN`: `owner/repo` globs (repeatable; CSV
+  supported). Examples: `myself/test-*`, `owner/repo2`, `prefix-*/*`, `**` (match
+  everything reachable). Each pattern must contain exactly one `/` (except `**`).
+- When `--include` is omitted, every repo reachable via `--url` is included.
+
+Wildcard owner globs (e.g. `company-*/*`) query GitHub via `gh` and are scoped to
+orgs you belong to. `--role` controls which memberships count (default: `member`):
+
+| Value | Meaning |
+|-------|---------|
+| `member` | Active org memberships (any role) |
+| `owner` | Active memberships where you are an org admin |
+| `any` | Active and pending memberships, any role |
+
+If the default role finds nothing and you did not pass `--role` explicitly, `renv`
+automatically retries with `--role any`. When repos are matched with the default role,
+orgs that were skipped are reported.
+
+### Syncing existing clones
+
+| Flag | Behavior |
+|------|----------|
+| *(none)* | Skip repos that already exist locally |
+| `--update` | `git fetch`, then fast-forward the current branch to `origin/<branch>` |
+| `--reset-default` | Check out the upstream default branch |
+| `--force` | Allow `--update` / `--reset-default` to discard local changes or diverged commits |
+
+Both `--update` and `--reset-default` refuse to touch a dirty or diverged repo unless
+`--force` is also given.
+
+### Other options
+
+- `--source/-s DIR`, `--protocol ssh|https` (default: `gh`’s `git_protocol`, per host)
+- `--jobs/-j N` (parallel clones/updates)
+- `--dry-run/-n`
+
+### Examples
+
+```bash
+# One repo
+renv clone -u https://github.com/owner/repo
+
+# Enterprise host, repo glob
+renv clone -u https://github.company.com --include 'my-team/project-*'
+
+# All repos in orgs matching a prefix (active memberships only)
+renv clone -u https://github.com --include 'company-*/*'
+
+# Sync everything already cloned under ~/src
+renv clone -u https://github.com --include '**' --update
+```
+
+Requires [GitHub CLI](https://cli.github.com/) (`gh`) when discovery needs the API
+(wildcard owner or repo globs). Full repo URLs clone directly without `gh`.
+
+---
+
 ## `renv merge`
 
 Combine two environments into a newly created environment.

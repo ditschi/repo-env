@@ -218,3 +218,114 @@ def test_is_worktree_root_distinguishes_nested_paths(tmp_path: Path) -> None:
     assert git_adapter.is_worktree_root(repo) is True
     assert git_adapter.is_worktree_root(nested) is False
     assert git_adapter.is_git_repo(nested) is True
+
+
+def _init_bare_and_clone(tmp_path: Path, name: str = "origin") -> tuple[Path, Path]:
+    bare = tmp_path / f"{name}.git"
+    git_adapter._run(["init", "--bare", "-b", "main", str(bare)])
+    clone_dest = tmp_path / "clone"
+    git_adapter.clone(str(bare), clone_dest)
+    git_adapter._run(["config", "user.email", "t@example.com"], cwd=clone_dest)
+    git_adapter._run(["config", "user.name", "t"], cwd=clone_dest)
+    (clone_dest / "f").write_text("x", encoding="utf-8")
+    git_adapter._run(["add", "f"], cwd=clone_dest)
+    git_adapter._run(["commit", "-m", "init"], cwd=clone_dest)
+    git_adapter._run(["push", "origin", "main"], cwd=clone_dest)
+    return bare, clone_dest
+
+
+def test_is_git_repo_returns_false_for_missing_path(tmp_path: Path) -> None:
+    assert git_adapter.is_git_repo(tmp_path / "does-not-exist") is False
+
+
+def test_clone_creates_working_repo_at_dest(tmp_path: Path) -> None:
+    bare = tmp_path / "origin.git"
+    git_adapter._run(["init", "--bare", "-b", "main", str(bare)])
+
+    dest = tmp_path / "nested" / "clone-dest"
+    git_adapter.clone(str(bare), dest)
+
+    assert git_adapter.is_git_repo(dest) is True
+
+
+def test_checkout_tracking_creates_local_branch_from_remote(tmp_path: Path) -> None:
+    bare, clone_dest = _init_bare_and_clone(tmp_path)
+    git_adapter._run(["checkout", "-b", "develop"], cwd=clone_dest)
+    git_adapter._run(["push", "origin", "develop"], cwd=clone_dest)
+    git_adapter._run(["checkout", "main"], cwd=clone_dest)
+    git_adapter._run(["branch", "-D", "develop"], cwd=clone_dest)
+
+    assert git_adapter.branch_exists(clone_dest, "develop") is False
+    git_adapter.checkout_tracking(clone_dest, "develop", remote="origin")
+    assert git_adapter.current_branch(clone_dest) == "develop"
+
+
+def test_checkout_tracking_reuses_existing_local_branch(tmp_path: Path) -> None:
+    _, clone_dest = _init_bare_and_clone(tmp_path)
+    git_adapter._run(["checkout", "-b", "feature/x"], cwd=clone_dest)
+    git_adapter._run(["checkout", "main"], cwd=clone_dest)
+
+    git_adapter.checkout_tracking(clone_dest, "feature/x", remote="origin")
+    assert git_adapter.current_branch(clone_dest) == "feature/x"
+
+
+def test_checkout_tracking_force_discards_uncommitted_changes(tmp_path: Path) -> None:
+    _, clone_dest = _init_bare_and_clone(tmp_path)
+    git_adapter._run(["checkout", "-b", "feature/x"], cwd=clone_dest)
+    (clone_dest / "f").write_text("dirty", encoding="utf-8")
+
+    git_adapter.checkout_tracking(clone_dest, "main", remote="origin", force=True)
+    assert git_adapter.current_branch(clone_dest) == "main"
+    assert git_adapter.is_clean(clone_dest) is True
+
+
+def test_fast_forward_succeeds_when_no_local_commits(tmp_path: Path) -> None:
+    _, clone_dest = _init_bare_and_clone(tmp_path)
+    second_clone = tmp_path / "clone2"
+    git_adapter.clone(str(tmp_path / "origin.git"), second_clone)
+    git_adapter._run(["config", "user.email", "t@example.com"], cwd=second_clone)
+    git_adapter._run(["config", "user.name", "t"], cwd=second_clone)
+    (second_clone / "g").write_text("y", encoding="utf-8")
+    git_adapter._run(["add", "g"], cwd=second_clone)
+    git_adapter._run(["commit", "-m", "second"], cwd=second_clone)
+    git_adapter._run(["push", "origin", "main"], cwd=second_clone)
+
+    git_adapter.fetch(clone_dest, "origin")
+    assert git_adapter.fast_forward(clone_dest, "origin/main") is True
+    assert (clone_dest / "g").exists()
+
+
+def test_fast_forward_fails_when_local_has_diverged(tmp_path: Path) -> None:
+    _, clone_dest = _init_bare_and_clone(tmp_path)
+    second_clone = tmp_path / "clone2"
+    git_adapter.clone(str(tmp_path / "origin.git"), second_clone)
+    git_adapter._run(["config", "user.email", "t@example.com"], cwd=second_clone)
+    git_adapter._run(["config", "user.name", "t"], cwd=second_clone)
+    (second_clone / "g").write_text("y", encoding="utf-8")
+    git_adapter._run(["add", "g"], cwd=second_clone)
+    git_adapter._run(["commit", "-m", "second"], cwd=second_clone)
+    git_adapter._run(["push", "origin", "main"], cwd=second_clone)
+
+    (clone_dest / "h").write_text("local", encoding="utf-8")
+    git_adapter._run(["add", "h"], cwd=clone_dest)
+    git_adapter._run(["commit", "-m", "local-only"], cwd=clone_dest)
+
+    git_adapter.fetch(clone_dest, "origin")
+    assert git_adapter.fast_forward(clone_dest, "origin/main") is False
+
+
+def test_reset_hard_discards_local_commits_and_changes(tmp_path: Path) -> None:
+    _, clone_dest = _init_bare_and_clone(tmp_path)
+    base_sha = git_adapter.rev_parse(clone_dest, "HEAD")
+
+    (clone_dest / "h").write_text("local", encoding="utf-8")
+    git_adapter._run(["add", "h"], cwd=clone_dest)
+    git_adapter._run(["commit", "-m", "local-only"], cwd=clone_dest)
+    (clone_dest / "untracked-but-tracked-change.txt").write_text("dirty", encoding="utf-8")
+    git_adapter._run(["add", "untracked-but-tracked-change.txt"], cwd=clone_dest)
+
+    git_adapter.reset_hard(clone_dest, base_sha)
+
+    assert git_adapter.rev_parse(clone_dest, "HEAD") == base_sha
+    assert git_adapter.is_clean(clone_dest) is True
+    assert not (clone_dest / "h").exists()
