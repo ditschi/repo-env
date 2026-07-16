@@ -36,6 +36,17 @@ def print_error(error: RepoEnvError) -> None:
         _err.print(f"[dim]hint:[/] {error.hint}")
 
 
+def print_fatal(message: str) -> None:
+    """Render an unexpected/internal error to stderr without a stack trace.
+
+    Used as the last-resort handler in ``__main__`` so a bug never dumps a raw
+    Python traceback on users. ``--debug`` / ``REPOENV_DEBUG=1`` bypass this and
+    let the real traceback through instead.
+    """
+    _err.print(f"[bold red]error:[/] {message}")
+    _err.print("[dim]hint:[/] Re-run with --debug (or REPOENV_DEBUG=1) to see the full traceback.")
+
+
 def render_environments(environments: list[Environment]) -> None:
     """Print a table of environments to stdout."""
     table = Table(title="environments")

@@ -57,9 +57,15 @@ def main_callback(
         is_eager=True,
         help="Show version and exit.",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show full tracebacks on error instead of a short message (also via REPOENV_DEBUG=1).",
+    ),
 ) -> None:
     """Top-level options shared by all subcommands."""
     _ = version
+    _ = debug  # Actual gating happens in __main__.main(); see its docstring for why.
 
 
 app.command("init")(init_command)
