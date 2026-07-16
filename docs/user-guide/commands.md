@@ -119,6 +119,11 @@ Run an arbitrary shell command inside every worktree of an environment.
 renv run [ENV] [OPTIONS] -- COMMAND [ARGS...]
 ```
 
+Everything after the first `--` is the command, taken verbatim — it is never matched
+against `ENV` or any option. This means `renv run -- git status` (no `ENV`) correctly
+falls back to normal [environment resolution](concepts.md#environment-resolution)
+instead of mistaking `git` for the environment name.
+
 Highlights:
 
 - `--jobs/-j N` (parallel workers)

@@ -30,6 +30,7 @@ from repoenv.cli.commands.sh import sh_command
 from repoenv.cli.commands.status import status_command
 from repoenv.cli.commands.sync import sync_command
 from repoenv.cli.didyoumean import RepoEnvGroup
+from repoenv.cli.passthrough import PassthroughCommand
 
 app = typer.Typer(
     name="renv",
@@ -80,6 +81,7 @@ app.command("repos")(repos_command)
 app.command("path")(path_command)
 app.command(
     "run",
+    cls=PassthroughCommand,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )(run_command)
 app.command("rm")(rm_command)

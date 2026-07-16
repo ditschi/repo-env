@@ -16,6 +16,7 @@ This file is updated automatically by `cz bump` — do not edit manually except 
 ### Fixed
 
 - An unknown command with a close match (e.g. `renv ll`) used to raise a raw `RuntimeError` with a Python traceback instead of a clean CLI error
+- `renv run -- CMD` (no `ENV`) used to swallow the command's first word as the environment name (e.g. `renv run -- git status` looked for an environment named `git`); everything after `--` is now always treated as the command, never matched against `ENV`
 
 ## [0.1.0] - 2026-07-13
 
