@@ -8,6 +8,12 @@ This file is updated automatically by `cz bump` — do not edit manually except 
 
 ## [Unreleased]
 
+### Added
+
+- `renv clone` — clone repositories into the source tree (`host/owner/repo` layout) via
+  `--url` and `owner/repo` `--include`/`--exclude` globs; GitHub discovery through `gh`
+  when globs need the API; `--update`, `--reset-default`, and `--force` for existing clones
+
 ## [0.1.0] - 2026-07-13
 
 First public release of `repo-env` / the `renv` CLI.

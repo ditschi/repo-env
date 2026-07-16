@@ -59,7 +59,9 @@ def _run(args: list[str], *, cwd: Path | None = None, check: bool = True) -> Git
 
 
 def is_git_repo(path: Path) -> bool:
-    """Return True if ``path`` is inside a git working tree."""
+    """Return True if ``path`` exists and is inside a git working tree."""
+    if not path.exists():
+        return False
     result = _run(["rev-parse", "--is-inside-work-tree"], cwd=path, check=False)
     return result.returncode == 0 and result.stdout.strip() == "true"
 
@@ -239,6 +241,49 @@ def find_worktree_for_branch(repo: Path, branch: str) -> Path | None:
 def checkout(worktree: Path, ref: str) -> None:
     """Check out ``ref`` in an existing working tree/worktree."""
     _run(["checkout", ref], cwd=worktree)
+
+
+def clone(url: str, dest: Path) -> None:
+    """Clone ``url`` into ``dest`` (parent directories created as needed)."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _run(["clone", "--quiet", url, str(dest)])
+
+
+def checkout_tracking(repo: Path, branch: str, *, remote: str = "origin", force: bool = False) -> None:
+    """Check out ``branch``, creating a local tracking branch if it doesn't exist yet.
+
+    Used by ``renv clone --reset-default`` to get back onto the upstream
+    default branch regardless of whether it was ever checked out locally
+    before. ``force=True`` discards uncommitted changes (``git checkout -f``).
+    """
+    args = ["checkout"]
+    if force:
+        args.append("--force")
+    if branch_exists(repo, branch):
+        args.append(branch)
+    else:
+        args += ["-B", branch, f"{remote}/{branch}"]
+    _run(args, cwd=repo)
+
+
+def fast_forward(repo: Path, ref: str) -> bool:
+    """Attempt a fast-forward-only merge of ``ref`` into the current branch.
+
+    Returns ``False`` (never raises) when the merge isn't a pure fast-forward
+    -- e.g. local commits exist that aren't in ``ref`` -- so callers can
+    report a clean "skipped" outcome instead of a hard failure.
+    """
+    result = _run(["merge", "--ff-only", ref], cwd=repo, check=False)
+    return result.returncode == 0
+
+
+def reset_hard(repo: Path, ref: str) -> None:
+    """Discard all local changes and reset the current branch to ``ref``.
+
+    Destructive: used only when ``renv clone --update``/``--reset-default``
+    is combined with the explicit ``--force`` flag.
+    """
+    _run(["reset", "--hard", ref], cwd=repo)
 
 
 def stash_push(worktree: Path, *, include_untracked: bool = True, message: str | None = None) -> bool:
