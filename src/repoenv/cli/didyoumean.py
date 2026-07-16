@@ -8,6 +8,13 @@ from typing import Any, List, Tuple
 
 from typer.main import TyperGroup
 
+from repoenv.errors import UsageError
+
+# Read-only commands: they never write to disk or otherwise mutate state, so a
+# typo pointing at one of them is safe to auto-correct immediately -- there is
+# no destructive blast radius, unlike e.g. `create`, `rm`, or `run`.
+SAFE_AUTOCORRECT_COMMANDS = frozenset({"ls", "repos", "path", "status", "check", "completion"})
+
 
 class RepoEnvGroup(TyperGroup):
     """Typer group with git-like typo suggestions and optional auto-correct."""
@@ -29,8 +36,16 @@ class RepoEnvGroup(TyperGroup):
                 raise
 
             suggestion = matches[0]
-            from repoenv.adapters import config_store
             from repoenv.ui import console
+
+            if suggestion in SAFE_AUTOCORRECT_COMMANDS:
+                console.print_info(
+                    f"'{typed}' is not a renv command. Using read-only command '{suggestion}'."
+                )
+                args[0] = suggestion
+                return super().resolve_command(ctx, args)
+
+            from repoenv.adapters import config_store
 
             cfg = config_store.load_config()
             if cfg.autocorrect is not None:
@@ -54,4 +69,11 @@ class RepoEnvGroup(TyperGroup):
                 args[0] = suggestion
                 return super().resolve_command(ctx, args)
 
-            raise RuntimeError(f"No such command '{typed}'. Did you mean '{suggestion}'?") from None
+            raise UsageError(
+                f"No such command '{typed}'.",
+                hint=(
+                    f"Did you mean '{suggestion}'? '{suggestion}' changes state, so it is not "
+                    "auto-corrected by default. Run 'renv config autocorrect <seconds>' "
+                    "(0 = immediately) to opt in, or type the exact command."
+                ),
+            ) from None

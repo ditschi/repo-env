@@ -30,6 +30,7 @@ from repoenv.cli.commands.sh import sh_command
 from repoenv.cli.commands.status import status_command
 from repoenv.cli.commands.sync import sync_command
 from repoenv.cli.didyoumean import RepoEnvGroup
+from repoenv.cli.passthrough import PassthroughCommand
 
 app = typer.Typer(
     name="renv",
@@ -57,9 +58,15 @@ def main_callback(
         is_eager=True,
         help="Show version and exit.",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show full tracebacks on error instead of a short message (also via REPOENV_DEBUG=1).",
+    ),
 ) -> None:
     """Top-level options shared by all subcommands."""
     _ = version
+    _ = debug  # Actual gating happens in __main__.main(); see its docstring for why.
 
 
 app.command("init")(init_command)
@@ -74,6 +81,7 @@ app.command("repos")(repos_command)
 app.command("path")(path_command)
 app.command(
     "run",
+    cls=PassthroughCommand,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )(run_command)
 app.command("rm")(rm_command)

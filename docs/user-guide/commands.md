@@ -4,6 +4,11 @@ All commands are invoked as `renv <command> [OPTIONS] [ARGS]`.
 
 Run `renv --help` or `renv <command> --help` for the latest flags.
 
+## Global options
+
+- `--version/-V`: print the version and exit
+- `--debug`: show full tracebacks on error instead of a short message (also via `REPOENV_DEBUG=1`); see [Troubleshooting](troubleshooting.md#unexpected-errors-unknown-commands)
+
 ---
 
 ## `renv init`
@@ -113,6 +118,11 @@ Run an arbitrary shell command inside every worktree of an environment.
 ```bash
 renv run [ENV] [OPTIONS] -- COMMAND [ARGS...]
 ```
+
+Everything after the first `--` is the command, taken verbatim — it is never matched
+against `ENV` or any option. This means `renv run -- git status` (no `ENV`) correctly
+falls back to normal [environment resolution](concepts.md#environment-resolution)
+instead of mistaking `git` for the environment name.
 
 Highlights:
 
