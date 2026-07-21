@@ -35,6 +35,11 @@ def add_command(
     preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
     activate: bool = typer.Option(False, "--activate", help="Mark this environment as the default."),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
+    include_worktrees: bool = typer.Option(
+        False,
+        "--include-worktrees",
+        help="Include git linked worktrees found under the source directory.",
+    ),
 ) -> None:
     """Add repositories to an existing environment."""
     with state_store.registry_transaction() as registry:
@@ -46,7 +51,12 @@ def add_command(
             env=environment,
             include=include or None,
             exclude=exclude or None,
+            include_worktrees=include_worktrees,
         )
+        if plan.skipped_worktrees:
+            console.print_info(
+                f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
+            )
         console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
 
         active_set = registry.get_active() is not None
@@ -55,7 +65,12 @@ def add_command(
             console.print_info("Dry run: no changes made.")
         else:
             environment_service.execute_add_plan(
-                environment, plan, branch=branch, preserve=preserve, on_branch_conflict=on_branch_conflict
+                environment,
+                plan,
+                branch=branch,
+                preserve=preserve,
+                on_branch_conflict=on_branch_conflict,
+                on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
             )
             registry.add(environment)
             if activate:

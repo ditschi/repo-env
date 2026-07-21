@@ -64,6 +64,27 @@ def is_git_repo(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def is_linked_worktree(path: Path) -> bool:
+    """Return True if ``path`` is a git *linked* worktree (not a main repo/clone).
+
+    A linked worktree has a ``.git`` *file* starting with ``gitdir:`` that points
+    to the main repo's worktree admin directory.  A main repo has a ``.git``
+    *directory*.  Submodules also have a ``.git`` file but it is a submodule
+    redirect; we treat those as linked worktrees too since ``git worktree add``
+    cannot be run against them.
+    """
+    git_marker = path / ".git"
+    if not git_marker.exists():
+        return False
+    if git_marker.is_dir():
+        return False  # main repo or bare repo
+    try:
+        content = git_marker.read_text(encoding="utf-8", errors="replace")
+        return content.startswith("gitdir:")
+    except OSError:
+        return False
+
+
 def worktree_root(path: Path) -> Path | None:
     """Return the resolved root of the worktree containing ``path``, if any."""
     if not path.exists():

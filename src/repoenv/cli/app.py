@@ -6,12 +6,13 @@ Kept thin on purpose. Each command lives in its own module under
 
 from __future__ import annotations
 
+import os
+
 import typer
 
 from repoenv import __version__
 from repoenv.cli.commands.activate import activate_command
 from repoenv.cli.commands.add import add_command
-from repoenv.cli.commands.completion import completion_command
 from repoenv.cli.commands.config import config_command
 from repoenv.cli.commands.create import create_command
 from repoenv.cli.commands.import_env import import_command
@@ -57,9 +58,16 @@ def main_callback(
         is_eager=True,
         help="Show version and exit.",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show Python stack traces for unexpected internal errors.",
+    ),
 ) -> None:
     """Top-level options shared by all subcommands."""
     _ = version
+    if debug:
+        os.environ["REPOENV_DEBUG"] = "1"
 
 
 app.command("init")(init_command)
@@ -86,4 +94,3 @@ app.command("repair")(repair_command)
 app.command("import")(import_command)
 app.command("pr")(pr_command)
 app.command("sh")(sh_command)
-app.command("completion")(completion_command)

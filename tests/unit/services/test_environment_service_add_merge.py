@@ -307,7 +307,7 @@ def test_build_create_plan_keeps_repos_when_source_is_renv_root(
     assert plan.repos == ["alpha", "beta"]
 
 
-def test_build_create_plan_include_renv_overrides_default_exclusion(
+def test_build_create_plan_include_worktrees_overrides_default_exclusion(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     source = tmp_path / "source"
@@ -322,6 +322,8 @@ def test_build_create_plan_include_renv_overrides_default_exclusion(
         "discover_repos",
         lambda _source: ["alpha", "nested-renv/alpha"],
     )
+    # No linked worktrees in this test
+    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
 
     plan = environment_service.build_create_plan(
         name="new",
@@ -332,7 +334,7 @@ def test_build_create_plan_include_renv_overrides_default_exclusion(
         branch=None,
         alias=None,
         default_branch="main",
-        include_renv=True,
+        include_worktrees=True,
     )
 
     assert plan.repos == ["alpha", "nested-renv/alpha"]

@@ -8,6 +8,8 @@ from typing import Any, List, Tuple
 
 from typer.main import TyperGroup
 
+from repoenv.errors import UsageError
+
 
 class RepoEnvGroup(TyperGroup):
     """Typer group with git-like typo suggestions and optional auto-correct."""
@@ -54,4 +56,4 @@ class RepoEnvGroup(TyperGroup):
                 args[0] = suggestion
                 return super().resolve_command(ctx, args)
 
-            raise RuntimeError(f"No such command '{typed}'. Did you mean '{suggestion}'?") from None
+            raise UsageError(f"No such command '{typed}'. Did you mean '{suggestion}'?") from None

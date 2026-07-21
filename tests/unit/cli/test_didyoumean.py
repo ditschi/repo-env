@@ -9,7 +9,7 @@ from repoenv.cli.app import app
 
 def test_unknown_command_suggests_closest_match() -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["staus"])
+    result = runner.invoke(app, ["staus"])  # codespell:ignore staus
     assert result.exit_code != 0
-    assert isinstance(result.exception, RuntimeError)
+    assert result.exception is not None
     assert "Did you mean 'status'?" in str(result.exception)

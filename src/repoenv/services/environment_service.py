@@ -7,6 +7,7 @@ mid-batch leaves a consistent, resumable state.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -44,8 +45,14 @@ def _filter_candidates(
     source: Path,
     candidates: list[str],
     dest: Path | None,
-    include_renv: bool,
-) -> list[str]:
+    include_worktrees: bool,
+) -> tuple[list[str], list[str]]:
+    """Return ``(kept, skipped_worktrees)``.
+
+    *skipped_worktrees* contains candidates that are git *linked* worktrees
+    (not main repos). They are omitted unless *include_worktrees* is True,
+    because ``git worktree add`` cannot target a linked worktree.
+    """
     filtered = list(candidates)
 
     # Exclude any candidates that live under dest to avoid matching previously
@@ -54,17 +61,22 @@ def _filter_candidates(
         dest_rel = dest.relative_to(source).as_posix()
         filtered = [c for c in filtered if c != dest_rel and not c.startswith(dest_rel + "/")]
 
+    skipped_worktrees: list[str] = []
+
     # If source itself is a renv root, user explicitly targets it; keep repos.
-    if include_renv or _is_renv_root(source):
-        return filtered
+    if include_worktrees or _is_renv_root(source):
+        return filtered, skipped_worktrees
 
     result: list[str] = []
     for candidate in filtered:
         candidate_path = source / candidate
+        if git_adapter.is_linked_worktree(candidate_path):
+            skipped_worktrees.append(candidate)
+            continue
         if _is_under_nested_renv_root(source, candidate_path):
             continue
         result.append(candidate)
-    return result
+    return result, skipped_worktrees
 
 
 @dataclass
@@ -79,6 +91,7 @@ class CreatePlan:
     alias: str | None
     repos: list[str] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)
+    skipped_worktrees: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -90,6 +103,28 @@ class AddPlan:
     env_path: Path
     repos: list[str] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)
+    skipped_worktrees: list[str] = field(default_factory=list)
+
+
+def _normalize_patterns(patterns: list[str], source: Path) -> list[str]:
+    """Expand ``~`` and make absolute patterns relative to *source*.
+
+    Include/exclude patterns are matched against relative repo names discovered
+    under *source*.  When the user passes a pattern like
+    ``~/sbx/org/**/demo-*`` we expand ``~`` and strip the *source* prefix so the
+    effective pattern becomes ``**/demo-*``.
+    """
+    result: list[str] = []
+    for pat in patterns:
+        if pat.startswith("~"):
+            pat = str(Path(pat).expanduser())
+        if Path(pat).is_absolute():
+            try:
+                pat = str(Path(pat).relative_to(source))
+            except ValueError:
+                pass  # not under source – keep as-is, will match nothing
+        result.append(pat)
+    return result
 
 
 def build_create_plan(
@@ -102,11 +137,16 @@ def build_create_plan(
     branch: str | None,
     alias: str | None,
     default_branch: str | None,
-    include_renv: bool = False,
+    include_worktrees: bool = False,
 ) -> CreatePlan:
     """Validate inputs and return a plan without touching the filesystem."""
     if not name:
         raise UsageError("Environment name must not be empty.")
+
+    # Always work with resolved absolute paths so stored metadata is portable.
+    source = source.resolve()
+    dest = dest.resolve()
+
     if not source.exists():
         raise UsageError(f"Source directory does not exist: {source}")
 
@@ -117,18 +157,23 @@ def build_create_plan(
             hint="Point --source at a directory containing cloned repositories.",
         )
 
-    candidates = _filter_candidates(
-        source=source, candidates=candidates, dest=dest, include_renv=include_renv
+    candidates, skipped_wt = _filter_candidates(
+        source=source, candidates=candidates, dest=dest, include_worktrees=include_worktrees
     )
 
-    selected = resolve_selection(candidates, include=include, exclude=exclude)
+    norm_include = _normalize_patterns(include, source) if include else include
+    norm_exclude = _normalize_patterns(exclude, source) if exclude else exclude
+    selected = resolve_selection(candidates, include=norm_include, exclude=norm_exclude)
     if not selected:
-        raise NothingMatchedError(
-            "No repositories matched the selection.",
-            hint="Check your glob patterns and --exclude filters.",
-        )
+        hint = "Check your glob patterns and --exclude filters."
+        if skipped_wt:
+            hint += (
+                f" {len(skipped_wt)} repo(s) were skipped because they are "
+                "git worktrees; pass --include-worktrees to include them."
+            )
+        raise NothingMatchedError("No repositories matched the selection.", hint=hint)
 
-    env_path = dest / name
+    env_path = (dest / name).resolve()
     plan = CreatePlan(
         name=name,
         env_path=env_path,
@@ -136,6 +181,7 @@ def build_create_plan(
         base_branch=default_branch,
         new_branch=branch,
         alias=alias,
+        skipped_worktrees=skipped_wt,
     )
 
     for repo_name in selected:
@@ -177,6 +223,15 @@ def _create_or_attach_worktree(
     move_context: str,
 ) -> str | None:
     """Ensure a worktree exists; return an optional note for the RepoEntry."""
+    if git_adapter.is_linked_worktree(repo_path):
+        raise UsageError(
+            f"Source repository '{repo_path}' is a linked worktree and cannot host new worktrees.",
+            hint=(
+                "Use the main clone/repository as --source, or omit "
+                "--include-worktrees to skip linked worktrees."
+            ),
+        )
+
     git_adapter.prune_worktrees(repo_path)
     if not preserve:
         git_adapter.fetch(repo_path, remote)
@@ -241,12 +296,28 @@ def execute_create_plan(
     *,
     preserve: bool = False,
     on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
+    on_repo_start: Callable[[str, int, int], None] | None = None,
 ) -> Environment:
     """Execute a validated plan: create worktrees and return the environment.
 
     If ``preserve=True``, use source repos as-is without fetching or updating.
     Otherwise fetch latest from remote and update to default branch.
+
+    *on_repo_start(repo_name, current_index, total)* is called before each repo
+    so the caller can show progress.
+
+    Raises :class:`~repoenv.errors.UsageError` if *plan.env_path* already exists
+    on disk with content but without an renv marker (indicates a stale/conflicting
+    directory that was not created by repo-env).
     """
+    if plan.env_path.exists():
+        has_marker = any((plan.env_path / m).exists() for m in _RENV_MARKER_FILENAMES)
+        if not has_marker and any(plan.env_path.iterdir()):
+            raise UsageError(
+                f"Destination '{plan.env_path}' already exists and is not empty.",
+                hint="Remove the directory manually, or run 'renv import' if it contains existing worktrees.",
+            )
+
     plan.env_path.mkdir(parents=True, exist_ok=True)
     env = Environment(
         name=plan.name,
@@ -256,8 +327,11 @@ def execute_create_plan(
         base_branch=plan.base_branch,
     )
 
+    total = len(plan.repos)
     failures: list[str] = []
-    for repo_name in plan.repos:
+    for idx, repo_name in enumerate(plan.repos):
+        if on_repo_start is not None:
+            on_repo_start(repo_name, idx + 1, total)
         repo_path = plan.source / repo_name
         remote = "origin"
         resolved_base: str | None = plan.base_branch
@@ -316,7 +390,7 @@ def build_add_plan(
     env: Environment,
     include: list[str] | None,
     exclude: list[str] | None,
-    include_renv: bool = False,
+    include_worktrees: bool = False,
 ) -> AddPlan:
     """Validate inputs and build a plan to add repos into ``env``."""
     candidates = git_adapter.discover_repos(env.source)
@@ -326,18 +400,23 @@ def build_add_plan(
             hint="Point source to a directory containing cloned repositories.",
         )
 
-    candidates = _filter_candidates(
-        source=env.source, candidates=candidates, dest=None, include_renv=include_renv
+    candidates, skipped_wt = _filter_candidates(
+        source=env.source, candidates=candidates, dest=None, include_worktrees=include_worktrees
     )
-    selected = resolve_selection(candidates, include=include, exclude=exclude)
+    norm_include = _normalize_patterns(include, env.source) if include else include
+    norm_exclude = _normalize_patterns(exclude, env.source) if exclude else exclude
+    selected = resolve_selection(candidates, include=norm_include, exclude=norm_exclude)
     if not selected:
-        raise NothingMatchedError(
-            "No repositories matched the selection.",
-            hint="Check your glob patterns and --exclude filters.",
-        )
+        hint = "Check your glob patterns and --exclude filters."
+        if skipped_wt:
+            hint += (
+                f" {len(skipped_wt)} repo(s) were skipped because they are "
+                "git worktrees; pass --include-worktrees to include them."
+            )
+        raise NothingMatchedError("No repositories matched the selection.", hint=hint)
 
     existing = {entry.repo for entry in env.repos}
-    plan = AddPlan(env_name=env.name, source=env.source, env_path=env.path)
+    plan = AddPlan(env_name=env.name, source=env.source, env_path=env.path, skipped_worktrees=skipped_wt)
     for repo_name in selected:
         if repo_name in existing:
             plan.skipped[repo_name] = "already present in environment"
@@ -359,13 +438,18 @@ def execute_add_plan(
     branch: str | None = None,
     preserve: bool = False,
     on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
+    on_repo_start: Callable[[str, int, int], None] | None = None,
 ) -> Environment:
     """Execute a validated add plan and append new repo entries to ``env``.
 
     If ``preserve=True``, use source repos as-is without fetching or updating.
+    *on_repo_start(repo_name, current_index, total)* is called before each repo.
     """
+    total = len(plan.repos)
     failures: list[str] = []
-    for repo_name in plan.repos:
+    for idx, repo_name in enumerate(plan.repos):
+        if on_repo_start is not None:
+            on_repo_start(repo_name, idx + 1, total)
         repo_path = plan.source / repo_name
         remote = "origin"
         resolved_base: str | None = env.base_branch

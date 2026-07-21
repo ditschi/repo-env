@@ -26,12 +26,13 @@ def test_add_resolves_cwd_environment(repoenv_home: Path, monkeypatch) -> None:
 
     monkeypatch.chdir(env_path)
 
-    def fake_build_add_plan(*, env, include, exclude):
+    def fake_build_add_plan(*, env, include, exclude, include_worktrees=False):
         assert env.name == "demo"
 
         class _Plan:
             repos = ["r1"]
             skipped = {}
+            skipped_worktrees: list[str] = []
 
         return _Plan()
 
@@ -58,6 +59,7 @@ def test_create_dry_run_shows_activate_hint(repoenv_home: Path, monkeypatch) -> 
             name = kwargs["name"]
             env_path = dest / kwargs["name"]
             repos = ["r1"]
+            skipped_worktrees: list[str] = []
 
         return _Plan()
 

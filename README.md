@@ -57,4 +57,12 @@ nox -s docs         # build docs (--strict)
 nox -s docs_serve   # local preview at http://127.0.0.1:8000
 ```
 
+If nox reports a missing interpreter (for example `tests-3.14`):
+
+```sh
+uv self update
+uv python install 3.14
+nox -s tests-3.14 --download-python always
+```
+
 Quality: line length 110, ruff + black + flake8 + isort + mypy + vulture + fawltydeps.

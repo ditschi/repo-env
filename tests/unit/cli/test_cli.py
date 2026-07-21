@@ -34,6 +34,41 @@ def test_ls_empty(repoenv_home: Path) -> None:
     assert result.stdout == ""
 
 
+def test_ls_warns_for_stale_environment_path(repoenv_home: Path) -> None:
+    registry = state_store.Registry()
+    stale_path = repoenv_home / "missing-env"
+    env = Environment(name="stale", path=stale_path, source=repoenv_home / "src")
+    registry.add(env)
+    state_store.save_registry(registry)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["ls"])
+    assert result.exit_code == 0
+    assert "stale" in result.output
+    assert "stale environment" in result.output
+    assert "renv ls --reconcile" in result.output
+
+
+def test_ls_reconcile_removes_stale_entries(repoenv_home: Path) -> None:
+    registry = state_store.Registry()
+    stale = Environment(name="stale", path=repoenv_home / "missing", source=repoenv_home / "src")
+    live_path = repoenv_home / "envs" / "live"
+    live_path.mkdir(parents=True)
+    live = Environment(name="live", path=live_path, source=repoenv_home / "src")
+    registry.add(stale)
+    registry.add(live)
+    state_store.save_registry(registry)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["ls", "--reconcile"])
+    assert result.exit_code == 0
+    assert "removed stale environment" in result.output
+
+    reloaded = state_store.load_registry()
+    assert reloaded.get("stale") is None
+    assert reloaded.get("live") is not None
+
+
 def test_path_prints_stdout_only(repoenv_home: Path) -> None:
     registry = state_store.Registry()
     env = Environment(name="demo", path=Path("/tmp/demo"), source=Path("/tmp/src"))

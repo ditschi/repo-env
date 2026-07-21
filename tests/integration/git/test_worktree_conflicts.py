@@ -194,7 +194,9 @@ def test_create_stray_directory_clear_error(
         app,
         ["create", "feat", "--branch", "feature/x", "--include", "alpha"],
     )
-    _assert_partial_failure(result)
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert "already exists and is not empty" in str(result.exception)
 
 
 def test_add_branch_conflict_detach(

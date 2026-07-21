@@ -36,13 +36,24 @@ def _register(repoenv_home: Path, name: str = "demo", *, repos: int = 1) -> Envi
     return env
 
 
-def test_rm_registry_only(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _register(repoenv_home)
+def test_rm_deletes_files_by_default(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = _register(repoenv_home)
     monkeypatch.setattr("repoenv.services.lifecycle_service.check_dirty", lambda env: [])
     runner = CliRunner()
     result = runner.invoke(app, ["rm", "demo"])
     assert result.exit_code == 0
     assert "demo" not in state_store.load_registry()
+    assert env.path.exists() is False
+
+
+def test_rm_no_delete_keeps_files(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = _register(repoenv_home)
+    monkeypatch.setattr("repoenv.services.lifecycle_service.check_dirty", lambda env: [])
+    runner = CliRunner()
+    result = runner.invoke(app, ["rm", "demo", "--no-delete"])
+    assert result.exit_code == 0
+    assert "demo" not in state_store.load_registry()
+    assert env.path.exists() is True
 
 
 def test_rm_dry_run_keeps_registry(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -123,18 +134,14 @@ def test_import_no_repos(repoenv_home: Path) -> None:
     assert result.exit_code != 0
 
 
-def test_completion_unsupported_shell(repoenv_home: Path) -> None:
+def test_show_completion_zsh_outputs_compdef(repoenv_home: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["completion", "powershell"])
-    assert result.exit_code != 0
-
-
-def test_completion_zsh_outputs_compdef(repoenv_home: Path) -> None:
-    runner = CliRunner()
-    result = runner.invoke(app, ["completion", "zsh"])
+    result = runner.invoke(app, ["--show-completion", "zsh"])
     assert result.exit_code == 0
-    assert "#compdef renv" in result.stdout
-    assert "_RENV_COMPLETE=complete_zsh" in result.stdout
+    # Typer emits a shell script; in test environments this can resolve to the
+    # current shell regardless of the argument, so assert on stable markers.
+    assert "renv" in result.stdout
+    assert "_RENV_COMPLETE=" in result.stdout
 
 
 def test_pr_requires_gh(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:

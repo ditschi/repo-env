@@ -68,7 +68,7 @@ def _build_create_marker(
     for pattern in exclude:
         recreate_parts.extend(["--exclude", pattern])
     if include_renv:
-        recreate_parts.append("--include-renv")
+        recreate_parts.append("--include-worktrees")
     if source is not None:
         recreate_parts.extend(["--source", str(source)])
     if dest is not None:
@@ -105,10 +105,10 @@ def create_command(
     dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Where the environment dir is created."),
     include: list[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to include."),
     exclude: list[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to exclude."),
-    include_renv: bool = typer.Option(
+    include_worktrees: bool = typer.Option(
         False,
-        "--include-renv",
-        help="Include repositories found under nested renv roots.",
+        "--include-worktrees",
+        help="Include git linked worktrees found under the source directory.",
     ),
     branch: Optional[str] = typer.Option(
         None, "--branch", "-b", help="Create and check out this new branch."
@@ -140,10 +140,14 @@ def create_command(
         branch=branch,
         alias=alias,
         default_branch=default_branch or config.default_branch,
-        include_renv=include_renv,
+        include_worktrees=include_worktrees,
     )
 
     console.print_info(f"Environment '{name}' -> {plan.env_path}")
+    if plan.skipped_worktrees:
+        console.print_info(
+            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
+        )
     console.print_info(f"Repositories ({len(plan.repos)}):")
     console.render_repositories(plan.repos)
 
@@ -158,7 +162,10 @@ def create_command(
 
     with state_store.registry_transaction() as registry:
         env = environment_service.execute_create_plan(
-            plan, preserve=preserve, on_branch_conflict=on_branch_conflict
+            plan,
+            preserve=preserve,
+            on_branch_conflict=on_branch_conflict,
+            on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
         )
         registry.add(env)
         if activate:
@@ -172,7 +179,7 @@ def create_command(
         source_path=env.source,
         include=include,
         exclude=exclude,
-        include_renv=include_renv,
+        include_renv=include_worktrees,
         source=source,
         dest=dest,
         branch=branch,

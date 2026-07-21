@@ -1,4 +1,4 @@
-"""``renv rm`` — remove an environment (registry-only by default)."""
+"""``renv rm`` — remove an environment (delete files by default)."""
 
 from __future__ import annotations
 
@@ -21,11 +21,15 @@ def rm_command(
         help="Environment name or alias ('-' = cwd).",
         autocompletion=complete_env_name,
     ),
-    delete_files: bool = typer.Option(False, "--delete-files", help="Also remove worktrees and the env dir."),
+    delete_files: bool = typer.Option(
+        True,
+        "--delete-files/--no-delete",
+        help="Delete worktrees and the env dir (default: enabled).",
+    ),
     force: bool = typer.Option(False, "--force", help="Remove even if worktrees are dirty."),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
 ) -> None:
-    """Remove an environment. Registry-only unless ``--delete-files``."""
+    """Remove an environment. Deletes files unless ``--no-delete`` is passed."""
     with state_store.registry_transaction() as registry:
         environment = resolve_environment(registry, env)
 

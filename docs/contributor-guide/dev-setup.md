@@ -42,6 +42,21 @@ nox -s docs          # build docs strict (fails on any warning)
 nox -s docs_serve    # live-reload local docs at http://127.0.0.1:8000
 ```
 
+### Troubleshooting: missing Python interpreter in nox
+
+If nox prints `Session tests-3.14 skipped: Python interpreter 3.14 not found`:
+
+```sh
+uv self update
+uv python install 3.14
+nox -s tests-3.14 --download-python always
+```
+
+Notes:
+
+- First run can take longer while uv downloads Python builds.
+- `--download-python always` forces nox to ask uv to provision the interpreter.
+
 CI runs integration tests in a separate job on Python 3.12 only (see [Quality Gates](quality-gates.md#ci-jobs)).
 
 ## Install pre-commit hooks
