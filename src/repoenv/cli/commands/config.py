@@ -37,22 +37,25 @@ def _snapshot(cfg: config_store.UserConfig, reg: state_store.Registry) -> dict[s
     }
 
 
-def _handle_alias_key(cfg: config_store.UserConfig, key: str, value: str | None, unset: bool) -> bool:
-    """Return True if handled as an aliases.<name> operation."""
-    if not key.startswith("aliases."):
+def _handle_dict_key(
+    cfg: config_store.UserConfig, key: str, value: str | None, unset: bool, *, prefix: str
+) -> bool:
+    """Return True if handled as a '<prefix>.<name>' operation (aliases./groups.)."""
+    if not key.startswith(f"{prefix}."):
         return False
-    alias_key = key.split(".", 1)[1]
-    if not alias_key:
-        raise UsageError("Invalid key 'aliases.'", hint="Use e.g. 'aliases.web'.")
+    target: dict[str, str] = getattr(cfg, prefix)
+    sub_key = key.split(".", 1)[1]
+    if not sub_key:
+        raise UsageError(f"Invalid key '{prefix}.'", hint=f"Use e.g. '{prefix}.web'.")
     if unset:
-        if alias_key in cfg.aliases:
-            cfg.aliases.pop(alias_key, None)
+        if sub_key in target:
+            target.pop(sub_key, None)
             config_store.save_config(cfg)
         return True
     if value is None:
-        console.print_data(cfg.aliases.get(alias_key, ""))
+        console.print_data(target.get(sub_key, ""))
         return True
-    cfg.aliases[alias_key] = value
+    target[sub_key] = value
     config_store.save_config(cfg)
     return True
 
@@ -99,13 +102,18 @@ def config_command(
         console.print_data(json.dumps(snapshot, indent=2))
         return
 
-    if _handle_alias_key(cfg, key, value, unset):
+    if _handle_dict_key(cfg, key, value, unset, prefix="aliases"):
+        return
+    if _handle_dict_key(cfg, key, value, unset, prefix="groups"):
         return
 
     if key not in ("source", "dest", "default_branch", "install_completion", "autocorrect"):
         raise UsageError(
             f"Unknown key '{key}'.",
-            hint="Known keys: source, dest, default_branch, install_completion, autocorrect, aliases.<name>.",
+            hint=(
+                "Known keys: source, dest, default_branch, install_completion, autocorrect, "
+                "aliases.<name>, groups.<name>."
+            ),
         )
 
     if unset:

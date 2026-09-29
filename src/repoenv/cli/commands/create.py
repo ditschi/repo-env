@@ -11,6 +11,7 @@ import typer
 
 from repoenv import __version__
 from repoenv.adapters import config_store, paths, state_store
+from repoenv.cli.completion_helpers import complete_repo_name
 from repoenv.errors import PartialFailureError, UsageError
 from repoenv.services import environment_service
 from repoenv.ui import console
@@ -103,8 +104,12 @@ def create_command(
     name: str = typer.Argument(..., help="Name of the environment to create."),
     source: Optional[Path] = typer.Option(None, "--source", "-s", help="Directory of source clones."),
     dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Where the environment dir is created."),
-    include: list[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to include."),
-    exclude: list[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to exclude."),
+    include: list[str] = typer.Option(
+        [], "--include", "-i", help="Glob(s) of repos to include.", autocompletion=complete_repo_name
+    ),
+    exclude: list[str] = typer.Option(
+        [], "--exclude", "-x", help="Glob(s) of repos to exclude.", autocompletion=complete_repo_name
+    ),
     include_worktrees: bool = typer.Option(
         False,
         "--include-worktrees",
@@ -130,6 +135,9 @@ def create_command(
     config = config_store.load_config()
     resolved_source, resolved_dest = _resolve_create_paths(source=source, dest=dest, config=config)
     _reconcile_existing_env(name)
+
+    include = environment_service.expand_repo_groups(include, config.groups)
+    exclude = environment_service.expand_repo_groups(exclude, config.groups)
 
     plan = environment_service.build_create_plan(
         name=name,

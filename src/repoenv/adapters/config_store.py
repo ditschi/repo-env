@@ -48,6 +48,7 @@ class UserConfig(BaseModel):
     install_completion: StrictBool = False
     autocorrect: float | None = None
     aliases: dict[StrictStr, StrictStr] = Field(default_factory=dict)
+    groups: dict[StrictStr, StrictStr] = Field(default_factory=dict)
 
 
 def _yaml() -> YAML:

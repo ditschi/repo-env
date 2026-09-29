@@ -128,6 +128,34 @@ def _normalize_patterns(patterns: list[str], source: Path) -> list[str]:
     return result
 
 
+def expand_repo_groups(patterns: list[str], groups: dict[str, str]) -> list[str]:
+    """Expand ``@group`` tokens in include/exclude patterns into their stored globs.
+
+    A group holds one glob, or a comma-separated list of globs (the same
+    format ``--include``/``--exclude`` already accept), set via
+    ``renv config groups.<name> <pattern>``. Plain (non-``@``) tokens pass
+    through unchanged, so this is safe to call unconditionally.
+    """
+    expanded: list[str] = []
+    for raw in patterns:
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if part.startswith("@"):
+                group_name = part[1:]
+                if group_name not in groups:
+                    raise UsageError(
+                        f"Unknown repo group '@{group_name}'.",
+                        hint="Set it with 'renv config groups.<name> <pattern>', "
+                        "or run 'renv config' to list groups.",
+                    )
+                expanded.append(groups[group_name])
+            else:
+                expanded.append(part)
+    return expanded
+
+
 def build_create_plan(
     *,
     name: str,

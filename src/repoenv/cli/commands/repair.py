@@ -6,7 +6,7 @@ from typing import Optional
 
 import typer
 
-from repoenv.adapters import state_store
+from repoenv.adapters import config_store, state_store
 from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import PartialFailureError
@@ -31,6 +31,10 @@ def repair_command(
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
 ) -> None:
     """Recreate worktrees that are missing or marked failed/stale."""
+    groups = config_store.load_config().groups
+    include = environment_service.expand_repo_groups(include, groups)
+    exclude = environment_service.expand_repo_groups(exclude, groups)
+
     with state_store.registry_transaction() as registry:
         environment = resolve_environment(registry, env)
         candidates = lifecycle_service.list_repair_candidates(

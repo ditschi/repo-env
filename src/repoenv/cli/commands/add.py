@@ -7,8 +7,8 @@ from typing import Optional
 
 import typer
 
-from repoenv.adapters import state_store
-from repoenv.cli.completion_helpers import complete_env_name
+from repoenv.adapters import config_store, state_store
+from repoenv.cli.completion_helpers import complete_env_name, complete_repo_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import PartialFailureError
 from repoenv.services import environment_service
@@ -22,8 +22,12 @@ def add_command(
         autocompletion=complete_env_name,
     ),
     source: Optional[Path] = typer.Option(None, "--source", "-s", help="Directory of source clones."),
-    include: list[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to include."),
-    exclude: list[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to exclude."),
+    include: list[str] = typer.Option(
+        [], "--include", "-i", help="Glob(s) of repos to include.", autocompletion=complete_repo_name
+    ),
+    exclude: list[str] = typer.Option(
+        [], "--exclude", "-x", help="Glob(s) of repos to exclude.", autocompletion=complete_repo_name
+    ),
     branch: Optional[str] = typer.Option(
         None, "--branch", "-b", help="Create and check out this new branch."
     ),
@@ -42,6 +46,10 @@ def add_command(
     ),
 ) -> None:
     """Add repositories to an existing environment."""
+    groups = config_store.load_config().groups
+    include = environment_service.expand_repo_groups(include, groups)
+    exclude = environment_service.expand_repo_groups(exclude, groups)
+
     with state_store.registry_transaction() as registry:
         environment = resolve_environment(registry, env)
         if source is not None:
