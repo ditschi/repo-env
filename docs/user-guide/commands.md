@@ -37,7 +37,7 @@ renv create NAME [OPTIONS]
 Highlights:
 
 - `--source/-s DIR`, `--dest/-d DIR`
-- `--include/-i GLOB` / `--exclude/-x GLOB` (repeatable; CSV also supported)
+- `--include/-i GLOB` / `--exclude/-x GLOB` (repeatable; CSV and `@group` also supported, and tab-complete)
 - `--branch/-b BRANCH` (create branch in each repo)
 - `--default-branch/-B BRANCH` (fallback when auto-detect fails)
 - `--preserve` (skip fetch/update; use source repos as-is)
@@ -93,6 +93,26 @@ Examples:
 - `renv config` (dump effective config + paths + active env)
 - `renv config source ~/src`
 - `renv config autocorrect 0.5`
+- `renv config aliases.web ado` (config alias, see [Concepts](concepts.md))
+- `renv config groups.backend '*/backend-*'` (named repo group; see below)
+
+### Repo groups
+
+A repo group stores one glob, or a comma-separated list of globs, under a short name:
+
+```bash
+renv config groups.backend '*/backend-*'
+renv config groups.backend '*/backend-*,*/api-*'   # multiple globs
+renv config groups.backend --unset
+```
+
+Reference it with `@name` anywhere `--include`/`--exclude` is accepted, on `create`, `add`, and `repair`.
+It mixes freely with literal globs, and tab-completes:
+
+```bash
+renv create svc --include @backend
+renv add svc --include @backend,*/frontend-*
+```
 
 ---
 
@@ -117,9 +137,13 @@ renv run [ENV] [OPTIONS] -- COMMAND [ARGS...]
 Highlights:
 
 - `--jobs/-j N` (parallel workers)
-- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV supported)
+- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV and `@group` supported)
 - `--shell` (run via shell to enable pipes/globs)
 - `--json`
+
+`[ENV]` is fully optional: `renv run -- COMMAND` resolves the environment the same way as any
+other `[ENV]`-optional command (cwd-inside-an-env, then the active env; see
+[Optional `[ENV]` argument](#optional-env-argument)).
 
 ---
 
@@ -153,12 +177,12 @@ renv repair [ENV] [OPTIONS]
 
 Highlights:
 
-- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV supported)
+- `--include/-i GLOB` / `--exclude/-x GLOB` (subset selection; CSV and `@group` supported)
 - `--on-branch-conflict detach|move|fail`
 - `--preserve` (skip fetch/update)
 - `--dry-run/-n`
 
-Use after manual deletion of individual worktree directories, or when `renv create`/`add` left some repos in a failed state.
+Use after manual deletion of individual worktree directories, or when `renv create`/`add` left some repos in a failed state. `renv status` (without `--json`) prints the reason for each failed/missing repo.
 
 ---
 
@@ -185,9 +209,14 @@ renv add [ENV] [OPTIONS]
 Highlights:
 
 - `--source/-s DIR` (defaults to env source or config)
-- `--include/-i GLOB` / `--exclude/-x GLOB`
+- `--include/-i GLOB` / `--exclude/-x GLOB` (CSV and `@group` supported)
 - `--branch/-b BRANCH`, `--on-branch-conflict detach|move|fail`
 - `--preserve`, `--activate`, `--dry-run/-n`
+
+!!! tip "Branch defaults to the environment's existing task branch"
+    If `--branch` is omitted and the environment already has repos on a branch `renv` created
+    (e.g. via `renv create web -b feature/x`), the newly added repo(s) join that same branch
+    instead of landing detached at the default branch. Pass `--branch` explicitly to override.
 
 ---
 
@@ -203,6 +232,14 @@ Highlights:
 
 - `--op union|intersect|difference` (default: `union`)
 - `--dest/-d DIR`, `--alias/-a NAME`, `--dry-run/-n`
+- `--on-branch-conflict move|detach|fail` (default: `move`)
+
+Each repo keeps the (`renv`-created) branch it already had in `LEFT`/`RIGHT`; a plain detached
+checkout has no branch to carry over. If a repo has a different branch on each side, `LEFT` wins
+and the conflict is printed. Because git only allows one worktree per branch, the default
+`--on-branch-conflict move` relocates the branch out of its source environment's worktree (which
+goes detached) and into the merged one — pass `--on-branch-conflict fail` if you'd rather stop
+and resolve it by hand.
 
 ---
 
@@ -292,6 +329,11 @@ Print a shell completion script to stdout (for manual installation in dotfiles).
 ```bash
 renv completion [bash|zsh|fish]
 ```
+
+Once installed, `<Tab>` completes environment names/aliases everywhere `[ENV]` is accepted, and
+completes repo names (and `@group` names) for `--include`/`--exclude` on `create`/`add`/`repair`.
+Repo names are `host/org/repo`-shaped, so completing a prefix like `acme/<Tab>` narrows to every
+repo under that directory ("base dir" completion) without any separate configuration.
 
 See [Installation](installation.md) for setup examples.
 

@@ -36,6 +36,10 @@ autocorrect: null
 # Optional shorthand: alias name -> environment name (see Concepts)
 aliases:
   web: ado
+
+# Optional named repo selections: group name -> glob (or comma-separated globs)
+groups:
+  backend: "*/backend-*"
 ```
 
 ## Aliases
@@ -53,6 +57,18 @@ Manage config aliases:
 renv config aliases.web ado
 renv config aliases.web --unset
 renv config aliases.web          # read one alias
+```
+
+## Repo groups
+
+Save a glob (or comma-separated globs) under a short name for reuse with `--include`/`--exclude`
+on `create`/`add`/`repair` — see [Concepts](concepts.md#selecting-repos):
+
+```bash
+renv config groups.backend '*/backend-*'
+renv config groups.backend --unset
+renv config groups.backend          # read one group
+renv create svc --include @backend
 ```
 
 ## Environment variables

@@ -59,9 +59,23 @@ Both are checked when resolving an environment selector. Use config aliases for 
 
 Each repo worktree is a normal git worktree linked to the source clone. With `--branch`, `renv` creates a new branch from the detected default branch. Without `--branch`, worktrees start detached at the default branch tip.
 
-If a local branch already exists and is unused, `renv` attaches it automatically. If the branch is checked out elsewhere, use `--on-branch-conflict detach|move|fail` (default: `detach`).
+`renv add` is the exception: if `--branch` is omitted there, and the environment already has repos
+on a branch `renv` itself created, the new repo joins that same branch instead of landing detached
+— so "I forgot a repo" doesn't require re-typing `--branch`. Explicit `--branch` always wins.
+
+If a local branch already exists and is unused, `renv` attaches it automatically. If the branch is checked out elsewhere, use `--on-branch-conflict detach|move|fail` (default: `detach` for `create`/`add`/`repair`, `move` for `merge` — merging is explicitly about consolidating branches, and git only allows one worktree per branch, so the source environment's worktree goes detached as its branch relocates into the merged one).
 
 Before each worktree creation, `renv` runs `git worktree prune` in the source repo to drop stale metadata.
+
+## Selecting repos
+
+`--include`/`--exclude` take shell-style globs, matched against the repo's path relative to
+`source` (so nested clones like `github.com/org/repo` are selected with e.g. `*/org/*`). Multiple
+values are OR-ed; comma-separated values in one flag work the same as repeating the flag.
+
+A value starting with `@` is a **repo group** — a saved pattern (or comma-separated patterns) set
+with `renv config groups.<name> <pattern>` — and mixes freely with literal globs:
+`--include @backend,*/frontend-*`. Groups and repo names both tab-complete.
 
 ## Safety model
 
