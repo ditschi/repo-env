@@ -15,6 +15,7 @@ class PrPlanItem:
 
     repo: str
     head: str
+    base: str
     title: str
     body: str
 
@@ -30,6 +31,41 @@ class PrOutcome:
 def _render(template: str, *, repo: str, branch: str, env: str) -> str:
     """Expand simple ``{repo}``/``{branch}``/``{env}`` placeholders."""
     return template.format(repo=repo, branch=branch, env=env)
+
+
+def build_pr_preview(
+    env: Environment,
+    *,
+    title: str,
+    body: str,
+    base: str | None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+) -> list[PrPlanItem]:
+    """Resolve the repos and rendered title/body/base a PR pass would use, without calling gh.
+
+    Applies the same --include/--exclude selection and {repo}/{branch}/{env}
+    rendering as create_prs, so --dry-run accurately previews what would
+    happen (including which repos are actually selected).
+    """
+    entries = list(env.repos)
+    if include is not None or exclude is not None:
+        selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
+        entries = [e for e in entries if e.repo in selected]
+
+    items: list[PrPlanItem] = []
+    for entry in entries:
+        branch = git_adapter.current_branch(entry.worktree_path) or entry.branch
+        items.append(
+            PrPlanItem(
+                repo=entry.repo,
+                head=branch,
+                base=base or entry.base,
+                title=_render(title, repo=entry.repo, branch=branch, env=env.name),
+                body=_render(body, repo=entry.repo, branch=branch, env=env.name),
+            )
+        )
+    return items
 
 
 def create_prs(

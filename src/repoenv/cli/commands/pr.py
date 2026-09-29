@@ -46,9 +46,19 @@ def pr_command(
     environment = resolve_environment(registry, env)
 
     if dry_run:
-        console.print_info(f"Dry run: would create PRs for {len(environment.repos)} repo(s):")
-        for entry in environment.repos:
-            console.print_info(f"  {entry.repo}: title='{title}' base='{base or entry.base}' draft={draft}")
+        preview = pr_service.build_pr_preview(
+            environment,
+            title=title,
+            body=body,
+            base=base,
+            include=include or None,
+            exclude=exclude or None,
+        )
+        console.print_info(f"Dry run: would create PRs for {len(preview)} repo(s):")
+        for item in preview:
+            console.print_info(
+                f"  {item.repo}: title='{item.title}' base='{item.base}' head='{item.head}' draft={draft}"
+            )
         return
 
     outcome = pr_service.create_prs(
