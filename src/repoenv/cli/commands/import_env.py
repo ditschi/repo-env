@@ -35,16 +35,17 @@ def import_command(
         for child in sorted(p for p in directory.iterdir() if p.is_dir()):
             if not git_adapter.is_git_repo(child):
                 continue
-            branch = git_adapter.rev_parse(child, "HEAD")
+            sha = git_adapter.rev_parse(child, "HEAD")
+            branch = git_adapter.current_branch(child)
             entries.append(
                 RepoEntry(
                     repo=child.name,
                     worktree_path=child,
                     remote="origin",
-                    base=branch,
-                    branch=branch,
+                    base=branch or sha,
+                    branch=branch or f"detached@{sha[:12]}",
                     branch_created=False,
-                    source_sha=branch,
+                    source_sha=sha,
                     status=RepoStatus.OK,
                 )
             )
