@@ -36,6 +36,14 @@ def merge_command(
         None, "--dest", "-d", help="Destination root (defaults to left env parent)."
     ),
     alias: Optional[str] = typer.Option(None, "--alias", "-a", help="Alias for the merged environment."),
+    on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
+        environment_service.BranchConflictStrategy.MOVE,
+        "--on-branch-conflict",
+        help=(
+            "A repo's preserved branch is still checked out in the source env: "
+            "move|detach|fail (default: move it into the merged environment)."
+        ),
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
 ) -> None:
     """Merge two environments into a newly created environment."""
@@ -65,12 +73,14 @@ def merge_command(
         console.print_info(
             f"Merge {left_env.name} {op.value} {right_env.name} -> {name} ({len(plan.repos)} repos)"
         )
+        for conflict in plan.branch_conflicts:
+            console.print_info(f"  branch conflict: {conflict}")
 
         if dry_run:
             console.print_info("Dry run: no changes made.")
             return
 
-        merged = environment_service.execute_create_plan(plan)
+        merged = environment_service.execute_create_plan(plan, on_branch_conflict=on_branch_conflict)
         registry.add(merged)
         state_store.write_env_metadata(merged)
     command_name = ctx.info_name or "merge"

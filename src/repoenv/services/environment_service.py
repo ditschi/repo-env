@@ -93,6 +93,8 @@ class CreatePlan:
     repos: list[str] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)
     skipped_worktrees: list[str] = field(default_factory=list)
+    branch_overrides: dict[str, str] = field(default_factory=dict)
+    branch_conflicts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -364,8 +366,8 @@ def execute_create_plan(
         repo_path = plan.source / repo_name
         remote = "origin"
         resolved_base: str | None = plan.base_branch
-        target_branch: str | None = plan.new_branch
-        create_branch = plan.new_branch is not None
+        target_branch: str | None = plan.branch_overrides.get(repo_name, plan.new_branch)
+        create_branch = target_branch is not None
         worktree_path = plan.env_path / repo_name
 
         already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
@@ -555,7 +557,14 @@ def build_merge_plan(
     dest_root: Path,
     alias: str | None,
 ) -> CreatePlan:
-    """Build a create plan by combining repo sets from two environments."""
+    """Build a create plan by combining repo sets from two environments.
+
+    Each repo keeps the task branch it already had in ``left``/``right`` (only
+    real, ``renv``-created branches count -- a plain detached checkout at the
+    default branch is not carried over). If a repo has a different branch on
+    each side, ``left`` wins and the conflict is recorded in
+    ``plan.branch_conflicts`` for the caller to report.
+    """
     left_names = [entry.repo for entry in left.repos]
     right_names = [entry.repo for entry in right.repos]
     merged = set_combine(left_names, right_names, op)
@@ -565,7 +574,24 @@ def build_merge_plan(
             hint="Try a different set operation or source environments.",
         )
 
-    return build_create_plan(
+    left_branches = {entry.repo: entry.branch for entry in left.repos if entry.branch_created}
+    right_branches = {entry.repo: entry.branch for entry in right.repos if entry.branch_created}
+
+    branch_overrides: dict[str, str] = {}
+    branch_conflicts: list[str] = []
+    for repo in merged:
+        left_branch = left_branches.get(repo)
+        right_branch = right_branches.get(repo)
+        chosen = left_branch or right_branch
+        if chosen is not None:
+            branch_overrides[repo] = chosen
+        if left_branch is not None and right_branch is not None and left_branch != right_branch:
+            branch_conflicts.append(
+                f"{repo}: '{left_branch}' (from {left.name}) vs '{right_branch}' "
+                f"(from {right.name}); using '{left_branch}'"
+            )
+
+    plan = build_create_plan(
         name=dest_name,
         source=left.source,
         dest=dest_root,
@@ -575,3 +601,6 @@ def build_merge_plan(
         alias=alias,
         default_branch=left.base_branch,
     )
+    plan.branch_overrides = branch_overrides
+    plan.branch_conflicts = branch_conflicts
+    return plan
