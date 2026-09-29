@@ -7,6 +7,7 @@ mid-batch leaves a consistent, resumable state.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -383,6 +384,24 @@ def execute_create_plan(
 def failed_repos(env: Environment) -> list[str]:
     """Return repo names whose worktree creation failed."""
     return [entry.repo for entry in env.repos if entry.status is RepoStatus.FAILED]
+
+
+def failure_details(env: Environment) -> list[tuple[str, str | None]]:
+    """Return (repo, note) pairs for repos whose worktree creation failed."""
+    return [(entry.repo, entry.note) for entry in env.repos if entry.status is RepoStatus.FAILED]
+
+
+def infer_env_branch(env: Environment) -> str | None:
+    """Best-effort: the task branch already in use by this environment's repos.
+
+    Only considers repos where ``renv`` itself created the branch (as opposed
+    to a detached checkout of the default branch), so ``add`` without
+    ``--branch`` joins the same task branch instead of defaulting to detached.
+    """
+    counts = Counter(entry.branch for entry in env.repos if entry.branch_created and entry.branch)
+    if not counts:
+        return None
+    return counts.most_common(1)[0][0]
 
 
 def build_add_plan(

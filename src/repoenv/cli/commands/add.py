@@ -59,6 +59,12 @@ def add_command(
             )
         console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
 
+        effective_branch = branch
+        if effective_branch is None:
+            effective_branch = environment_service.infer_env_branch(environment)
+            if effective_branch is not None:
+                console.print_info(f"No --branch given; joining existing task branch '{effective_branch}'.")
+
         active_set = registry.get_active() is not None
 
         if dry_run:
@@ -67,7 +73,7 @@ def add_command(
             environment_service.execute_add_plan(
                 environment,
                 plan,
-                branch=branch,
+                branch=effective_branch,
                 preserve=preserve,
                 on_branch_conflict=on_branch_conflict,
                 on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
@@ -86,8 +92,10 @@ def add_command(
 
     failed = environment_service.failed_repos(environment)
     if failed:
+        details = environment_service.failure_details(environment)
+        lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
         raise PartialFailureError(
-            f"Some repositories failed: {', '.join(failed)}.",
+            f"Some repositories failed:\n{lines}",
             hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
         )
     console.print_info(f"Added {len(plan.repos)} repository(ies) to '{environment.name}'.")

@@ -57,5 +57,8 @@ def status_command(
         else:
             state = "OK"
         console.print_info(f"  [{state:<7}] {h.repo} -> {h.worktree_path}")
+        note = entry_by_repo[h.repo].note if h.repo in entry_by_repo else None
+        if note:
+            console.print_info(f"            ↳ {note}")
     if missing:
         console.print_info(f"Hint: run 'renv repair {environment.name}' to recreate missing worktree(s).")

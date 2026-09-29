@@ -191,8 +191,10 @@ def create_command(
 
     failed = environment_service.failed_repos(env)
     if failed:
+        details = environment_service.failure_details(env)
+        lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
         raise PartialFailureError(
-            f"Some repositories failed: {', '.join(failed)}.",
+            f"Some repositories failed:\n{lines}",
             hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
         )
 
