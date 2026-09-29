@@ -8,6 +8,7 @@ actually working on.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -86,6 +87,28 @@ def test_merge_moves_branch_out_of_the_source_environment(
 
     assert RepoFactory.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
     assert RepoFactory.is_detached(worktrees_dir / "left" / "alpha") is True
+
+
+def test_merge_recreate_marker_records_on_branch_conflict(
+    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
+) -> None:
+    repo_factory.make_bare_and_clone("alpha")
+    repo_factory.make_bare_and_clone("beta")
+
+    runner = CliRunner()
+    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
+    assert runner.invoke(app, ["create", "left", "--include", "alpha"]).exit_code == 0
+    assert runner.invoke(app, ["create", "right", "--include", "beta"]).exit_code == 0
+
+    merge = runner.invoke(
+        app, ["merge", "merged", "left", "right", "--op", "union", "--on-branch-conflict", "fail"]
+    )
+    assert merge.exit_code == 0, merge.output
+
+    meta = json.loads((worktrees_dir / "merged" / ".repoenv.json").read_text(encoding="utf-8"))
+    options = meta["marker"]["command"]["options"]
+    assert options["on_branch_conflict"] == "fail"
+    assert "--on-branch-conflict fail" in meta["marker"]["command"]["recreate"]
 
 
 def test_merge_does_not_carry_over_plain_detached_checkout(

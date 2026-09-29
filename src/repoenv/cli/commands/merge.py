@@ -98,11 +98,15 @@ def merge_command(
         "command": {
             "cwd": str(Path.cwd()),
             "name": command_name,
-            "recreate": f"renv {command_name} {name} {left} {right} --op {op.value}",
+            "recreate": (
+                f"renv {command_name} {name} {left} {right} "
+                f"--op {op.value} --on-branch-conflict {on_branch_conflict.value}"
+            ),
             "options": {
                 "dest": str(dest_root),
                 "alias": alias,
                 "op": op.value,
+                "on_branch_conflict": on_branch_conflict.value,
             },
         },
     }
