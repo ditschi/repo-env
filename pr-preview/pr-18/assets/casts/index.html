@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://ditschi.github.io/repo-env/assets/vhs/">
+        <link rel="canonical" href="https://ditschi.github.io/repo-env/assets/casts/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>Demo recordings - repo-env</title>
+        <title>Demo recordings (asciinema + agg) - repo-env</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#demo-recordings" class="md-skip">
+        <a href="#demo-recordings-asciinema-agg" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Demo recordings
+              Demo recordings (asciinema + agg)
             
           </span>
         </div>
@@ -896,7 +896,7 @@
 
 
   
-    <a href="https://github.com/ditschi/repo-env/edit/main/docs/assets/vhs/README.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ditschi/repo-env/edit/main/docs/assets/casts/README.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -904,24 +904,45 @@
   
 
 
-<h1 id="demo-recordings">Demo recordings<a class="headerlink" href="#demo-recordings" title="Permanent link">&para;</a></h1>
-<p>GIFs for the docs, generated deterministically from checked-in <a href="https://github.com/charmbracelet/vhs">VHS</a>
-<code>.tape</code> scripts instead of hand-recorded screen captures, so they can be regenerated on demand
-whenever CLI output changes rather than going stale silently.</p>
+<h1 id="demo-recordings-asciinema-agg">Demo recordings (asciinema + agg)<a class="headerlink" href="#demo-recordings-asciinema-agg" title="Permanent link">&para;</a></h1>
+<p>GIFs generated from a real terminal session instead of a hand-recorded screen capture, so
+timing reflects the actual program rather than a typed-out script.</p>
+<p>Unlike <code>docs/assets/vhs/</code> (which renders tapes through a headless-browser terminal via
+<a href="https://github.com/charmbracelet/vhs">VHS</a>), these use
+<a href="https://github.com/asciinema/asciinema">asciinema</a> to record a real pty session and
+<a href="https://github.com/asciinema/agg">agg</a> to render the <code>.cast</code> to a GIF.</p>
 <h2 id="setup-one-time">Setup (one time)<a class="headerlink" href="#setup-one-time" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span>install<span class="w"> </span>github.com/charmbracelet/vhs@latest<span class="w">   </span><span class="c1"># needs ttyd + ffmpeg on PATH too</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># asciinema v3 and agg both ship static Linux/macOS binaries on their GitHub Releases pages:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">#   https://github.com/asciinema/asciinema/releases</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">#   https://github.com/asciinema/agg/releases</span>
 </span></code></pre></div>
-<h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">SB</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">/src"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">/envs"</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># ... seed 2-3 tiny demo repos under $SB/src (see tests/integration/support/gitfixtures.py</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># for the same pattern the test suite uses) ...</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">REPOENV_HOME</span><span class="o">=</span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">/home"</span><span class="w"> </span>renv<span class="w"> </span>init<span class="w"> </span>-s<span class="w"> </span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">/src"</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">/envs"</span><span class="w"> </span>-y
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$SB</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>vhs<span class="w"> </span>/path/to/docs/assets/vhs/quickstart.tape
+<p><code>select-record.py</code> also needs <code>pexpect</code> (not a project dependency) — run it via
+<code>uv run --with pexpect --no-project python3 ...</code> as shown below, so nothing gets added to
+<code>pyproject.toml</code>.</p>
+<h2 id="regenerate-selectgif">Regenerate <code>select.gif</code><a class="headerlink" href="#regenerate-selectgif" title="Permanent link">&para;</a></h2>
+<p><code>select-record.py</code> seeds its own throwaway sandbox and drives <code>renv select</code> end to end (arrow
+keys, enter), so no external setup is needed first. Run from the repo root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>asciinema<span class="w"> </span>rec<span class="w"> </span>--overwrite<span class="w"> </span>--window-size<span class="w"> </span>100x40<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--command<span class="w"> </span><span class="s2">"uv run --with pexpect --no-project python3 docs/assets/casts/select-record.py"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>/tmp/select.cast
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>agg<span class="w"> </span>--rows<span class="w"> </span><span class="m">22</span><span class="w"> </span>--theme<span class="w"> </span>dracula<span class="w"> </span>/tmp/select.cast<span class="w"> </span>docs/assets/casts/select.gif
 </span></code></pre></div>
-<p>Commit the regenerated <code>.gif</code> alongside the <code>.tape</code> change.</p>
-<p>Note: the <code>renv select</code> demo GIF lives under <code>docs/assets/casts/</code> instead, recorded with
-asciinema + agg rather than VHS — see <code>docs/assets/casts/README.md</code>.</p>
+<p>Two steps, two different row counts, on purpose:</p>
+<ul>
+<li><strong>Recording</strong> at a generous 40 rows leaves the real pty plenty of room, so nothing wraps or
+  scrolls oddly inside the terminal itself.</li>
+<li><strong>Rendering</strong> crops the <em>image</em> to 22 rows — measured as the deepest row any frame actually
+  draws to (the biggest frame is the second <code>renv select</code>'s 6-item action list), plus a few
+  rows of padding so you can see nothing was cut off, rather than an arbitrary fixed canvas
+  with a lot of empty space below the content.</li>
+</ul>
+<p>If <code>select.py</code>'s output grows taller than that (e.g. another action added to the list),
+re-measure rather than guessing: render once at <code>--rows 40</code>, extract frames (e.g. <code>ffmpeg -i
+docs/assets/casts/select.gif -vf fps=3 /tmp/frame_%03d.png</code>), find the deepest frame, and pick
+a new <code>--rows</code> a few lines below it.</p>
+<p>Commit both <code>select-record.py</code> (the source of truth) and the regenerated <code>select.gif</code>; the
+intermediate <code>.cast</code> is not checked in.</p>
 
 
 
