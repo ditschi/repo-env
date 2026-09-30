@@ -23,11 +23,5 @@ cd "$SB" && vhs /path/to/docs/assets/vhs/quickstart.tape
 
 Commit the regenerated `.gif` alongside the `.tape` change.
 
-## `select.tape`
-
-Unlike `quickstart.tape`, this one needs no manual sandbox setup — it's self-contained via
-`select-setup.sh`, sourced from a `Hide` block in the tape itself. Regenerate with:
-
-```bash
-vhs docs/assets/vhs/select.tape   # run from the repo root
-```
+Note: the `renv select` demo GIF lives under `docs/assets/casts/` instead, recorded with
+asciinema + agg rather than VHS — see `docs/assets/casts/README.md`.

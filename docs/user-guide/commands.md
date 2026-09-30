@@ -424,7 +424,7 @@ in scripts/CI use the direct subcommands instead.
 renv select
 ```
 
-![renv select demo](../assets/vhs/select.gif)
+![renv select demo](../assets/casts/select.gif)
 
 ---
 
