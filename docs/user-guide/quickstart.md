@@ -8,7 +8,17 @@ renv init
 
 The wizard asks for your source directory (where git clones live) and destination root for environments. Settings are stored in `~/.config/repoenv/repoenv.yaml` on Linux (see [Configuration](configuration.md)).
 
-## 2. Create an environment
+## 2. Populate your source tree (optional)
+
+Already have clones under `~/src`? Skip this. Starting from scratch:
+
+```bash
+renv clone -u https://github.com/my-org -s ~/src
+```
+
+Clones land as `~/src/github.com/my-org/<repo>/` — see [`renv clone`](commands.md#renv-clone).
+
+## 3. Create an environment
 
 ```bash
 renv create web -s ~/src -b feature/my-task --activate
@@ -16,13 +26,13 @@ renv create web -s ~/src -b feature/my-task --activate
 
 `renv` scans `~/src` for git repositories, creates a worktree on branch `feature/my-task` in each match, and registers the environment `web`. `--activate` sets it as the default for future commands.
 
-## 3. List environments
+## 4. List environments
 
 ```bash
 renv ls
 ```
 
-## 4. Navigate to an environment
+## 5. Navigate to an environment
 
 ```bash
 cd "$(renv path web)"
@@ -30,14 +40,14 @@ cd "$(renv path web)"
 
 Inside an environment directory you can omit the env name on most commands.
 
-## 5. Run a command across all worktrees
+## 6. Run a command across all worktrees
 
 ```bash
 renv run web -- git status
 renv run -- make test          # same, when active or cwd is inside web
 ```
 
-## 6. Open bulk pull requests
+## 7. Open bulk pull requests
 
 Requires [GitHub CLI](https://cli.github.com/) (`gh auth login`).
 
@@ -48,7 +58,7 @@ renv pr web --title "feat: migrate X to Y" --push   # push branches first
 
 `renv pr` never pushes unless `--push` is given.
 
-## 7. Tear down an environment
+## 8. Tear down an environment
 
 ```bash
 renv rm web --delete-files    # remove registry + worktrees + env dir

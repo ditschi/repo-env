@@ -31,6 +31,7 @@ Requires **Python 3.10+**, **Git 2.38+**, Linux or macOS. `renv pr` needs [GitHu
 
 ```sh
 renv init -s ~/src -d ~/envs -y
+renv clone -u https://github.com/my-org                 # optional: populate ~/src first
 renv create web -s ~/src -b feature/x --activate
 renv ls
 cd "$(renv path web)"

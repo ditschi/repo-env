@@ -8,8 +8,11 @@ Assumes clones live in `~/src` and environments in `~/envs`. Adjust paths to mat
 
 ```bash
 renv init -s ~/src -d ~/envs -y
-eval "$(renv completion)"    # optional; add to shell rc
+renv --install-completion    # optional, one time
 ```
+
+Starting from an empty `~/src`? `renv clone -u https://github.com/my-org -s ~/src` populates it
+first (see [`renv clone`](commands.md#renv-clone)).
 
 ## 2. Create and activate
 
@@ -42,8 +45,11 @@ renv sh web
 ## 4. Add another repo later
 
 ```bash
-renv add web -s ~/src -i "new-service" -b feature/my-task
+renv add web -s ~/src -i "new-service"
 ```
+
+`--branch` isn't needed here: `add` defaults to the branch `web`'s other repos are already on
+(`feature/my-task`), so the new repo joins the same task instead of landing detached.
 
 ## 5. Sync and check health
 

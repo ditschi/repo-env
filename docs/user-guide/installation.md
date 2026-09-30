@@ -44,13 +44,13 @@ gh auth status
 
 ## Shell completion
 
-Add to `~/.bashrc` / `~/.zshrc` / `~/.config/fish/config.fish`:
+Install into your shell's completion directory (detects the shell from `$SHELL`, prompts once):
 
 ```bash
-eval "$(renv completion)"          # auto-detects shell from $SHELL
+renv --install-completion
 ```
 
-Or specify explicitly:
+Or specify explicitly, and restart your shell (or `source` its rc file) afterward:
 
 === "bash"
 

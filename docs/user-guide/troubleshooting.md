@@ -121,6 +121,19 @@ renv pr web --title "feat: …" --push
 2. Fix invalid entries manually (see [Configuration](configuration.md)).
 3. As last resort, remove the registry and re-import environments with `renv import`.
 
+## Unexpected errors
+
+**Symptom:** `renv` prints `error: Unexpected internal error: ...` instead of a normal
+`RepoEnvError` message.
+
+That's a bug — known/expected failures (bad flags, missing repos, dirty worktrees, …) always
+print a clean `error:`/`hint:` pair, never a stack trace. Re-run with `--debug` (or set
+`REPOENV_DEBUG=1`) to get the full Python traceback for a bug report:
+
+```bash
+renv --debug create web -i 'service-*'
+```
+
 ## Getting more help
 
 - `renv <command> --help` — authoritative flags for your installed version

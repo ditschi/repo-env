@@ -4,6 +4,14 @@ All commands are invoked as `renv <command> [OPTIONS] [ARGS]`.
 
 Run `renv --help` or `renv <command> --help` for the latest flags.
 
+## Global options
+
+- `--version/-V`: print the version and exit
+- `--debug`: show full Python tracebacks on unexpected errors instead of a short message
+  (also via `REPOENV_DEBUG=1`); see [Troubleshooting](troubleshooting.md#unexpected-errors)
+- `--install-completion [bash|zsh|fish]` / `--show-completion [bash|zsh|fish]`: see
+  [`renv completion`](#shell-completion) below
+
 ---
 
 ## `renv init`
@@ -406,12 +414,15 @@ renv sh [ENV]
 
 ---
 
-## `renv completion`
+## Shell completion
 
-Print a shell completion script to stdout (for manual installation in dotfiles).
+`renv completion` is not a command — completion is installed via the global options
+`--install-completion` (writes it into your shell's completion directory) or
+`--show-completion` (prints the script to stdout, for manual installation):
 
 ```bash
-renv completion [bash|zsh|fish]
+renv --install-completion          # auto-detects shell, installs, restart shell after
+renv --show-completion zsh         # print the zsh script instead
 ```
 
 Once installed, `<Tab>` completes environment names/aliases everywhere `[ENV]` is accepted, and

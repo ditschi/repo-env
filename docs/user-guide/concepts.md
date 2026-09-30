@@ -1,6 +1,8 @@
 # Concepts
 
-How `renv` organizes repositories, environments, and configuration.
+How `renv` organizes repositories, environments, and configuration. Assumes familiarity with
+git; if `git worktree` itself is new, see the [official docs](https://git-scm.com/docs/git-worktree)
+first — `renv` is a layer of naming/lifecycle conventions on top of it, not a replacement.
 
 ## Source vs destination
 
