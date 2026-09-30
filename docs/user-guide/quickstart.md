@@ -1,5 +1,7 @@
 # Quick Start
 
+![renv quickstart demo](../assets/casts/quickstart.gif)
+
 ## 1. First-run setup
 
 ```bash

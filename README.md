@@ -40,6 +40,8 @@ renv pr web --title "feat: migrate X" --push   # optional --push
 renv rm web --delete-files
 ```
 
+![renv quickstart demo](docs/assets/casts/quickstart.gif)
+
 Prefer arrow keys to flags? `renv select` walks you through picking an environment and an
 action (status, activate, sh, sync, path, rm) interactively:
 
@@ -53,6 +55,10 @@ action (status, activate, sh, sync, path, rm) interactively:
 - Source clones are **read-only**. Destructive ops require explicit flags
 
 ## Development
+
+A [devcontainer](.devcontainer/) is available with `uv`, `nox`, `gh`, and the `asciinema`/`agg`
+demo-recording tools preinstalled (VS Code: "Reopen in Container"; also works with GitHub
+Codespaces). Outside a container:
 
 ```sh
 uv tool install nox
