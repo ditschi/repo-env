@@ -1,21 +1,67 @@
 name: Release
+# Releases when `cz bump` lands on main: the tag job finds the bump commit for the
+# newest CHANGELOG version, tags it and the rest of the workflow releases that tag.
+# Pushing a v* tag by hand still works.
 on:
   push:
+    branches: [main]
     tags:
       - "v[0-9]+.[0-9]+.[0-9]*"
+concurrency:
+  group: release
+  cancel-in-progress: false
 permissions:
-  contents: write # create GitHub Release
+  contents: write # push the tag, create GitHub Release
   id-token: write # OIDC Trusted Publishing (PyPI + TestPyPI)
 jobs:
+  # ── 0. Find (or create) the release tag ─────────────────────────────────────
+  tag:
+    name: Release tag
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.tag.outputs.release }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Tag the bump commit
+        id: tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version=$(sed -nE 's/^## \[([0-9]+\.[0-9]+\.[0-9]+[^]]*)\].*/\1/p' CHANGELOG.md | head -n1)
+          if [[ -z "$version" ]] || git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "Nothing to release (newest CHANGELOG version: ${version:-none})."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          commit=$(git log --format=%H -1 --grep="^bump: version .* → $version\$")
+          if [[ -z "$commit" ]]; then
+            echo "::error::CHANGELOG has $version but no 'bump: version … → $version' commit"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$version" -m "v$version" "$commit"
+          git push origin "v$version"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
   # ── 1. Build sdist + wheel ───────────────────────────────────────────────────
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    needs: tag
+    if: needs.tag.outputs.release == 'true'
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: v${{ needs.tag.outputs.version }}
           fetch-depth: 0 # hatch-vcs needs full history
       - uses: actions/setup-python@v7
         with:
@@ -27,7 +73,7 @@ jobs:
         run: hatch build
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: echo "version=${{ needs.tag.outputs.version }}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: dist
@@ -51,12 +97,20 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           print-hash: true
           verbose: true
+          skip-existing: true # a re-run after a later failure
+      - uses: astral-sh/setup-uv@v7
       - name: Verify install from TestPyPI
         run: |
-          uv tool install \
-            --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ \
-            "repo-env==${{ needs.build.outputs.version }}"
+          # The index can lag a few seconds behind the upload.
+          for attempt in 1 2 3 4 5; do
+            uv tool install --refresh \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              --index-strategy unsafe-best-match \
+              "repo-env==${{ needs.build.outputs.version }}" && break
+            [[ $attempt == 5 ]] && exit 1
+            sleep 15
+          done
           renv --version
   # ── 3. Publish to PyPI (production) ─────────────────────────────────────────
   publish-pypi:
@@ -75,6 +129,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
+          skip-existing: true # a re-run after a later failure
   # ── 4. Create GitHub Release ─────────────────────────────────────────────────
   github-release:
     name: Create GitHub Release
@@ -85,17 +140,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: v${{ needs.build.outputs.version }}
           fetch-depth: 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v7
-      - name: Install commitizen
-        run: uv tool install commitizen
       - name: Extract changelog for this version
         run: |
-          cz changelog --dry-run "${{ needs.build.outputs.version }}" > /tmp/release-notes.md || \
-          echo "Release ${{ needs.build.outputs.version }}" > /tmp/release-notes.md
+          # The CHANGELOG section of this version, without its heading.
+          awk -v heading="## [${{ needs.build.outputs.version }}]" \
+            'index($0, heading) == 1 { found = 1; next } found && /^## / { exit } found' \
+            CHANGELOG.md > /tmp/release-notes.md
+          [[ -s /tmp/release-notes.md ]] || echo "Release ${{ needs.build.outputs.version }}" > /tmp/release-notes.md
       - uses: actions/download-artifact@v8
         with:
           name: dist
@@ -103,6 +156,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ needs.build.outputs.version }} # the run may come from a push to main
           body_path: /tmp/release-notes.md
           files: dist/*
           fail_on_unmatched_files: true
@@ -116,6 +170,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: v${{ needs.build.outputs.version }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
