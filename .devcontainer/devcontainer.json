@@ -1,0 +1,28 @@
+{
+  "name": "repo-env",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "postCreateCommand": "uv sync --extra dev",
+  "remoteEnv": {
+    // See AGENTS.md "Non-obvious gotchas": nox's default sessions include `format`
+    // (auto-edits files) unless this is set. Devcontainer use is local/interactive,
+    // so leave the default (unset -> format runs) -- override per-shell if you want
+    // read-only checks only, matching CI: `export NOX_CI=1`.
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  }
+}

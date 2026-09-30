@@ -36,3 +36,6 @@ Tooling is managed with **uv** (package manager) and **nox** (task runner). See
 - Machine state lives under `REPOENV_HOME` (JSON registry); user config is YAML.
   Set `REPOENV_HOME` to an isolated temp dir for throwaway experiments.
 - `renv pr` requires the GitHub CLI (`gh`), which is preinstalled.
+
+A [devcontainer](.devcontainer/) also exists (VS Code / GitHub Codespaces) with the same
+tooling plus `asciinema`/`agg` for regenerating `docs/assets/casts/*.gif`.
