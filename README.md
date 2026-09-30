@@ -40,6 +40,11 @@ renv pr web --title "feat: migrate X" --push   # optional --push
 renv rm web --delete-files
 ```
 
+Prefer arrow keys to flags? `renv select` walks you through picking an environment and an
+action (status, activate, sh, sync, path, rm) interactively:
+
+![renv select demo](docs/assets/vhs/select.gif)
+
 ## Design
 
 - Command: `renv` · Distribution: `repo-env` · Import package: `repoenv`

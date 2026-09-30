@@ -414,6 +414,20 @@ renv sh [ENV]
 
 ---
 
+## `renv select`
+
+Interactive picker: pick an environment with the arrow keys, then pick an action to run against
+it (`status`, `activate`, `sh`, `sync`, `path`, `rm`). Requires an interactive terminal (TTY);
+in scripts/CI use the direct subcommands instead.
+
+```bash
+renv select
+```
+
+![renv select demo](../assets/vhs/select.gif)
+
+---
+
 ## Shell completion
 
 `renv completion` is not a command — completion is installed via the global options
