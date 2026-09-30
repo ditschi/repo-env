@@ -28,6 +28,7 @@ from repoenv.cli.commands.repair import repair_command
 from repoenv.cli.commands.repos import repos_command
 from repoenv.cli.commands.rm import rm_command
 from repoenv.cli.commands.run import RunCommand, run_command
+from repoenv.cli.commands.select import select_command
 from repoenv.cli.commands.sh import sh_command
 from repoenv.cli.commands.status import status_command
 from repoenv.cli.commands.sync import sync_command
@@ -97,3 +98,4 @@ app.command("repair")(repair_command)
 app.command("import")(import_command)
 app.command("pr")(pr_command)
 app.command("sh")(sh_command)
+app.command("select")(select_command)
