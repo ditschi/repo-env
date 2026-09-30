@@ -8,6 +8,11 @@ This file is updated automatically by `cz bump` — do not edit manually except 
 
 ## [Unreleased]
 
+### Added
+
+- `renv select` — interactive picker (arrow keys) for choosing an environment and then an
+  action to run against it: `status`, `activate`, `sh`, `sync`, `path`, `rm`
+
 ## [0.1.0] - 2026-09-29
 
 First public release of `repo-env` / the `renv` CLI.
