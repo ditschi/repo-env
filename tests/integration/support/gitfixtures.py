@@ -42,7 +42,10 @@ class RepoFactory:
     def make_bare_and_clone(self, name: str, *, default_branch: str = "main") -> Path:
         """Create a bare remote, clone it under ``source/``, seed with an initial commit."""
         bare = self.remotes / f"{name}.git"
-        run_git(["init", "--bare", str(bare)], cwd=self.root)
+        # Pin the bare repo's HEAD so fresh clones check out ``default_branch``
+        # regardless of the machine's ``init.defaultBranch`` (git defaults to
+        # ``master``, e.g. on CI runners).
+        run_git(["init", "--bare", f"--initial-branch={default_branch}", str(bare)], cwd=self.root)
         clone = self.source / name
         run_git(["clone", str(bare), str(clone)], cwd=self.root)
         run_git(["config", "user.email", "test@example.com"], cwd=clone)
