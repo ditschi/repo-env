@@ -131,12 +131,14 @@ def _bash_complete(*, repoenv_home: Path, cwd: Path, words: str, cword: int, arg
 def test_bash_completion_suggests_repos_for_create_include(repoenv_home: Path, tmp_path: Path) -> None:
     source = _make_source_tree(tmp_path)
 
+    # Forward slashes: COMP_WORDS is shlex-split, which would eat Windows backslashes.
+    source_arg = source.as_posix()
     suggestions = _bash_complete(
         repoenv_home=repoenv_home,
         cwd=tmp_path,
-        words=f"renv create task --source {source} --include ",
+        words=f"renv create task --source {source_arg} --include ",
         cword=6,
-        args=["create", "task", "--source", str(source), "--include", ""],
+        args=["create", "task", "--source", source_arg, "--include", ""],
     )
 
     assert "github.com/acme/svc-alpha" in suggestions
