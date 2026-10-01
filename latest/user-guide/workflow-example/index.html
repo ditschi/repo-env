@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1053,21 +1053,23 @@
 <p>Assumes clones live in <code>~/src</code> and environments in <code>~/envs</code>. Adjust paths to match your <code>renv init</code> answers.</p>
 <h2 id="1-one-time-setup">1. One-time setup<a class="headerlink" href="#1-one-time-setup" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>renv<span class="w"> </span>init<span class="w"> </span>-s<span class="w"> </span>~/src<span class="w"> </span>-d<span class="w"> </span>~/envs<span class="w"> </span>-y
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">eval</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>renv<span class="w"> </span>completion<span class="k">)</span><span class="s2">&quot;</span><span class="w">    </span><span class="c1"># optional; add to shell rc</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>renv<span class="w"> </span>--install-completion<span class="w">    </span><span class="c1"># optional, one time</span>
 </span></code></pre></div>
+<p>Starting from an empty <code>~/src</code>? <code>renv clone -u https://github.com/my-org -s ~/src</code> populates it
+first (see <a href="../commands/#renv-clone"><code>renv clone</code></a>).</p>
 <h2 id="2-create-and-activate">2. Create and activate<a class="headerlink" href="#2-create-and-activate" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>renv<span class="w"> </span>create<span class="w"> </span>web<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>-s<span class="w"> </span>~/src<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>-d<span class="w"> </span>~/envs<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>-b<span class="w"> </span>feature/my-task<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>-i<span class="w"> </span><span class="s2">&quot;service-*&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>-i<span class="w"> </span><span class="s2">"service-*"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--activate
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>renv<span class="w"> </span>ls
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>renv<span class="w"> </span>status<span class="w"> </span>web
 </span></code></pre></div>
 <h2 id="3-work-in-the-environment">3. Work in the environment<a class="headerlink" href="#3-work-in-the-environment" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>renv<span class="w"> </span>path<span class="w"> </span>web<span class="k">)</span><span class="s2">&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>renv<span class="w"> </span>path<span class="w"> </span>web<span class="k">)</span><span class="s2">"</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Run across all worktrees (ENV optional when active or inside env dir)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>renv<span class="w"> </span>run<span class="w"> </span>--<span class="w"> </span>git<span class="w"> </span>status
@@ -1078,8 +1080,10 @@
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>renv<span class="w"> </span>sh<span class="w"> </span>web
 </span></code></pre></div>
 <h2 id="4-add-another-repo-later">4. Add another repo later<a class="headerlink" href="#4-add-another-repo-later" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>add<span class="w"> </span>web<span class="w"> </span>-s<span class="w"> </span>~/src<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;new-service&quot;</span><span class="w"> </span>-b<span class="w"> </span>feature/my-task
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>add<span class="w"> </span>web<span class="w"> </span>-s<span class="w"> </span>~/src<span class="w"> </span>-i<span class="w"> </span><span class="s2">"new-service"</span>
 </span></code></pre></div>
+<p><code>--branch</code> isn't needed here: <code>add</code> defaults to the branch <code>web</code>'s other repos are already on
+(<code>feature/my-task</code>), so the new repo joins the same task instead of landing detached.</p>
 <h2 id="5-sync-and-check-health">5. Sync and check health<a class="headerlink" href="#5-sync-and-check-health" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv<span class="w"> </span>sync<span class="w"> </span>web
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>renv<span class="w"> </span>status<span class="w"> </span>web
@@ -1090,10 +1094,10 @@
 <h2 id="6-open-pull-requests">6. Open pull requests<a class="headerlink" href="#6-open-pull-requests" title="Permanent link">&para;</a></h2>
 <p>Requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh auth login</code>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Push yourself in each repo, then:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;feat: migrate X to Y&quot;</span><span class="w"> </span>--draft
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--draft
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Or let renv push first:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;feat: migrate X to Y&quot;</span><span class="w"> </span>--push<span class="w"> </span>--skip-no-diff
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--push<span class="w"> </span>--skip-no-diff
 </span></code></pre></div>
 <h2 id="7-tear-down">7. Tear down<a class="headerlink" href="#7-tear-down" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Remove registry entry only (worktrees stay on disk)</span>
@@ -1183,7 +1187,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

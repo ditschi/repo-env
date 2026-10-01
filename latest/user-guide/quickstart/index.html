@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -564,10 +564,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-create-an-environment" class="md-nav__link">
+  <a href="#2-populate-your-source-tree-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Create an environment
+        2. Populate your source tree (optional)
       
     </span>
   </a>
@@ -575,10 +575,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-list-environments" class="md-nav__link">
+  <a href="#3-create-an-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. List environments
+        3. Create an environment
       
     </span>
   </a>
@@ -586,10 +586,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-navigate-to-an-environment" class="md-nav__link">
+  <a href="#4-list-environments" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Navigate to an environment
+        4. List environments
       
     </span>
   </a>
@@ -597,10 +597,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-run-a-command-across-all-worktrees" class="md-nav__link">
+  <a href="#5-navigate-to-an-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Run a command across all worktrees
+        5. Navigate to an environment
       
     </span>
   </a>
@@ -608,10 +608,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-open-bulk-pull-requests" class="md-nav__link">
+  <a href="#6-run-a-command-across-all-worktrees" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. Open bulk pull requests
+        6. Run a command across all worktrees
       
     </span>
   </a>
@@ -619,10 +619,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#7-tear-down-an-environment" class="md-nav__link">
+  <a href="#7-open-bulk-pull-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        7. Tear down an environment
+        7. Open bulk pull requests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-tear-down-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Tear down an environment
       
     </span>
   </a>
@@ -1049,34 +1060,40 @@
 
 
 <h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
+<p><img alt="renv quickstart demo" src="../../assets/casts/quickstart.gif" /></p>
 <h2 id="1-first-run-setup">1. First-run setup<a class="headerlink" href="#1-first-run-setup" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>renv<span class="w"> </span>init
 </span></code></pre></div>
 <p>The wizard asks for your source directory (where git clones live) and destination root for environments. Settings are stored in <code>~/.config/repoenv/repoenv.yaml</code> on Linux (see <a href="../configuration/">Configuration</a>).</p>
-<h2 id="2-create-an-environment">2. Create an environment<a class="headerlink" href="#2-create-an-environment" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>renv<span class="w"> </span>create<span class="w"> </span>web<span class="w"> </span>-s<span class="w"> </span>~/src<span class="w"> </span>-b<span class="w"> </span>feature/my-task<span class="w"> </span>--activate
+<h2 id="2-populate-your-source-tree-optional">2. Populate your source tree (optional)<a class="headerlink" href="#2-populate-your-source-tree-optional" title="Permanent link">&para;</a></h2>
+<p>Already have clones under <code>~/src</code>? Skip this. Starting from scratch:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com/my-org<span class="w"> </span>-s<span class="w"> </span>~/src
+</span></code></pre></div>
+<p>Clones land as <code>~/src/github.com/my-org/&lt;repo&gt;/</code> — see <a href="../commands/#renv-clone"><code>renv clone</code></a>.</p>
+<h2 id="3-create-an-environment">3. Create an environment<a class="headerlink" href="#3-create-an-environment" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>renv<span class="w"> </span>create<span class="w"> </span>web<span class="w"> </span>-s<span class="w"> </span>~/src<span class="w"> </span>-b<span class="w"> </span>feature/my-task<span class="w"> </span>--activate
 </span></code></pre></div>
 <p><code>renv</code> scans <code>~/src</code> for git repositories, creates a worktree on branch <code>feature/my-task</code> in each match, and registers the environment <code>web</code>. <code>--activate</code> sets it as the default for future commands.</p>
-<h2 id="3-list-environments">3. List environments<a class="headerlink" href="#3-list-environments" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>renv<span class="w"> </span>ls
+<h2 id="4-list-environments">4. List environments<a class="headerlink" href="#4-list-environments" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>ls
 </span></code></pre></div>
-<h2 id="4-navigate-to-an-environment">4. Navigate to an environment<a class="headerlink" href="#4-navigate-to-an-environment" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>renv<span class="w"> </span>path<span class="w"> </span>web<span class="k">)</span><span class="s2">&quot;</span>
+<h2 id="5-navigate-to-an-environment">5. Navigate to an environment<a class="headerlink" href="#5-navigate-to-an-environment" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>renv<span class="w"> </span>path<span class="w"> </span>web<span class="k">)</span><span class="s2">"</span>
 </span></code></pre></div>
 <p>Inside an environment directory you can omit the env name on most commands.</p>
-<h2 id="5-run-a-command-across-all-worktrees">5. Run a command across all worktrees<a class="headerlink" href="#5-run-a-command-across-all-worktrees" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv<span class="w"> </span>run<span class="w"> </span>web<span class="w"> </span>--<span class="w"> </span>git<span class="w"> </span>status
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>renv<span class="w"> </span>run<span class="w"> </span>--<span class="w"> </span>make<span class="w"> </span><span class="nb">test</span><span class="w">          </span><span class="c1"># same, when active or cwd is inside web</span>
+<h2 id="6-run-a-command-across-all-worktrees">6. Run a command across all worktrees<a class="headerlink" href="#6-run-a-command-across-all-worktrees" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv<span class="w"> </span>run<span class="w"> </span>web<span class="w"> </span>--<span class="w"> </span>git<span class="w"> </span>status
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>renv<span class="w"> </span>run<span class="w"> </span>--<span class="w"> </span>make<span class="w"> </span><span class="nb">test</span><span class="w">          </span><span class="c1"># same, when active or cwd is inside web</span>
 </span></code></pre></div>
-<h2 id="6-open-bulk-pull-requests">6. Open bulk pull requests<a class="headerlink" href="#6-open-bulk-pull-requests" title="Permanent link">&para;</a></h2>
+<h2 id="7-open-bulk-pull-requests">7. Open bulk pull requests<a class="headerlink" href="#7-open-bulk-pull-requests" title="Permanent link">&para;</a></h2>
 <p>Requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh auth login</code>).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;feat: migrate X to Y&quot;</span><span class="w"> </span>--draft
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;feat: migrate X to Y&quot;</span><span class="w"> </span>--push<span class="w">   </span><span class="c1"># push branches first</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--draft
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--push<span class="w">   </span><span class="c1"># push branches first</span>
 </span></code></pre></div>
 <p><code>renv pr</code> never pushes unless <code>--push</code> is given.</p>
-<h2 id="7-tear-down-an-environment">7. Tear down an environment<a class="headerlink" href="#7-tear-down-an-environment" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-files<span class="w">    </span><span class="c1"># remove registry + worktrees + env dir</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># registry-only (files stay on disk)</span>
+<h2 id="8-tear-down-an-environment">8. Tear down an environment<a class="headerlink" href="#8-tear-down-an-environment" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-files<span class="w">    </span><span class="c1"># remove registry + worktrees + env dir</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># registry-only (files stay on disk)</span>
 </span></code></pre></div>
 <p>Source clones under <code>~/src</code> are never deleted.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
@@ -1160,7 +1177,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

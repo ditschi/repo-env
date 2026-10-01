@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -926,29 +926,33 @@
 <p>The format follows <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>.
 Versions follow <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.
 This file is updated automatically by <code>cz bump</code> — do not edit manually except before the first tagged release.</p>
-<h2 id="unreleased"><a href="https://github.com/ditschi/repo-env/compare/v0.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<h2 id="010-2026-07-13"><a href="https://github.com/ditschi/repo-env/releases/tag/v0.1.0">0.1.0</a> - 2026-07-13<a class="headerlink" href="#010-2026-07-13" title="Permanent link">&para;</a></h2>
+<h2 id="010-2026-09-30"><a href="https://github.com/ditschi/repo-env/releases/tag/v0.1.0">0.1.0</a> - 2026-09-30<a class="headerlink" href="#010-2026-09-30" title="Permanent link">&para;</a></h2>
 <p>First public release of <code>repo-env</code> / the <code>renv</code> CLI.</p>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>renv</code> CLI for managing multi-repository git worktree environments</li>
-<li>Commands: <code>init</code>, <code>create</code>, <code>add</code>, <code>merge</code>, <code>ls</code>, <code>repos</code>, <code>path</code>, <code>run</code>, <code>rm</code>, <code>rename</code>, <code>sync</code>, <code>status</code>, <code>check</code>, <code>prune</code>, <code>repair</code>, <code>import</code>, <code>pr</code>, <code>sh</code>, <code>completion</code>, <code>activate</code>, <code>config</code></li>
+<li><code>renv clone</code> — clone repositories into the source tree (<code>host/owner/repo</code> layout) via
+  <code>--url</code> and <code>owner/repo</code> <code>--include</code>/<code>--exclude</code> globs; GitHub discovery through <code>gh</code>
+  when globs need the API; <code>--update</code>, <code>--reset-default</code>, and <code>--force</code> for existing clones</li>
+<li><code>renv select</code> — interactive picker (arrow keys) for choosing an environment and then an
+  action to run against it: <code>status</code>, <code>activate</code>, <code>sh</code>, <code>sync</code>, <code>path</code>, <code>rm</code></li>
+<li>Commands: <code>init</code>, <code>create</code>, <code>add</code>, <code>merge</code>, <code>ls</code>, <code>repos</code>, <code>path</code>, <code>run</code>, <code>rm</code>, <code>rename</code>, <code>sync</code>, <code>status</code>, <code>check</code>, <code>prune</code>, <code>repair</code>, <code>import</code>, <code>pr</code>, <code>sh</code>, <code>select</code>, <code>clone</code>, <code>activate</code>, <code>config</code></li>
 <li>Environment resolution: explicit name, environment alias, config alias, CWD-in-env, <code>REPOENV_ACTIVE</code>, persisted active env</li>
 <li>User config (<code>repoenv.yaml</code>) and registry (<code>registry.json</code>) under <code>REPOENV_HOME</code></li>
 <li>Per-environment metadata in <code>.repoenv.json</code> (includes reproduction marker)</li>
-<li>Branch conflict strategies: <code>--on-branch-conflict detach|move|fail</code></li>
+<li>Branch conflict strategies: <code>--on-branch-conflict detach|move|fail</code> (<code>create</code>/<code>add</code>/<code>repair</code>), defaulting to <code>move</code> on <code>merge</code></li>
+<li><code>renv add</code> without <code>--branch</code> joins the branch an environment's other repos are already on, instead of landing detached</li>
+<li><code>renv merge</code> preserves each side's task branch (reporting conflicts) instead of recreating detached worktrees</li>
+<li>Named repo groups (<code>renv config groups.&lt;name&gt; &lt;pattern&gt;</code>) usable as <code>--include/--exclude @name</code>, mixable with literal globs</li>
+<li>Tab-completion for environment names/aliases, repo names (with base-dir prefix narrowing), and <code>@group</code> names</li>
+<li>Per-repo failure reasons shown by default on <code>create</code>/<code>add</code>/<code>status</code>, not just with <code>--json</code></li>
 <li>Bulk PR creation via GitHub CLI (<code>gh</code>); optional <code>--push</code></li>
-<li>Shell completion for environment names; <code>autocorrect</code> for unknown subcommands</li>
+<li><code>autocorrect</code> for unknown subcommands: read-only commands (<code>ls</code>, <code>repos</code>, <code>path</code>, <code>status</code>, <code>check</code>) correct
+  immediately, state-changing ones require opt-in</li>
+<li><code>--debug</code>/<code>REPOENV_DEBUG=1</code> to show full tracebacks; unexpected errors print a short message otherwise</li>
+<li>Demo recordings and a devcontainer (<code>uv</code>, <code>nox</code>, <code>gh</code>, <code>asciinema</code>, <code>agg</code> preinstalled) for contributors</li>
 <li>Integration, performance, and multi-Python (3.10–3.14) test coverage</li>
 <li>Documentation site (MkDocs Material) with user and contributor guides</li>
-</ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
-<ul>
-<li>N/A (initial release)</li>
-</ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
-<ul>
-<li>N/A (initial release)</li>
 </ul>
 
 
@@ -1024,7 +1028,7 @@ This file is updated automatically by <code>cz bump</code> — do not edit manua
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

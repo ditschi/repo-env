@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -823,6 +823,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Run quality gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting-missing-python-interpreter-in-nox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting: missing Python interpreter in nox
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1068,9 +1085,20 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs<span class="w">          </span><span class="c1"># build docs strict (fails on any warning)</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs_serve<span class="w">    </span><span class="c1"># live-reload local docs at http://127.0.0.1:8000</span>
 </span></code></pre></div>
+<h3 id="troubleshooting-missing-python-interpreter-in-nox">Troubleshooting: missing Python interpreter in nox<a class="headerlink" href="#troubleshooting-missing-python-interpreter-in-nox" title="Permanent link">&para;</a></h3>
+<p>If nox prints <code>Session tests-3.14 skipped: Python interpreter 3.14 not found</code>:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>self<span class="w"> </span>update
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>python<span class="w"> </span>install<span class="w"> </span><span class="m">3</span>.14
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests-3.14<span class="w"> </span>--download-python<span class="w"> </span>always
+</span></code></pre></div>
+<p>Notes:</p>
+<ul>
+<li>First run can take longer while uv downloads Python builds.</li>
+<li><code>--download-python always</code> forces nox to ask uv to provision the interpreter.</li>
+</ul>
 <p>CI runs integration tests in a separate job on Python 3.12 only (see <a href="../quality-gates/#ci-jobs">Quality Gates</a>).</p>
 <h2 id="install-pre-commit-hooks">Install pre-commit hooks<a class="headerlink" href="#install-pre-commit-hooks" title="Permanent link">&para;</a></h2>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pre-commit<span class="w"> </span>install<span class="w"> </span>--hook-type<span class="w"> </span>commit-msg<span class="w"> </span>--hook-type<span class="w"> </span>pre-commit<span class="w"> </span>--hook-type<span class="w"> </span>pre-push
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pre-commit<span class="w"> </span>install<span class="w"> </span>--hook-type<span class="w"> </span>commit-msg<span class="w"> </span>--hook-type<span class="w"> </span>pre-commit<span class="w"> </span>--hook-type<span class="w"> </span>pre-push
 </span></code></pre></div>
 <p>This installs:</p>
 <ul>
@@ -1079,18 +1107,18 @@
 <li><code>pre-push</code>: runs mypy</li>
 </ul>
 <h2 id="project-structure">Project structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>src/repoenv/       Core package
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  adapters/        External system adapters (git, gh, filesystem)
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  cli/             Typer command definitions
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  domain/          Pure domain models + logic
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  services/        Orchestration between domain + adapters
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  ui/              Rich terminal output helpers
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>tests/
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  unit/            Fast, no I/O
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  integration/     Real temp git repos, mocked gh
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>  performance/     CLI cold-start latency budgets (help + bash completion)
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>docs/              This site
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>.github/workflows/ CI/CD pipelines
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>src/repoenv/       Core package
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  adapters/        External system adapters (git, gh, filesystem)
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  cli/             Typer command definitions
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  domain/          Pure domain models + logic
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  services/        Orchestration between domain + adapters
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  ui/              Rich terminal output helpers
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>tests/
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  unit/            Fast, no I/O
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  integration/     Real temp git repos, mocked gh
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>  performance/     CLI cold-start latency budgets (help + bash completion)
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>docs/              This site
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>.github/workflows/ CI/CD pipelines
 </span></code></pre></div>
 <h2 id="code-style">Code style<a class="headerlink" href="#code-style" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1174,7 +1202,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

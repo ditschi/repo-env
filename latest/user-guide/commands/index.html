@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -637,6 +637,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#renv-init" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -706,6 +717,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="renv config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#repo-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repo groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -771,6 +799,67 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#renv-clone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        renv clone
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="renv clone">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#selecting-repositories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting repositories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#syncing-existing-clones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Syncing existing clones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -863,10 +952,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#renv-completion" class="md-nav__link">
+  <a href="#renv-select" class="md-nav__link">
     <span class="md-ellipsis">
       
-        renv completion
+        renv select
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shell-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell completion
       
     </span>
   </a>
@@ -1211,6 +1311,14 @@
 <h1 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h1>
 <p>All commands are invoked as <code>renv &lt;command&gt; [OPTIONS] [ARGS]</code>.</p>
 <p>Run <code>renv --help</code> or <code>renv &lt;command&gt; --help</code> for the latest flags.</p>
+<h2 id="global-options">Global options<a class="headerlink" href="#global-options" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>--version/-V</code>: print the version and exit</li>
+<li><code>--debug</code>: show full Python tracebacks on unexpected errors instead of a short message
+  (also via <code>REPOENV_DEBUG=1</code>); see <a href="../troubleshooting/#unexpected-errors">Troubleshooting</a></li>
+<li><code>--install-completion [bash|zsh|fish]</code> / <code>--show-completion [bash|zsh|fish]</code>: see
+  <a href="#shell-completion"><code>renv completion</code></a> below</li>
+</ul>
 <hr />
 <h2 id="renv-init"><code>renv init</code><a class="headerlink" href="#renv-init" title="Permanent link">&para;</a></h2>
 <p>First-run setup wizard. Writes the user config file.</p>
@@ -1233,7 +1341,7 @@
 <p>Highlights:</p>
 <ul>
 <li><code>--source/-s DIR</code>, <code>--dest/-d DIR</code></li>
-<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (repeatable; CSV also supported)</li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (repeatable; CSV and <code>@group</code> also supported, and tab-complete)</li>
 <li><code>--branch/-b BRANCH</code> (create branch in each repo)</li>
 <li><code>--default-branch/-B BRANCH</code> (fallback when auto-detect fails)</li>
 <li><code>--preserve</code> (skip fetch/update; use source repos as-is)</li>
@@ -1269,28 +1377,44 @@
 <li><code>renv config</code> (dump effective config + paths + active env)</li>
 <li><code>renv config source ~/src</code></li>
 <li><code>renv config autocorrect 0.5</code></li>
+<li><code>renv config aliases.web ado</code> (config alias, see <a href="../concepts/">Concepts</a>)</li>
+<li><code>renv config groups.backend '*/backend-*'</code> (named repo group; see below)</li>
 </ul>
+<h3 id="repo-groups">Repo groups<a class="headerlink" href="#repo-groups" title="Permanent link">&para;</a></h3>
+<p>A repo group stores one glob, or a comma-separated list of globs, under a short name:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>config<span class="w"> </span>groups.backend<span class="w"> </span><span class="s1">'*/backend-*'</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>config<span class="w"> </span>groups.backend<span class="w"> </span><span class="s1">'*/backend-*,*/api-*'</span><span class="w">   </span><span class="c1"># multiple globs</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>renv<span class="w"> </span>config<span class="w"> </span>groups.backend<span class="w"> </span>--unset
+</span></code></pre></div>
+<p>Reference it with <code>@name</code> anywhere <code>--include</code>/<code>--exclude</code> is accepted, on <code>create</code>, <code>add</code>, and <code>repair</code>.
+It mixes freely with literal globs, and tab-completes:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>create<span class="w"> </span>svc<span class="w"> </span>--include<span class="w"> </span>@backend
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>renv<span class="w"> </span>add<span class="w"> </span>svc<span class="w"> </span>--include<span class="w"> </span>@backend,*/frontend-*
+</span></code></pre></div>
 <hr />
 <h2 id="renv-path"><code>renv path</code><a class="headerlink" href="#renv-path" title="Permanent link">&para;</a></h2>
 <p>Print the filesystem path to a named environment (suitable for <code>cd</code>).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>path<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--repo<span class="w"> </span>NAME<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>renv<span class="w"> </span>path<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--repo<span class="w"> </span>NAME<span class="o">]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="renv-run"><code>renv run</code><a class="headerlink" href="#renv-run" title="Permanent link">&para;</a></h2>
 <p>Run an arbitrary shell command inside every worktree of an environment.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>--<span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS...<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>renv<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>--<span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS...<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
 <li><code>--jobs/-j N</code> (parallel workers)</li>
-<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV and <code>@group</code> supported)</li>
 <li><code>--shell</code> (run via shell to enable pipes/globs)</li>
 <li><code>--json</code></li>
 </ul>
+<p><code>[ENV]</code> is fully optional: <code>renv run -- COMMAND</code> resolves the environment the same way as any
+other <code>[ENV]</code>-optional command (cwd-inside-an-env, then the active env; see
+<a href="#optional-env-argument">Optional <code>[ENV]</code> argument</a>).</p>
 <hr />
 <h2 id="renv-pr"><code>renv pr</code><a class="headerlink" href="#renv-pr" title="Permanent link">&para;</a></h2>
 <p>Open bulk pull requests for every worktree with unpushed commits.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>renv<span class="w"> </span>pr<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span>--title<span class="w"> </span>TITLE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>renv<span class="w"> </span>pr<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span>--title<span class="w"> </span>TITLE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
@@ -1306,75 +1430,191 @@
 <hr />
 <h2 id="renv-repair"><code>renv repair</code><a class="headerlink" href="#renv-repair" title="Permanent link">&para;</a></h2>
 <p>Recreate worktrees that are missing or marked failed/stale, using metadata stored in the registry.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>renv<span class="w"> </span>repair<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>renv<span class="w"> </span>repair<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
-<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV supported)</li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (subset selection; CSV and <code>@group</code> supported)</li>
 <li><code>--on-branch-conflict detach|move|fail</code></li>
 <li><code>--preserve</code> (skip fetch/update)</li>
 <li><code>--dry-run/-n</code></li>
 </ul>
-<p>Use after manual deletion of individual worktree directories, or when <code>renv create</code>/<code>add</code> left some repos in a failed state.</p>
+<p>Use after manual deletion of individual worktree directories, or when <code>renv create</code>/<code>add</code> left some repos in a failed state. <code>renv status</code> (without <code>--json</code>) prints the reason for each failed/missing repo.</p>
 <hr />
 <h2 id="renv-rm"><code>renv rm</code><a class="headerlink" href="#renv-rm" title="Permanent link">&para;</a></h2>
 <p>Remove an environment (deletes worktrees, leaves source clones).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>renv<span class="w"> </span>rm<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--delete-files<span class="o">]</span><span class="w"> </span><span class="o">[</span>--force<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>renv<span class="w"> </span>rm<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--delete-files<span class="o">]</span><span class="w"> </span><span class="o">[</span>--force<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
 </span></code></pre></div>
 <p>By default, <code>renv rm</code> removes the environment from the registry only. Use <code>--delete-files</code> to also remove worktrees and the env directory.</p>
 <hr />
 <h2 id="renv-add"><code>renv add</code><a class="headerlink" href="#renv-add" title="Permanent link">&para;</a></h2>
 <p>Add repositories to an existing environment.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>renv<span class="w"> </span>add<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>renv<span class="w"> </span>add<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
 <li><code>--source/-s DIR</code> (defaults to env source or config)</li>
-<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code></li>
+<li><code>--include/-i GLOB</code> / <code>--exclude/-x GLOB</code> (CSV and <code>@group</code> supported)</li>
 <li><code>--branch/-b BRANCH</code>, <code>--on-branch-conflict detach|move|fail</code></li>
 <li><code>--preserve</code>, <code>--activate</code>, <code>--dry-run/-n</code></li>
 </ul>
+<div class="admonition tip">
+<p class="admonition-title">Branch defaults to the environment's existing task branch</p>
+<p>If <code>--branch</code> is omitted and the environment already has repos on a branch <code>renv</code> created
+(e.g. via <code>renv create web -b feature/x</code>), the newly added repo(s) join that same branch
+instead of landing detached at the default branch. Pass <code>--branch</code> explicitly to override.</p>
+</div>
+<hr />
+<h2 id="renv-clone"><code>renv clone</code><a class="headerlink" href="#renv-clone" title="Permanent link">&para;</a></h2>
+<p>Clone repositories into the <strong>source</strong> tree so you can run <code>renv create</code> / <code>renv add</code> later.
+Does <strong>not</strong> create or modify any renv environment.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>renv<span class="w"> </span>clone<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>Clones land under <code>--source</code> (default: config <code>source</code>) using a <code>host/owner/repo</code> layout:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>~/src/
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  github.com/
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    my-org/
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>      service-a/
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>      service-b/
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  github.company.com/
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    team/
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>      internal-tool/
+</span></code></pre></div>
+<h3 id="selecting-repositories">Selecting repositories<a class="headerlink" href="#selecting-repositories" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--url/-u URL</code> (required, repeatable; CSV supported): a host (<code>https://github.com</code>),
+  host+owner (<code>https://github.com/my-org</code>), or a full repo URL
+  (<code>https://github.com/owner/repo</code>, <code>git@github.com:owner/repo.git</code>).</li>
+<li><code>--include/-i PATTERN</code> / <code>--exclude/-x PATTERN</code>: <code>owner/repo</code> globs (repeatable; CSV
+  supported). Examples: <code>myself/test-*</code>, <code>owner/repo2</code>, <code>prefix-*/*</code>, <code>**</code> (match
+  everything reachable). Each pattern must contain exactly one <code>/</code> (except <code>**</code>).</li>
+<li>When <code>--include</code> is omitted, every repo reachable via <code>--url</code> is included.</li>
+</ul>
+<p>Wildcard owner globs (e.g. <code>company-*/*</code>) query GitHub via <code>gh</code> and are scoped to
+orgs you belong to. <code>--role</code> controls which memberships count (default: <code>member</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>member</code></td>
+<td>Active org memberships (any role)</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>Active memberships where you are an org admin</td>
+</tr>
+<tr>
+<td><code>any</code></td>
+<td>Active and pending memberships, any role</td>
+</tr>
+</tbody>
+</table>
+<p>If the default role finds nothing and you did not pass <code>--role</code> explicitly, <code>renv</code>
+automatically retries with <code>--role any</code>. When repos are matched with the default role,
+orgs that were skipped are reported.</p>
+<h3 id="syncing-existing-clones">Syncing existing clones<a class="headerlink" href="#syncing-existing-clones" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(none)</em></td>
+<td>Skip repos that already exist locally</td>
+</tr>
+<tr>
+<td><code>--update</code></td>
+<td><code>git fetch</code>, then fast-forward the current branch to <code>origin/&lt;branch&gt;</code></td>
+</tr>
+<tr>
+<td><code>--reset-default</code></td>
+<td>Check out the upstream default branch</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>Allow <code>--update</code> / <code>--reset-default</code> to discard local changes or diverged commits</td>
+</tr>
+</tbody>
+</table>
+<p>Both <code>--update</code> and <code>--reset-default</code> refuse to touch a dirty or diverged repo unless
+<code>--force</code> is also given.</p>
+<h3 id="other-options">Other options<a class="headerlink" href="#other-options" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--source/-s DIR</code>, <code>--protocol ssh|https</code> (default: <code>gh</code>’s <code>git_protocol</code>, per host)</li>
+<li><code>--jobs/-j N</code> (parallel clones/updates)</li>
+<li><code>--dry-run/-n</code></li>
+</ul>
+<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># One repo</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com/owner/repo
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Enterprise host, repo glob</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.company.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'my-team/project-*'</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># All repos in orgs matching a prefix (active memberships only)</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'company-*/*'</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># Sync everything already cloned under ~/src</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'**'</span><span class="w"> </span>--update
+</span></code></pre></div>
+<p>Requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh</code>) when discovery needs the API
+(wildcard owner or repo globs). Full repo URLs clone directly without <code>gh</code>.</p>
 <hr />
 <h2 id="renv-merge"><code>renv merge</code><a class="headerlink" href="#renv-merge" title="Permanent link">&para;</a></h2>
 <p>Combine two environments into a newly created environment.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>renv<span class="w"> </span>merge<span class="w"> </span>NAME<span class="w"> </span>LEFT<span class="w"> </span>RIGHT<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>renv<span class="w"> </span>merge<span class="w"> </span>NAME<span class="w"> </span>LEFT<span class="w"> </span>RIGHT<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
 <li><code>--op union|intersect|difference</code> (default: <code>union</code>)</li>
 <li><code>--dest/-d DIR</code>, <code>--alias/-a NAME</code>, <code>--dry-run/-n</code></li>
+<li><code>--on-branch-conflict move|detach|fail</code> (default: <code>move</code>)</li>
 </ul>
+<p>Each repo keeps the (<code>renv</code>-created) branch it already had in <code>LEFT</code>/<code>RIGHT</code>; a plain detached
+checkout has no branch to carry over. If a repo has a different branch on each side, <code>LEFT</code> wins
+and the conflict is printed. Because git only allows one worktree per branch, the default
+<code>--on-branch-conflict move</code> relocates the branch out of its source environment's worktree (which
+goes detached) and into the merged one — pass <code>--on-branch-conflict fail</code> if you'd rather stop
+and resolve it by hand.</p>
 <hr />
 <h2 id="renv-repos"><code>renv repos</code><a class="headerlink" href="#renv-repos" title="Permanent link">&para;</a></h2>
 <p>List all repository names across every registered environment (multi-column).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>renv<span class="w"> </span>repos
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>renv<span class="w"> </span>repos
 </span></code></pre></div>
 <hr />
 <h2 id="renv-rename"><code>renv rename</code><a class="headerlink" href="#renv-rename" title="Permanent link">&para;</a></h2>
 <p>Rename an environment in the registry and update its metadata.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>renv<span class="w"> </span>rename<span class="w"> </span>OLD<span class="w"> </span>NEW
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>renv<span class="w"> </span>rename<span class="w"> </span>OLD<span class="w"> </span>NEW
 </span></code></pre></div>
 <hr />
 <h2 id="renv-sync"><code>renv sync</code><a class="headerlink" href="#renv-sync" title="Permanent link">&para;</a></h2>
 <p>Fetch updates from each repository's remote for an environment.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>renv<span class="w"> </span>sync<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>renv<span class="w"> </span>sync<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="renv-status-renv-check"><code>renv status</code> / <code>renv check</code><a class="headerlink" href="#renv-status-renv-check" title="Permanent link">&para;</a></h2>
 <p>Report per-repo health: present/missing worktrees and dirty state. <code>check</code> is an alias for <code>status</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>renv<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>renv<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span><span class="w"> </span><span class="o">[</span>--json<span class="o">]</span>
 </span></code></pre></div>
 <p>Start here when something looks wrong — see <a href="../troubleshooting/">Troubleshooting</a>.</p>
 <hr />
 <h2 id="renv-prune"><code>renv prune</code><a class="headerlink" href="#renv-prune" title="Permanent link">&para;</a></h2>
 <p>Run <code>git worktree prune</code> across an environment's source repositories.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>renv<span class="w"> </span>prune<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>renv<span class="w"> </span>prune<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
 </span></code></pre></div>
 <p>Use when git remembers worktrees whose directories were removed manually.</p>
 <hr />
 <h2 id="renv-import"><code>renv import</code><a class="headerlink" href="#renv-import" title="Permanent link">&para;</a></h2>
 <p>Register an environment from worktrees already present on disk.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>renv<span class="w"> </span>import<span class="w"> </span>DIRECTORY<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>renv<span class="w"> </span>import<span class="w"> </span>DIRECTORY<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
 <p>Highlights:</p>
 <ul>
@@ -1384,13 +1624,28 @@
 <hr />
 <h2 id="renv-sh"><code>renv sh</code><a class="headerlink" href="#renv-sh" title="Permanent link">&para;</a></h2>
 <p>Open an interactive subshell with the environment context loaded (<code>REPOENV_ACTIVE</code>, prompt marker).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>renv<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>renv<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>ENV<span class="o">]</span>
 </span></code></pre></div>
 <hr />
-<h2 id="renv-completion"><code>renv completion</code><a class="headerlink" href="#renv-completion" title="Permanent link">&para;</a></h2>
-<p>Print a shell completion script to stdout (for manual installation in dotfiles).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>renv<span class="w"> </span>completion<span class="w"> </span><span class="o">[</span>bash<span class="p">|</span>zsh<span class="p">|</span>fish<span class="o">]</span>
+<h2 id="renv-select"><code>renv select</code><a class="headerlink" href="#renv-select" title="Permanent link">&para;</a></h2>
+<p>Interactive picker: pick an environment with the arrow keys, then pick an action to run against
+it (<code>status</code>, <code>activate</code>, <code>sh</code>, <code>sync</code>, <code>path</code>, <code>rm</code>). Requires an interactive terminal (TTY);
+in scripts/CI use the direct subcommands instead.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>renv<span class="w"> </span><span class="k">select</span>
 </span></code></pre></div>
+<p><img alt="renv select demo" src="../../assets/casts/select.gif" /></p>
+<hr />
+<h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
+<p><code>renv completion</code> is not a command — completion is installed via the global options
+<code>--install-completion</code> (writes it into your shell's completion directory) or
+<code>--show-completion</code> (prints the script to stdout, for manual installation):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>renv<span class="w"> </span>--install-completion<span class="w">          </span><span class="c1"># auto-detects shell, installs, restart shell after</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>renv<span class="w"> </span>--show-completion<span class="w"> </span>zsh<span class="w">         </span><span class="c1"># print the zsh script instead</span>
+</span></code></pre></div>
+<p>Once installed, <code>&lt;Tab&gt;</code> completes environment names/aliases everywhere <code>[ENV]</code> is accepted, and
+completes repo names (and <code>@group</code> names) for <code>--include</code>/<code>--exclude</code> on <code>create</code>/<code>add</code>/<code>repair</code>.
+Repo names are <code>host/org/repo</code>-shaped, so completing a prefix like <code>acme/&lt;Tab&gt;</code> narrows to every
+repo under that directory ("base dir" completion) without any separate configuration.</p>
 <p>See <a href="../installation/">Installation</a> for setup examples.</p>
 <hr />
 <h2 id="optional-env-argument">Optional <code>[ENV]</code> argument<a class="headerlink" href="#optional-env-argument" title="Permanent link">&para;</a></h2>
@@ -1469,7 +1724,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
