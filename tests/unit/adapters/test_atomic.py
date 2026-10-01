@@ -34,3 +34,19 @@ def test_atomic_write_unlinks_lock_file_after_release(tmp_path: Path, monkeypatc
     assert target.read_text(encoding="utf-8") == '{"ok": true}\n'
     assert not lock_file.exists()
     assert events == ["release", "unlink"]
+
+
+def test_atomic_write_keeps_lock_file_while_outer_holder_has_it(tmp_path: Path) -> None:
+    """Nested writes (e.g. inside registry_transaction) must not delete a held lock.
+
+    On Windows deleting the still-open lock file raises PermissionError; on POSIX
+    it would let another process lock a fresh inode at the same path.
+    """
+    target = tmp_path / "data.json"
+    lock_file = lock_path(target)
+
+    with FileLock(str(lock_file), is_singleton=True):
+        atomic.atomic_write_text(target, "{}\n")
+        assert lock_file.exists()
+
+    assert target.read_text(encoding="utf-8") == "{}\n"

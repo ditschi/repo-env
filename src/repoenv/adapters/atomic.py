@@ -64,12 +64,18 @@ def atomic_write_text(target: Path, text: str, *, mode: int = 0o600, backup: boo
 
     # Release the lock before unlinking the path; deleting a locked file on Unix
     # leaves other processes holding locks on stale inodes while new lock files
-    # appear at the same path.
-    _silent_unlink(lock_file)
+    # appear at the same path. The lock is reentrant (e.g. inside
+    # ``registry_transaction``), so only clean up once the outermost holder is done.
+    if not lock.is_locked:
+        _silent_unlink(lock_file)
 
 
 def _silent_unlink(path: Path) -> None:
     try:
         path.unlink()
     except FileNotFoundError:
+        pass
+    except PermissionError:
+        # Windows refuses to delete a file another process still has open
+        # (e.g. a concurrent lock holder); leaving it behind is harmless.
         pass

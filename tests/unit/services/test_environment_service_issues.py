@@ -327,6 +327,7 @@ def test_build_create_plan_expands_tilde_in_include(monkeypatch: pytest.MonkeyPa
 
     # Fake home so ~ → tmp_path
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # expanduser() on Windows
 
     # discover_repos returns paths RELATIVE to source
     monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["demo-repo", "other"])

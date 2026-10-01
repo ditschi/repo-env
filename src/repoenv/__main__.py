@@ -13,7 +13,9 @@ from repoenv.ui import console
 def main() -> None:
     """Console-script entry point (``renv``)."""
     try:
-        app()
+        # Pin the program name: on Windows argv[0] is ``renv.exe``, which would
+        # make Click look for ``_RENV.EXE_COMPLETE`` and break shell completion.
+        app(prog_name="renv")
     except RepoEnvError as error:
         console.print_error(error)
         sys.exit(int(error.exit_code))

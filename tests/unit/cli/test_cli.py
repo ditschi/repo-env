@@ -78,7 +78,7 @@ def test_path_prints_stdout_only(repoenv_home: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["path", "demo"])
     assert result.exit_code == 0
-    assert result.stdout.strip() == "/tmp/demo"
+    assert result.stdout.strip() == str(Path("/tmp/demo"))
 
 
 def test_init_non_interactive(repoenv_home: Path) -> None:
@@ -111,7 +111,7 @@ def test_ask_path_uses_directory_completion(monkeypatch) -> None:
     result = init_module._ask_path("Source directory of clones", Path("/tmp/default"))
 
     assert captured["message"] == "Source directory of clones:"
-    assert captured["default"] == "/tmp/default"
+    assert captured["default"] == str(Path("/tmp/default"))
     assert captured["only_directories"] is True
     assert result == Path("~/clones").expanduser()
 
