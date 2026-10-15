@@ -1100,11 +1100,17 @@ first (see <a href="../commands/#renv-clone"><code>renv clone</code></a>).</p>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--push<span class="w"> </span>--skip-no-diff
 </span></code></pre></div>
 <h2 id="7-tear-down">7. Tear down<a class="headerlink" href="#7-tear-down" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Remove registry entry only (worktrees stay on disk)</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Remove registry + delete worktrees and env directory (default)</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Remove registry + delete worktrees and env directory</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-files<span class="w"> </span>--force
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Same, but override the dirty-worktree check and delete created branches too</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--force<span class="w"> </span>--delete-branches
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Remove registry entry only (worktrees stay on disk)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--keep-files
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Remove just some repos and keep the environment</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>-i<span class="w"> </span><span class="s1">'legacy-*'</span><span class="w"> </span>--dry-run
 </span></code></pre></div>
 <p>Source clones under <code>~/src</code> are never deleted by <code>renv rm</code>.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>

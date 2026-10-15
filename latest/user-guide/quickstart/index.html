@@ -1092,8 +1092,10 @@
 </span></code></pre></div>
 <p><code>renv pr</code> never pushes unless <code>--push</code> is given.</p>
 <h2 id="8-tear-down-an-environment">8. Tear down an environment<a class="headerlink" href="#8-tear-down-an-environment" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-files<span class="w">    </span><span class="c1"># remove registry + worktrees + env dir</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># registry-only (files stay on disk)</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># remove registry + worktrees + env dir</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--keep-files<span class="w">      </span><span class="c1"># registry-only (files stay on disk)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>-i<span class="w"> </span><span class="s1">'legacy-*'</span><span class="w">     </span><span class="c1"># remove only matching repos, keep the env</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-branches<span class="w"> </span><span class="c1"># also delete branches renv created</span>
 </span></code></pre></div>
 <p>Source clones under <code>~/src</code> are never deleted.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>

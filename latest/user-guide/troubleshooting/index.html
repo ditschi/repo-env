@@ -1115,8 +1115,8 @@
 <h2 id="environment-deleted-on-disk-but-still-in-registry">Environment deleted on disk but still in registry<a class="headerlink" href="#environment-deleted-on-disk-but-still-in-registry" title="Permanent link">&para;</a></h2>
 <p><strong>Symptom:</strong> <code>renv create web …</code> says environment already exists after you removed the folder manually.</p>
 <p><strong>Fix:</strong> Re-run <code>renv create</code> with the same name — stale registry entries for missing directories are reconciled automatically. Or remove explicitly:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--delete-files<span class="w">    </span><span class="c1"># if any files remain</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># registry-only cleanup</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w">                   </span><span class="c1"># remove registry entry + any remaining worktree files</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>renv<span class="w"> </span>rm<span class="w"> </span>web<span class="w"> </span>--keep-files<span class="w">      </span><span class="c1"># registry-only cleanup (files stay on disk)</span>
 </span></code></pre></div>
 <h2 id="no-environment-specified">No environment specified<a class="headerlink" href="#no-environment-specified" title="Permanent link">&para;</a></h2>
 <p><strong>Symptom:</strong> <code>No environment specified and the current directory is not inside one.</code></p>
