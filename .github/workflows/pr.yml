@@ -9,6 +9,41 @@ permissions:
   contents: read
   pull-requests: read
 jobs:
+  # ── 0. Detect which areas of the repo the PR touches ────────────────────────
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'noxfile.py'
+              - 'mypy.ini'
+              - 'ruff.toml'
+              - '.flake8'
+              - 'pylintrc'
+              - 'vulture_whitelist.py'
+              - '.github/workflows/pr.yml'
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'CHANGELOG.md'
+              - 'src/**/*.py'
+              - 'pyproject.toml'
+              - '.github/workflows/pr.yml'
+
   # ── 1. Conventional Commits PR-title lint (primary gate for squash merges) ──
   lint-title:
     name: Lint PR title
@@ -40,6 +75,8 @@ jobs:
   quality:
     name: Quality gates (3.12)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -66,6 +103,8 @@ jobs:
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # Windows support is still experimental (POSIX-first project); keep it
     # non-blocking so it provides signal without gating merges.
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
@@ -101,6 +140,8 @@ jobs:
   integration:
     name: Integration tests (3.12)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -115,6 +156,8 @@ jobs:
   performance:
     name: Performance budgets (3.12)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -129,6 +172,8 @@ jobs:
   docs-build:
     name: Docs build (strict)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -142,11 +187,12 @@ jobs:
         run: uv tool install nox
       - name: Build docs
         run: nox -s docs
-  # ── 7. Docs preview (only when docs files changed) ──────────────────────────
+  # ── 7. Docs preview (only when docs inputs changed) ──────────────────────────
   docs-preview:
     name: Docs preview
     runs-on: ubuntu-latest
-    needs: docs-build
+    needs: [changes, docs-build]
+    if: needs.changes.outputs.docs == 'true'
     permissions:
       contents: write
       pull-requests: write
@@ -164,21 +210,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Check if docs changed
-        id: docs-changed
-        uses: tj-actions/changed-files@v47
-        with:
-          files: |
-            docs/**
-            mkdocs.yml
-            src/repoenv/**/*.py
       - name: Build docs for preview
-        if: steps.docs-changed.outputs.any_changed == 'true'
         env:
           NO_MKDOCS_2_WARNING: "1"
         run: mkdocs build --strict --site-dir site
       - name: Deploy docs preview
-        if: steps.docs-changed.outputs.any_changed == 'true'
         uses: rossjrw/pr-preview-action@v1
         with:
           source-dir: site
@@ -187,3 +223,17 @@ jobs:
           action: auto
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # ── 8. Single required check ────────────────────────────────────────────────
+  # Skipped jobs (and unexpanded matrix names) can leave required checks pending;
+  # mark only this job as required in branch protection.
+  pr-ok:
+    name: PR checks passed
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint-title, changes, quality, tests, integration, performance, docs-build, docs-preview]
+    steps:
+      - name: Fail if any job failed or was cancelled
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            exit 1
+          fi
