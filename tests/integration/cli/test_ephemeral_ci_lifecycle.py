@@ -45,7 +45,7 @@ def test_preserve_create_json_run_then_delete_files_leaves_no_trace(
     health = json.loads(status.stdout)
     assert all(r["present"] and r["status"] == "ok" for r in health["repos"])
 
-    rm = runner.invoke(app, ["rm", "ci", "--delete-files"])
+    rm = runner.invoke(app, ["rm", "ci"])
     assert rm.exit_code == 0, rm.output
     assert not (worktrees_dir / "ci").exists()
 

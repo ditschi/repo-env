@@ -46,11 +46,11 @@ def test_rm_deletes_files_by_default(repoenv_home: Path, monkeypatch: pytest.Mon
     assert env.path.exists() is False
 
 
-def test_rm_no_delete_keeps_files(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rm_keep_files_keeps_files(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = _register(repoenv_home)
     monkeypatch.setattr("repoenv.services.lifecycle_service.check_dirty", lambda env: [])
     runner = CliRunner()
-    result = runner.invoke(app, ["rm", "demo", "--no-delete"])
+    result = runner.invoke(app, ["rm", "demo", "--keep-files"])
     assert result.exit_code == 0
     assert "demo" not in state_store.load_registry()
     assert env.path.exists() is True
@@ -165,4 +165,47 @@ def test_pr_bad_if_exists(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: True)
     runner = CliRunner()
     result = runner.invoke(app, ["pr", "demo", "--title", "x", "--if-exists", "bogus"])
+    assert result.exit_code != 0
+
+
+def test_rm_partial_keeps_env_and_other_repos(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = _register(repoenv_home, repos=3)
+    monkeypatch.setattr("repoenv.services.lifecycle_service.check_dirty", lambda env: [])
+    removed: list[str] = []
+    monkeypatch.setattr(
+        "repoenv.services.lifecycle_service.remove_worktrees",
+        lambda target, force: removed.extend(e.repo for e in target.repos),
+    )
+    result = CliRunner().invoke(app, ["rm", "demo", "-i", "r0", "-i", "r2"])
+    assert result.exit_code == 0, result.output
+    assert removed == ["r0", "r2"]
+    remaining = state_store.load_registry().get("demo")
+    assert [e.repo for e in remaining.repos] == ["r1"]
+    assert env.path.exists()
+
+
+def test_rm_partial_refuses_full_selection(repoenv_home: Path) -> None:
+    _register(repoenv_home, repos=2)
+    result = CliRunner().invoke(app, ["rm", "demo", "-i", "r*"])
+    assert result.exit_code != 0
+    assert "demo" in state_store.load_registry()
+
+
+def test_rm_partial_no_match(repoenv_home: Path) -> None:
+    _register(repoenv_home, repos=2)
+    result = CliRunner().invoke(app, ["rm", "demo", "-i", "nope"])
+    assert result.exit_code != 0
+
+
+def test_rm_partial_dry_run(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _register(repoenv_home, repos=2)
+    monkeypatch.setattr("repoenv.services.lifecycle_service.check_dirty", lambda env: [])
+    result = CliRunner().invoke(app, ["rm", "demo", "-i", "r0", "-n"])
+    assert result.exit_code == 0
+    assert len(state_store.load_registry().get("demo").repos) == 2
+
+
+def test_rm_delete_branches_conflicts_with_no_delete(repoenv_home: Path) -> None:
+    _register(repoenv_home)
+    result = CliRunner().invoke(app, ["rm", "demo", "--keep-files", "--delete-branches"])
     assert result.exit_code != 0

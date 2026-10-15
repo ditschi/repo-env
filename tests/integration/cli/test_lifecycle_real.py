@@ -12,6 +12,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from repoenv.adapters import git_adapter
 from repoenv.cli.app import app
 from tests.integration.support.gitfixtures import RepoFactory, run_git
 from tests.integration.support.renv_helpers import init_renv
@@ -101,6 +102,30 @@ def test_rm_refuses_real_dirty_worktree_then_force_removes_it(
     assert refused.exit_code != 0
     assert wt.exists()
 
-    forced = runner.invoke(app, ["rm", "web", "--force", "--delete-files"])
+    forced = runner.invoke(app, ["rm", "web", "--force"])
     assert forced.exit_code == 0, forced.output
     assert not wt.exists()
+
+
+def test_rm_partial_with_delete_branches_real(
+    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
+) -> None:
+    repo_factory.make_bare_and_clone("alpha")
+    repo_factory.make_bare_and_clone("beta")
+
+    runner = CliRunner()
+    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
+    created = runner.invoke(app, ["create", "web", "-b", "task/x", "--include", "alpha", "--include", "beta"])
+    assert created.exit_code == 0, created.output
+
+    removed = runner.invoke(app, ["rm", "web", "-i", "beta", "--delete-branches"])
+    assert removed.exit_code == 0, removed.output
+    assert not (worktrees_dir / "web" / "beta").exists()
+    assert (worktrees_dir / "web" / "alpha").exists()
+    assert not git_adapter.branch_exists(source_dir / "beta", "task/x")
+    assert git_adapter.branch_exists(source_dir / "alpha", "task/x")
+
+    # Whole-env removal with --delete-branches cleans the rest.
+    full = runner.invoke(app, ["rm", "web", "--delete-branches"])
+    assert full.exit_code == 0, full.output
+    assert not git_adapter.branch_exists(source_dir / "alpha", "task/x")

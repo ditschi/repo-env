@@ -37,7 +37,7 @@ renv ls
 cd "$(renv path web)"
 renv run -- git status
 renv pr web --title "feat: migrate X" --push   # optional --push
-renv rm web --delete-files
+renv rm web                    # removes worktrees + env dir (--keep-files to keep them)
 ```
 
 ![renv quickstart demo](docs/assets/casts/quickstart.gif)

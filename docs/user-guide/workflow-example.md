@@ -79,11 +79,17 @@ renv pr web --title "feat: migrate X to Y" --push --skip-no-diff
 ## 7. Tear down
 
 ```bash
-# Remove registry entry only (worktrees stay on disk)
+# Remove registry + delete worktrees and env directory (default)
 renv rm web
 
-# Remove registry + delete worktrees and env directory
-renv rm web --delete-files --force
+# Same, but override the dirty-worktree check and delete created branches too
+renv rm web --force --delete-branches
+
+# Remove registry entry only (worktrees stay on disk)
+renv rm web --keep-files
+
+# Remove just some repos and keep the environment
+renv rm web -i 'legacy-*' --dry-run
 ```
 
 Source clones under `~/src` are never deleted by `renv rm`.
