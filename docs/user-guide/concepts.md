@@ -86,7 +86,7 @@ with `renv config groups.<name> <pattern>` — and mixes freely with literal glo
 ## Safety model
 
 - Source clones: treated as read-only.
-- `renv rm`: registry-only by default; `--delete-files` removes worktrees and the env directory.
+- `renv rm`: removes worktrees and the env directory by default; `--keep-files` only updates the registry. `-i`/`-x` remove just some repos.
 - `renv pr`: never pushes unless `--push` is given; requires the GitHub CLI (`gh`).
 
 See [Troubleshooting](troubleshooting.md) for recovery when disk and registry diverge.

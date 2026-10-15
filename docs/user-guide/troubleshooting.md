@@ -56,8 +56,8 @@ renv repair web
 **Fix:** Re-run `renv create` with the same name — stale registry entries for missing directories are reconciled automatically. Or remove explicitly:
 
 ```bash
-renv rm web --delete-files    # if any files remain
-renv rm web                   # registry-only cleanup
+renv rm web                   # remove registry entry + any remaining worktree files
+renv rm web --keep-files      # registry-only cleanup (files stay on disk)
 ```
 
 ## No environment specified

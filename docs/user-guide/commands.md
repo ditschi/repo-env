@@ -196,13 +196,27 @@ Use after manual deletion of individual worktree directories, or when `renv crea
 
 ## `renv rm`
 
-Remove an environment (deletes worktrees, leaves source clones).
+Remove an environment, or only some of its repositories.
 
 ```bash
-renv rm [ENV] [--delete-files] [--force] [--dry-run]
+renv rm [ENV] [-i GLOB]... [-x GLOB]... [--keep-files] [--delete-branches] [--force] [--dry-run]
 ```
 
-By default, `renv rm` removes the environment from the registry only. Use `--delete-files` to also remove worktrees and the env directory.
+| Option | Effect |
+| --- | --- |
+| *(none)* | Remove the whole environment: worktrees, env directory and registry entry. **Files are deleted by default.** Source clones are never touched. |
+| `--include/-i GLOB`, `--exclude/-x GLOB` | Remove only the matching repos; the environment stays. CSV and `@group` supported, same as `renv add`. Matching nothing is an error; matching every repo is refused (run plain `renv rm` instead). |
+| `--keep-files` | Registry-only: drop the environment (or the selected repos) from the registry but leave worktrees and the env directory on disk. |
+| `--delete-branches` | Also delete the local branches `renv` created for the removed repos. Safe delete: unmerged branches are kept with a warning unless `--force`. Cannot be combined with `--keep-files`. |
+| `--force` | Remove even if worktrees have uncommitted changes (otherwise refused). |
+| `--dry-run/-n` | Preview without making changes. |
+
+```bash
+renv rm web                              # whole env, files deleted
+renv rm web --keep-files                 # forget the env, keep files on disk
+renv rm web -i 'legacy-*' --dry-run      # preview a partial removal
+renv rm web -i 'legacy-*' --delete-branches
+```
 
 ---
 

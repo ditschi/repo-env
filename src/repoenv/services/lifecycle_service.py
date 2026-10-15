@@ -8,6 +8,7 @@ from pathlib import Path
 from repoenv.adapters import git_adapter
 from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import resolve_selection
+from repoenv.errors import GitError, NothingMatchedError
 from repoenv.services import environment_service
 from repoenv.services.environment_service import BranchConflictStrategy
 
@@ -40,6 +41,51 @@ def remove_worktrees(env: Environment, *, force: bool) -> None:
         if entry.worktree_path.exists():
             git_adapter.remove_worktree(repo_path, entry.worktree_path, force=force)
         git_adapter.prune_worktrees(repo_path)
+
+
+def select_repo_entries(
+    env: Environment,
+    *,
+    include: list[str] | None,
+    exclude: list[str] | None,
+) -> list[RepoEntry]:
+    """Return the entries of ``env`` matching the include/exclude globs."""
+    names = [entry.repo for entry in env.repos]
+    selected = resolve_selection(
+        names,
+        include=environment_service._normalize_patterns(include, env.source) if include else include,
+        exclude=environment_service._normalize_patterns(exclude, env.source) if exclude else exclude,
+    )
+    if not selected:
+        raise NothingMatchedError(
+            f"No repositories in '{env.name}' matched the selection.",
+            hint=f"Environment repos: {', '.join(names) or '(none)'}.",
+        )
+    chosen = set(selected)
+    return [entry for entry in env.repos if entry.repo in chosen]
+
+
+def delete_created_branches(env: Environment, *, force: bool) -> tuple[list[str], list[str]]:
+    """Delete branches renv created for ``env``'s entries; return (deleted, warnings).
+
+    Only branches with ``branch_created`` are touched. Failures (unmerged work,
+    branch still checked out elsewhere) are reported as warnings, not raised.
+    """
+    deleted: list[str] = []
+    warnings: list[str] = []
+    for entry in env.repos:
+        repo_path = env.source / entry.repo
+        if not entry.branch_created or not entry.branch or not repo_path.exists():
+            continue
+        if not git_adapter.branch_exists(repo_path, entry.branch):
+            continue
+        try:
+            git_adapter.delete_branch(repo_path, entry.branch, force=force)
+        except GitError as exc:
+            warnings.append(f"{entry.repo}: kept branch '{entry.branch}' ({exc})")
+        else:
+            deleted.append(f"{entry.repo}:{entry.branch}")
+    return deleted, warnings
 
 
 def sync_environment(env: Environment) -> list[str]:

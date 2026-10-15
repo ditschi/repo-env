@@ -42,7 +42,15 @@ def _remove(name: str) -> None:
     # Typer resolves `rm_command`'s other defaults (typer.Option(...) sentinels)
     # only when invoked through the CLI, so every parameter must be passed
     # explicitly here to get the same behavior as plain `renv rm <name>`.
-    rm_command(env=name, delete_files=True, force=False, dry_run=False)
+    rm_command(
+        env=name,
+        include=[],
+        exclude=[],
+        delete_branches=False,
+        keep_files=False,
+        force=False,
+        dry_run=False,
+    )
 
 
 # (key, description, handler) — order is the order shown in the action prompt.

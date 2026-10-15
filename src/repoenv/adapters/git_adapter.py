@@ -353,6 +353,11 @@ def remove_worktree(repo: Path, worktree_path: Path, *, force: bool = False) -> 
     _run(args, cwd=repo)
 
 
+def delete_branch(repo: Path, branch: str, *, force: bool = False) -> None:
+    """Delete local ``branch`` (``-d`` refuses unmerged branches unless ``force``)."""
+    _run(["branch", "-D" if force else "-d", branch], cwd=repo)
+
+
 def prune_worktrees(repo: Path) -> None:
     """Prune stale worktree administrative files."""
     _run(["worktree", "prune"], cwd=repo)

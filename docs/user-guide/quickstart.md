@@ -63,8 +63,10 @@ renv pr web --title "feat: migrate X to Y" --push   # push branches first
 ## 8. Tear down an environment
 
 ```bash
-renv rm web --delete-files    # remove registry + worktrees + env dir
-renv rm web                   # registry-only (files stay on disk)
+renv rm web                   # remove registry + worktrees + env dir
+renv rm web --keep-files      # registry-only (files stay on disk)
+renv rm web -i 'legacy-*'     # remove only matching repos, keep the env
+renv rm web --delete-branches # also delete branches renv created
 ```
 
 Source clones under `~/src` are never deleted.
