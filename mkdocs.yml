@@ -7,7 +7,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
-  logo: assets/brand/renv-icon.png
+  logo: assets/brand/renv-icon.svg
   favicon: assets/images/favicon.png
   palette:
     - media: "(prefers-color-scheme: light)"
