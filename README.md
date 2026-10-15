@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/brand/renv-lockup.png" alt="repo-env — renv CLI" width="280">
+  <img src="docs/assets/brand/renv-lockup.svg" alt="repo-env — renv CLI" width="280">
 </p>
 
 <p align="center">
