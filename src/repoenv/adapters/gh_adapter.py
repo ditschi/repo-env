@@ -11,6 +11,7 @@ import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from repoenv.errors import GitError
 
@@ -47,6 +48,30 @@ def _run(argv: list[str], *, cwd: Path | None = None) -> subprocess.CompletedPro
 
 def _host_args(host: str | None) -> list[str]:
     return ["--hostname", host] if host else []
+
+
+def _decode_paginated(stdout: str, endpoint: str) -> list[Any]:
+    """Decode ``gh api --paginate --jq '[...]'`` output into one flat list.
+
+    ``gh`` applies ``--jq`` to each page separately, so multi-page results
+    arrive as several concatenated JSON arrays (``[..]\\n[..]``), not one.
+    """
+    decoder = json.JSONDecoder()
+    items: list[Any] = []
+    pos = 0
+    while True:
+        while pos < len(stdout) and stdout[pos].isspace():
+            pos += 1
+        if pos == len(stdout):
+            return items
+        try:
+            value, pos = decoder.raw_decode(stdout, pos)
+        except json.JSONDecodeError as exc:
+            raise GitError(f"Could not parse 'gh api {endpoint}' output: {exc}") from exc
+        if isinstance(value, list):
+            items.extend(value)
+        else:
+            items.append(value)
 
 
 def is_available() -> bool:
@@ -139,10 +164,7 @@ def list_org_memberships(host: str | None = None) -> list[OrgMembership]:
             f"gh api user/memberships/orgs failed: {result.stderr.strip()}",
             hint="Run 'gh auth status' (and 'gh auth login --hostname <host>' for enterprise hosts).",
         )
-    try:
-        raw = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:
-        return []
+    raw = _decode_paginated(result.stdout, "user/memberships/orgs")
     return [OrgMembership(login=item["login"], role=item["role"], state=item["state"]) for item in raw]
 
 
@@ -164,10 +186,7 @@ def list_owner_repos(owner: str, *, host: str | None = None) -> list[str]:
         ]
         result = _run(argv)
         if result.returncode == 0:
-            try:
-                names: list[str] = json.loads(result.stdout or "[]")
-            except json.JSONDecodeError:
-                return []
+            names: list[str] = _decode_paginated(result.stdout, f"{kind}/{owner}/repos")
             return names
         last_error = result.stderr.strip()
 

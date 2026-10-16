@@ -97,6 +97,41 @@ def test_list_owner_repos_succeeds_on_orgs_endpoint_without_trying_users(
     assert "--hostname" in calls[0]
 
 
+def test_list_owner_repos_merges_one_array_per_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    # gh --paginate applies --jq per page: output is several JSON arrays, not one.
+    def _fake_run(argv, *, cwd=None):
+        return _FakeCompleted(0, stdout='["a","b"]\n["c"]\n[]\n["d"]\n')
+
+    monkeypatch.setattr(gh_adapter, "_run", _fake_run)
+
+    assert gh_adapter.list_owner_repos("acme") == ["a", "b", "c", "d"]
+
+
+def test_list_org_memberships_merges_one_array_per_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    page1 = [{"login": "acme", "role": "admin", "state": "active"}]
+    page2 = [{"login": "beta", "role": "member", "state": "pending"}]
+
+    def _fake_run(argv, *, cwd=None):
+        return _FakeCompleted(0, stdout=f"{json.dumps(page1)}\n{json.dumps(page2, indent=2)}\n")
+
+    monkeypatch.setattr(gh_adapter, "_run", _fake_run)
+
+    assert [m.login for m in gh_adapter.list_org_memberships()] == ["acme", "beta"]
+
+
+def test_list_owner_repos_empty_output_is_empty_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gh_adapter, "_run", lambda argv, *, cwd=None: _FakeCompleted(0, stdout="\n"))
+
+    assert gh_adapter.list_owner_repos("acme") == []
+
+
+def test_list_owner_repos_raises_on_unparseable_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gh_adapter, "_run", lambda argv, *, cwd=None: _FakeCompleted(0, stdout='["a"]\nnope'))
+
+    with pytest.raises(GitError, match="Could not parse 'gh api orgs/acme/repos' output"):
+        gh_adapter.list_owner_repos("acme")
+
+
 def test_list_owner_repos_raises_when_both_endpoints_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     def _fake_run(argv, *, cwd=None):
         return _FakeCompleted(1, stderr="404 Not Found")
