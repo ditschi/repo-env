@@ -580,10 +580,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#github-cli-for-renv-pr" class="md-nav__link">
+  <a href="#scm-providers-for-renv-clone" class="md-nav__link">
     <span class="md-ellipsis">
       
-        GitHub CLI (for renv pr)
+        SCM providers for renv clone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pr-provider-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR provider authentication
       
     </span>
   </a>
@@ -1062,10 +1073,10 @@
 <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Python 3.10 or newer</strong> (3.12 recommended; tested on 3.10–3.14)</li>
+<li><strong>Python 3.10 or newer</strong> (3.12 recommended; tested on 3.10–3.15)</li>
 <li><strong>Git 2.38+</strong> (worktree support)</li>
 <li><strong>Linux or macOS</strong> (POSIX-only)</li>
-<li><strong>GitHub CLI (<code>gh</code>)</strong> — optional, required only for <code>renv pr</code> (<a href="https://cli.github.com/">install</a>)</li>
+<li><strong>GitHub CLI (<code>gh</code>)</strong> — optional, required only for GitHub/GHES PRs in <code>renv pr</code> (<a href="https://cli.github.com/">install</a>)</li>
 </ul>
 <h2 id="recommended-uv-tool">Recommended: uv tool<a class="headerlink" href="#recommended-uv-tool" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>repo-env
@@ -1083,33 +1094,65 @@
 <h2 id="verify-installation">Verify installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>--version
 </span></code></pre></div>
-<h2 id="github-cli-for-renv-pr">GitHub CLI (for <code>renv pr</code>)<a class="headerlink" href="#github-cli-for-renv-pr" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>gh<span class="w"> </span>auth<span class="w"> </span>login
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>gh<span class="w"> </span>auth<span class="w"> </span>status
+<h2 id="scm-providers-for-renv-clone">SCM providers for <code>renv clone</code><a class="headerlink" href="#scm-providers-for-renv-clone" title="Permanent link">&para;</a></h2>
+<p>GitHub / GitHub Enterprise, Azure DevOps and Gitea/Forgejo discovery work out of the box.
+GitLab and Bitbucket need their client library via an extra:</p>
+<table>
+<thead>
+<tr>
+<th>Extra</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo-env[gitlab]</code></td>
+<td>GitLab.com and self-managed GitLab (<code>python-gitlab</code>)</td>
+</tr>
+<tr>
+<td><code>repo-env[bitbucket]</code></td>
+<td>Bitbucket Cloud and Bitbucket Server/Data Center (<code>atlassian-python-api</code>)</td>
+</tr>
+<tr>
+<td><code>repo-env[all]</code></td>
+<td>All of the above</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span><span class="s1">'repo-env[all]'</span>
+</span></code></pre></div>
+<p><code>renv clone</code> tells you which extra to install when a host needs one that is missing.</p>
+<h2 id="pr-provider-authentication">PR provider authentication<a class="headerlink" href="#pr-provider-authentication" title="Permanent link">&para;</a></h2>
+<p><code>renv pr</code> supports GitHub/GHES, GitLab, Bitbucket Cloud, Bitbucket Server/Data Center,
+Azure DevOps, and Gitea/Forgejo. Non-GitHub providers use REST APIs and the
+<a href="../configuration/#credentials">configured credentials</a>; no CLI or discovery extras are required.</p>
+<p>GitHub/GHES retains the GitHub CLI workflow:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>gh<span class="w"> </span>auth<span class="w"> </span>login
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>gh<span class="w"> </span>auth<span class="w"> </span>status
 </span></code></pre></div>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
 <p>Install into your shell's completion directory (detects the shell from <code>$SHELL</code>, prompts once):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv<span class="w"> </span>--install-completion
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>--install-completion
 </span></code></pre></div>
 <p>Or specify explicitly, and restart your shell (or <code>source</code> its rc file) afterward:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">bash</label><label for="__tabbed_1_2">zsh</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>bash
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>bash
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>zsh
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>zsh
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>fish
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>renv<span class="w"> </span>--install-completion<span class="w"> </span>fish
 </span></code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>upgrade<span class="w"> </span>repo-env<span class="w">   </span><span class="c1"># or: pipx upgrade repo-env</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>upgrade<span class="w"> </span>repo-env<span class="w">   </span><span class="c1"># or: pipx upgrade repo-env</span>
 </span></code></pre></div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

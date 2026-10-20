@@ -1141,7 +1141,7 @@ with <code>renv config groups.&lt;name&gt; &lt;pattern&gt;</code> — and mixes 
 <ul>
 <li>Source clones: treated as read-only.</li>
 <li><code>renv rm</code>: removes worktrees and the env directory by default; <code>--keep-files</code> only updates the registry. <code>-i</code>/<code>-x</code> remove just some repos.</li>
-<li><code>renv pr</code>: never pushes unless <code>--push</code> is given; requires the GitHub CLI (<code>gh</code>).</li>
+<li><code>renv pr</code>: never pushes unless <code>--push</code> is given; only GitHub/GHES requires the GitHub CLI (<code>gh</code>). Other SCM providers use their APIs and configured credentials.</li>
 </ul>
 <p>See <a href="../troubleshooting/">Troubleshooting</a> for recovery when disk and registry diverge.</p>
 

@@ -1076,20 +1076,20 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>install_dev<span class="w">   </span><span class="c1"># installs all dev extras into the active venv</span>
 </span></code></pre></div>
 <h2 id="run-quality-gates">Run quality gates<a class="headerlink" href="#run-quality-gates" title="Permanent link">&para;</a></h2>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nox<span class="w">                  </span><span class="c1"># default sessions: syntax, tests (3.12/3.13/3.14), lint, types, imports, dead code, dupes, cycles</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nox<span class="w">                  </span><span class="c1"># default sessions: syntax, tests (3.12/3.13/3.14/3.15), lint, types, imports, dead code, dupes, cycles</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests<span class="w">         </span><span class="c1"># unit tests, all Python versions</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests-3.12<span class="w">    </span><span class="c1"># unit tests, specific Python version</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>integration<span class="w">   </span><span class="c1"># integration tests (real temp git repos, mocked gh)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>integration<span class="w">   </span><span class="c1"># integration tests (real temp git repos, mocked provider APIs)</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>lint<span class="w">          </span><span class="c1"># ruff + black + flake8 + isort</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>check_types<span class="w">   </span><span class="c1"># mypy</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs<span class="w">          </span><span class="c1"># build docs strict (fails on any warning)</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs_serve<span class="w">    </span><span class="c1"># live-reload local docs at http://127.0.0.1:8000</span>
 </span></code></pre></div>
 <h3 id="troubleshooting-missing-python-interpreter-in-nox">Troubleshooting: missing Python interpreter in nox<a class="headerlink" href="#troubleshooting-missing-python-interpreter-in-nox" title="Permanent link">&para;</a></h3>
-<p>If nox prints <code>Session tests-3.14 skipped: Python interpreter 3.14 not found</code>:</p>
+<p>If nox prints <code>Session tests-3.15 skipped: Python interpreter 3.15 not found</code>:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>self<span class="w"> </span>update
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>python<span class="w"> </span>install<span class="w"> </span><span class="m">3</span>.14
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests-3.14<span class="w"> </span>--download-python<span class="w"> </span>always
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>python<span class="w"> </span>install<span class="w"> </span><span class="m">3</span>.15
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests-3.15<span class="w"> </span>--download-python<span class="w"> </span>always
 </span></code></pre></div>
 <p>Notes:</p>
 <ul>
@@ -1115,7 +1115,7 @@
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  ui/              Rich terminal output helpers
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>tests/
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  unit/            Fast, no I/O
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  integration/     Real temp git repos, mocked gh
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  integration/     Real temp git repos, mocked provider APIs
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>  performance/     CLI cold-start latency budgets (help + bash completion)
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>docs/              This site
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>.github/workflows/ CI/CD pipelines
