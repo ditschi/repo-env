@@ -1092,7 +1092,9 @@ first (see <a href="../commands/#renv-clone"><code>renv clone</code></a>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>renv<span class="w"> </span>repair<span class="w"> </span>web
 </span></code></pre></div>
 <h2 id="6-open-pull-requests">6. Open pull requests<a class="headerlink" href="#6-open-pull-requests" title="Permanent link">&para;</a></h2>
-<p>Requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh auth login</code>).</p>
+<p>For GitHub/GHES, requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh auth login</code>).
+Other providers use <a href="../configuration/#credentials">API credentials</a>. <code>--draft</code> below
+is supported for GitHub/GHES, GitLab, and Azure DevOps; omit it for other providers.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Push yourself in each repo, then:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>renv<span class="w"> </span>pr<span class="w"> </span>web<span class="w"> </span>--title<span class="w"> </span><span class="s2">"feat: migrate X to Y"</span><span class="w"> </span>--draft
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>

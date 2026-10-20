@@ -1088,7 +1088,7 @@
 <td>Unit tests</td>
 <td>PR, main</td>
 <td><code>tests</code></td>
-<td>3.12, 3.13, 3.14 (matrix)</td>
+<td>3.12, 3.13, 3.14, 3.15 (matrix)</td>
 </tr>
 <tr>
 <td>Integration tests</td>
@@ -1119,7 +1119,7 @@
 <p>On <code>main</code>, the quality job runs <code>nox</code> with default sessions (same gates as above, minus <code>format</code>).</p>
 <h3 id="why-integration-runs-on-one-python-version">Why integration runs on one Python version<a class="headerlink" href="#why-integration-runs-on-one-python-version" title="Permanent link">&para;</a></h3>
 <p>Unit tests run on a multi-Python matrix because they exercise language-level and library compatibility across supported versions.</p>
-<p>Integration tests are slower (real temp git repos, subprocess CLI invocations) and focus on end-to-end workflows — git worktrees, CLI commands, mocked <code>gh</code>. Python-version differences are already covered by the unit matrix; repeating integration on 3.13/3.14 would mostly add CI time without catching new failure modes.</p>
+<p>Integration tests are slower (real temp git repos, subprocess CLI invocations) and focus on end-to-end workflows — git worktrees, CLI commands, mocked provider APIs. Python-version differences are already covered by the unit matrix; repeating integration on 3.13–3.15 would mostly add CI time without catching new failure modes.</p>
 <p>CI uses <strong>3.12</strong> for integration — the same primary version as lint, types, and docs.</p>
 <h2 id="gate-summary">Gate summary<a class="headerlink" href="#gate-summary" title="Permanent link">&para;</a></h2>
 <table>
@@ -1141,14 +1141,14 @@
 <tr>
 <td><code>tests</code></td>
 <td>pytest + pytest-cov + pytest-xdist</td>
-<td>3.12, 3.13, 3.14</td>
+<td>3.12, 3.13, 3.14, 3.15</td>
 <td>Unit tests with coverage</td>
 </tr>
 <tr>
 <td><code>integration</code></td>
 <td>pytest</td>
 <td>3.12</td>
-<td>Real temp git repos + mocked gh</td>
+<td>Real temp git repos + mocked provider APIs</td>
 </tr>
 <tr>
 <td><code>performance</code></td>

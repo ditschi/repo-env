@@ -826,6 +826,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#syncing-existing-clones" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1423,6 +1434,62 @@ other <code>[ENV]</code>-optional command (cwd-inside-an-env, then the active en
 <li><code>--skip-no-diff</code> (skip repos with no commits vs base)</li>
 <li><code>--if-exists skip|fail</code></li>
 </ul>
+<p>Each selected worktree's git remote determines its provider, using the same
+<a href="../configuration/#scm-providers"><code>providers.&lt;host&gt;</code> configuration</a> and host detection
+as <code>renv clone</code>. Mixed-provider environments are supported, including nested GitLab
+groups, Azure organization/project URLs, and configured self-hosted context paths.</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Transport</th>
+<th>Optional creation flags</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub / GHES</td>
+<td>GitHub CLI (<code>gh</code>, required)</td>
+<td><code>--draft</code>, <code>--reviewer</code>, <code>--label</code>, <code>--assignee</code></td>
+</tr>
+<tr>
+<td>GitLab</td>
+<td>REST API</td>
+<td><code>--draft</code> (Draft title prefix)</td>
+</tr>
+<tr>
+<td>Bitbucket Cloud</td>
+<td>REST API</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Bitbucket Server / Data Center</td>
+<td>REST API</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Azure DevOps</td>
+<td>REST API</td>
+<td><code>--draft</code></td>
+</tr>
+<tr>
+<td>Gitea / Forgejo</td>
+<td>REST API</td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<p>Basic title/body/base/head creation and open-PR lookup work on every provider.
+API providers use the existing <a href="../configuration/#credentials">token/credential-helper lookup</a>
+and require no optional discovery libraries. Unsupported metadata flags are errors,
+not silently ignored; all selected providers' flags are checked before any push.
+Set unsupported metadata in the provider UI after creation.</p>
+<p><code>--if-exists skip</code> skips an open PR for the source branch; <code>fail</code> raises an error
+before pushing that repository. Authentication, lookup, and creation failures are
+surfaced rather than treated as an absent PR. Operations are sequential, not
+transactional: an error can leave earlier repositories' PRs created.
+<code>--dry-run</code> previews selection and rendered fields without provider detection,
+credential lookup, API calls, or requiring <code>gh</code>; it does not validate provider capabilities.</p>
 <div class="admonition warning">
 <p class="admonition-title">No auto-push</p>
 <p><code>renv pr</code> never pushes unless <code>--push</code> is given.</p>
@@ -1522,14 +1589,30 @@ Does <strong>not</strong> create or modify any renv environment.</p>
 <ul>
 <li><code>--url/-u URL</code> (required, repeatable; CSV supported): a host (<code>https://github.com</code>),
   host+owner (<code>https://github.com/my-org</code>), or a full repo URL
-  (<code>https://github.com/owner/repo</code>, <code>git@github.com:owner/repo.git</code>).</li>
+  (<code>https://github.com/owner/repo</code>, <code>git@github.com:owner/repo.git</code>). Provider-specific URLs
+  work too: GitLab subgroups (<code>https://gitlab.com/group/sub/repo</code>), Bitbucket Server
+  (<code>https://bitbucket.corp/scm/PROJ/repo.git</code>, <code>/projects/PROJ</code>), Azure DevOps
+  (<code>https://dev.azure.com/org/project/_git/repo</code>, <code>git@ssh.dev.azure.com:v3/...</code>).</li>
 <li><code>--include/-i PATTERN</code> / <code>--exclude/-x PATTERN</code>: <code>owner/repo</code> globs (repeatable; CSV
   supported). Examples: <code>myself/test-*</code>, <code>owner/repo2</code>, <code>prefix-*/*</code>, <code>**</code> (match
-  everything reachable). Each pattern must contain exactly one <code>/</code> (except <code>**</code>).</li>
+  everything reachable). Patterns are split at the <strong>last</strong> <code>/</code>, so nested owners work:
+  <code>group/sub/radar-*</code> (GitLab subgroup), <code>group/*/radar-*</code> (any subgroup), or
+  <code>org/project/*</code> (Azure DevOps).</li>
 <li>When <code>--include</code> is omitted, every repo reachable via <code>--url</code> is included.</li>
 </ul>
-<p>Wildcard owner globs (e.g. <code>company-*/*</code>) query GitHub via <code>gh</code> and are scoped to
-orgs you belong to. <code>--role</code> controls which memberships count (default: <code>member</code>):</p>
+<h3 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link">&para;</a></h3>
+<p>Globs are resolved through the host's API: GitHub / GitHub Enterprise, GitLab,
+Bitbucket Cloud, Bitbucket Server/Data Center, Azure DevOps and Gitea/Forgejo. The provider
+is taken from <code>--provider</code>, then config <code>providers.&lt;host&gt;</code>, then well-known hosts, then by
+probing the host (see <a href="../configuration/#scm-providers">Configuration</a>, which also lists
+where API credentials come from). GitLab and Bitbucket need an extra
+(<code>repo-env[gitlab]</code>, <code>repo-env[bitbucket]</code>, or <code>repo-env[all]</code>).</p>
+<p>Listing is done once per top-level owner and as cheaply as each API allows: GitHub uses
+GraphQL (100 names per page), GitLab lists a group including all subgroups in one paginated
+call, and GitLab/Bitbucket Cloud receive the glob's longest literal word as a server-side
+search filter. The exact glob is always applied locally.</p>
+<p>Wildcard owner globs (e.g. <code>company-*/*</code>) are scoped to orgs/groups/workspaces/projects you
+belong to. <code>--role</code> controls which memberships count (default: <code>member</code>):</p>
 <table>
 <thead>
 <tr>
@@ -1554,7 +1637,8 @@ orgs you belong to. <code>--role</code> controls which memberships count (defaul
 </table>
 <p>If the default role finds nothing and you did not pass <code>--role</code> explicitly, <code>renv</code>
 automatically retries with <code>--role any</code>. When repos are matched with the default role,
-orgs that were skipped are reported.</p>
+orgs that were skipped are reported. Azure DevOps organizations can't be enumerated, so the
+organization must be literal there (e.g. <code>--include 'my-org/*/*'</code>).</p>
 <h3 id="syncing-existing-clones">Syncing existing clones<a class="headerlink" href="#syncing-existing-clones" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -1586,7 +1670,10 @@ orgs that were skipped are reported.</p>
 <code>--force</code> is also given.</p>
 <h3 id="other-options">Other options<a class="headerlink" href="#other-options" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>--source/-s DIR</code>, <code>--protocol ssh|https</code> (default: <code>gh</code>’s <code>git_protocol</code>, per host)</li>
+<li><code>--source/-s DIR</code>, <code>--protocol ssh|https</code> (default: <code>gh</code>’s <code>git_protocol</code> for GitHub hosts
+  when <code>gh</code> is installed, otherwise <code>ssh</code>)</li>
+<li><code>--provider KIND</code> (<code>github</code>, <code>gitlab</code>, <code>bitbucket-cloud</code>, <code>bitbucket-server</code>,
+  <code>azure-devops</code>, <code>gitea</code>)</li>
 <li><code>--jobs/-j N</code> (parallel clones/updates)</li>
 <li><code>--dry-run/-n</code></li>
 </ul>
@@ -1600,11 +1687,20 @@ orgs that were skipped are reported.</p>
 </span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="c1"># All repos in orgs matching a prefix (active memberships only)</span>
 </span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'company-*/*'</span>
 </span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="c1"># Sync everything already cloned under ~/src</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'**'</span><span class="w"> </span>--update
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="c1"># GitLab: radar-* projects anywhere below a group</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://gitlab.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'my-group/*/radar-*'</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="c1"># Azure DevOps: every repo of one project</span>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://dev.azure.com/my-org/my-project
+</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="c1"># Self-hosted Bitbucket Server under a sub-path</span>
+</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>renv<span class="w"> </span>config<span class="w"> </span>providers.bitbucket.corp<span class="w"> </span><span class="s1">'bitbucket-server https://bitbucket.corp/bitbucket'</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://bitbucket.corp<span class="w"> </span>--include<span class="w"> </span><span class="s1">'PROJ/*'</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>
+</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a><span class="c1"># Sync everything already cloned under ~/src</span>
+</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>renv<span class="w"> </span>clone<span class="w"> </span>-u<span class="w"> </span>https://github.com<span class="w"> </span>--include<span class="w"> </span><span class="s1">'**'</span><span class="w"> </span>--update
 </span></code></pre></div>
-<p>Requires <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh</code>) when discovery needs the API
-(wildcard owner or repo globs). Full repo URLs clone directly without <code>gh</code>.</p>
+<p>Full repo URLs and literal <code>owner/repo</code> patterns clone directly without any API call.</p>
 <hr />
 <h2 id="renv-merge"><code>renv merge</code><a class="headerlink" href="#renv-merge" title="Permanent link">&para;</a></h2>
 <p>Combine two environments into a newly created environment.</p>

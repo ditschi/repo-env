@@ -709,6 +709,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scm-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SCM providers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SCM providers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1063,6 +1091,11 @@
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># Optional named repo selections: group name -&gt; glob (or comma-separated globs)</span>
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nt">groups</span><span class="p">:</span>
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="s">"*/backend-*"</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># Optional SCM provider per self-hosted host for clone/PR: "&lt;kind&gt; [&lt;base-url&gt;]"</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="nt">providers</span><span class="p">:</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">  </span><span class="nt">git.company.com</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitlab</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">  </span><span class="nt">bitbucket.company.com</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bitbucket-server https://bitbucket.company.com/bitbucket</span>
 </span></code></pre></div>
 <h2 id="aliases">Aliases<a class="headerlink" href="#aliases" title="Permanent link">&para;</a></h2>
 <p>Two alias mechanisms exist; see <a href="../concepts/#aliases-two-kinds">Concepts</a> for resolution order.</p>
@@ -1100,9 +1133,73 @@ on <code>create</code>/<code>add</code>/<code>repair</code> — see <a href="../
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>renv<span class="w"> </span>config<span class="w"> </span>groups.backend<span class="w">          </span><span class="c1"># read one group</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>renv<span class="w"> </span>create<span class="w"> </span>svc<span class="w"> </span>--include<span class="w"> </span>@backend
 </span></code></pre></div>
+<h2 id="scm-providers">SCM providers<a class="headerlink" href="#scm-providers" title="Permanent link">&para;</a></h2>
+<p><code>renv clone</code> and <code>renv pr</code> need to know which product serves a host.
+PR creation resolves each worktree's configured remote independently, so an
+environment can contain repositories from different providers.
+Well-known hosts (<code>github.com</code>, <code>gitlab.com</code>, <code>bitbucket.org</code>, <code>dev.azure.com</code>,
+<code>codeberg.org</code>) are built in; other hosts are probed (hostname hints such as <code>github.*</code> or
+<code>gitlab.*</code> are tried first). Pin a host to skip probing, or when the server lives under a
+sub-path:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>renv<span class="w"> </span>config<span class="w"> </span>providers.git.company.com<span class="w"> </span>gitlab
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>renv<span class="w"> </span>config<span class="w"> </span>providers.bitbucket.company.com<span class="w"> </span><span class="s1">'bitbucket-server https://bitbucket.company.com/bitbucket'</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>renv<span class="w"> </span>config<span class="w"> </span>providers.tfs.company.com<span class="w"> </span><span class="s1">'azure-devops https://tfs.company.com/tfs'</span>
+</span></code></pre></div>
+<p>Kinds: <code>github</code>, <code>gitlab</code>, <code>bitbucket-cloud</code>, <code>bitbucket-server</code>, <code>azure-devops</code>, <code>gitea</code>.</p>
+<h3 id="credentials">Credentials<a class="headerlink" href="#credentials" title="Permanent link">&para;</a></h3>
+<p>API credentials are looked up per host, without prompting:</p>
+<ol>
+<li>
+<p>Environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Variables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub.com</td>
+<td><code>GH_TOKEN</code>, <code>GITHUB_TOKEN</code></td>
+</tr>
+<tr>
+<td>GitHub Enterprise</td>
+<td><code>GH_ENTERPRISE_TOKEN</code>, <code>GITHUB_ENTERPRISE_TOKEN</code></td>
+</tr>
+<tr>
+<td>GitLab</td>
+<td><code>GITLAB_TOKEN</code>, <code>GL_TOKEN</code></td>
+</tr>
+<tr>
+<td>Bitbucket</td>
+<td><code>BITBUCKET_TOKEN</code> (+ <code>BITBUCKET_USERNAME</code> for app passwords / API tokens)</td>
+</tr>
+<tr>
+<td>Azure DevOps</td>
+<td><code>AZURE_DEVOPS_EXT_PAT</code>, <code>AZURE_DEVOPS_TOKEN</code></td>
+</tr>
+<tr>
+<td>Gitea / Forgejo</td>
+<td><code>GITEA_TOKEN</code>, <code>FORGEJO_TOKEN</code></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>GitHub only: <code>gh auth token --hostname &lt;host&gt;</code> if the GitHub CLI is installed.</p>
+</li>
+<li>Your git credential helper for <code>https://&lt;host&gt;</code> (<code>git credential fill</code>), i.e. the same
+   credentials your HTTPS clones already use (Git Credential Manager, libsecret, keychain, …).</li>
+<li>Anonymous — enough for public repositories; listing your organizations needs a token.</li>
+</ol>
+<p>Non-GitHub PR operations require credentials with repository read and PR/MR write
+permissions (for example GitLab <code>api</code>, Azure DevOps Code read/write, or the equivalent
+Bitbucket/Gitea permissions). GitHub/GHES PRs use <code>gh</code> authentication instead of
+the credential-helper fallback. No git push occurs unless <code>--push</code> is supplied.</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <p><code>REPOENV_HOME</code> relocates config, registry, and state:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">REPOENV_HOME</span><span class="o">=</span>/tmp/repoenv-profile<span class="w"> </span>renv<span class="w"> </span>ls
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">REPOENV_HOME</span><span class="o">=</span>/tmp/repoenv-profile<span class="w"> </span>renv<span class="w"> </span>ls
 </span></code></pre></div>
 <p>Inside <code>renv sh</code>, <code>REPOENV_ACTIVE</code> is set for subshell context.</p>
 <h2 id="machine-state">Machine state<a class="headerlink" href="#machine-state" title="Permanent link">&para;</a></h2>
