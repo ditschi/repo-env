@@ -59,15 +59,26 @@ def test_power_user_batch_edit_commit_push_and_pr(
     for name in ("svc-alpha", "svc-beta", "svc-gamma"):
         wt = worktrees_dir / "batch" / name
         run_git(["push", "-u", "origin", branch], cwd=wt)
+        run_git(
+            ["remote", "set-url", "--push", "origin", str(repo_factory.remotes / f"{name}.git")],
+            cwd=wt,
+        )
+        run_git(["remote", "set-url", "origin", f"git@github.com:example/{name}.git"], cwd=wt)
 
     created: list[tuple[str, str]] = []
 
-    def fake_create_pr(worktree, *, title, body, base, head, draft, reviewers, labels, assignees):
+    def fake_create_pr(worktree, *, title, body, base, head, draft, reviewers, labels, assignees, repository):
+        assert repository == f"github.com/example/{worktree.name}"
         created.append((worktree.name, title))
         return f"https://example.test/{worktree.name}/pull/1"
 
+    def fake_existing_pr_url(worktree, *, head, repository):
+        assert head == branch
+        assert repository == f"github.com/example/{worktree.name}"
+        return None
+
     monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: True)
-    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, head: None)
+    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", fake_existing_pr_url)
     monkeypatch.setattr("repoenv.adapters.gh_adapter.create_pr", fake_create_pr)
 
     pr = runner.invoke(
