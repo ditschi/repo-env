@@ -8,6 +8,7 @@ from typing import Optional
 import typer
 
 from repoenv.adapters import config_store
+from repoenv.domain.scm import ProviderKind
 from repoenv.errors import NothingMatchedError, PartialFailureError, UsageError
 from repoenv.services import clone_service
 from repoenv.services.clone_service import Action, Role
@@ -67,7 +68,17 @@ def clone_command(
         None, "--source", "-s", help="Directory to clone into (default: config source)."
     ),
     protocol: Optional[str] = typer.Option(
-        None, "--protocol", help="ssh|https. Default: gh's configured git_protocol, per host."
+        None,
+        "--protocol",
+        help="ssh|https. Default: gh's configured git_protocol for GitHub hosts, ssh elsewhere.",
+    ),
+    provider: Optional[ProviderKind] = typer.Option(
+        None,
+        "--provider",
+        help=(
+            "SCM provider of every --url host. Default: config 'providers.<host>', then "
+            "well-known hosts, then probing the host's API."
+        ),
     ),
     jobs: int = typer.Option(1, "--jobs", "-j", min=1, help="Parallel workers (default 1 = sequential)."),
     update: bool = typer.Option(
@@ -117,6 +128,8 @@ def clone_command(
         role=role,
         role_explicit=_role_was_explicit(ctx),
         protocol=protocol,
+        provider=provider,
+        provider_settings=config.providers,
     )
     for warning in plan.warnings:
         console.print_info(f"Warning: {warning}")

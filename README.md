@@ -25,7 +25,8 @@ uv tool install repo-env      # or: pipx install repo-env
 renv --help
 ```
 
-Requires **Python 3.10+**, **Git 2.38+**, Linux or macOS. `renv pr` needs [GitHub CLI](https://cli.github.com/) (`gh`).
+Requires **Python 3.10+**, **Git 2.38+**, Linux or macOS. `renv pr` supports all clone
+providers; only GitHub/GHES PRs need [GitHub CLI](https://cli.github.com/) (`gh`).
 
 ## Quick start
 
@@ -64,17 +65,17 @@ Codespaces). Outside a container:
 uv tool install nox
 nox                 # default gates: syntax, tests, lint, types, imports, dead code, dupes, cycles
 nox -s tests        # unit tests with coverage
-nox -s integration  # integration tests (temp git repos, mocked gh)
+nox -s integration  # integration tests (temp git repos, mocked provider APIs)
 nox -s docs         # build docs (--strict)
 nox -s docs_serve   # local preview at http://127.0.0.1:8000
 ```
 
-If nox reports a missing interpreter (for example `tests-3.14`):
+If nox reports a missing interpreter (for example `tests-3.15`):
 
 ```sh
 uv self update
-uv python install 3.14
-nox -s tests-3.14 --download-python always
+uv python install 3.15
+nox -s tests-3.15 --download-python always
 ```
 
 Quality: line length 110, ruff + black + flake8 + isort + mypy + vulture + fawltydeps.

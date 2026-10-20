@@ -51,7 +51,9 @@ renv run -- make test          # same, when active or cwd is inside web
 
 ## 7. Open bulk pull requests
 
-Requires [GitHub CLI](https://cli.github.com/) (`gh auth login`).
+For GitHub/GHES, requires [GitHub CLI](https://cli.github.com/) (`gh auth login`).
+Other SCM providers use [API credentials](configuration.md#credentials);
+see [PR capabilities](commands.md#renv-pr) for supported options.
 
 ```bash
 renv pr web --title "feat: migrate X to Y" --draft

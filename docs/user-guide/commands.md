@@ -170,6 +170,33 @@ Highlights:
 - `--skip-no-diff` (skip repos with no commits vs base)
 - `--if-exists skip|fail`
 
+Each selected worktree's git remote determines its provider, using the same
+[`providers.<host>` configuration](configuration.md#scm-providers) and host detection
+as `renv clone`. Mixed-provider environments are supported, including nested GitLab
+groups, Azure organization/project URLs, and configured self-hosted context paths.
+
+| Provider | Transport | Optional creation flags |
+|----------|-----------|-------------------------|
+| GitHub / GHES | GitHub CLI (`gh`, required) | `--draft`, `--reviewer`, `--label`, `--assignee` |
+| GitLab | REST API | `--draft` (Draft title prefix) |
+| Bitbucket Cloud | REST API | None |
+| Bitbucket Server / Data Center | REST API | None |
+| Azure DevOps | REST API | `--draft` |
+| Gitea / Forgejo | REST API | None |
+
+Basic title/body/base/head creation and open-PR lookup work on every provider.
+API providers use the existing [token/credential-helper lookup](configuration.md#credentials)
+and require no optional discovery libraries. Unsupported metadata flags are errors,
+not silently ignored; all selected providers' flags are checked before any push.
+Set unsupported metadata in the provider UI after creation.
+
+`--if-exists skip` skips an open PR for the source branch; `fail` raises an error
+before pushing that repository. Authentication, lookup, and creation failures are
+surfaced rather than treated as an absent PR. Operations are sequential, not
+transactional: an error can leave earlier repositories' PRs created.
+`--dry-run` previews selection and rendered fields without provider detection,
+credential lookup, API calls, or requiring `gh`; it does not validate provider capabilities.
+
 !!! warning "No auto-push"
     `renv pr` never pushes unless `--push` is given.
 
@@ -268,14 +295,33 @@ Clones land under `--source` (default: config `source`) using a `host/owner/repo
 
 - `--url/-u URL` (required, repeatable; CSV supported): a host (`https://github.com`),
   host+owner (`https://github.com/my-org`), or a full repo URL
-  (`https://github.com/owner/repo`, `git@github.com:owner/repo.git`).
+  (`https://github.com/owner/repo`, `git@github.com:owner/repo.git`). Provider-specific URLs
+  work too: GitLab subgroups (`https://gitlab.com/group/sub/repo`), Bitbucket Server
+  (`https://bitbucket.corp/scm/PROJ/repo.git`, `/projects/PROJ`), Azure DevOps
+  (`https://dev.azure.com/org/project/_git/repo`, `git@ssh.dev.azure.com:v3/...`).
 - `--include/-i PATTERN` / `--exclude/-x PATTERN`: `owner/repo` globs (repeatable; CSV
   supported). Examples: `myself/test-*`, `owner/repo2`, `prefix-*/*`, `**` (match
-  everything reachable). Each pattern must contain exactly one `/` (except `**`).
+  everything reachable). Patterns are split at the **last** `/`, so nested owners work:
+  `group/sub/radar-*` (GitLab subgroup), `group/*/radar-*` (any subgroup), or
+  `org/project/*` (Azure DevOps).
 - When `--include` is omitted, every repo reachable via `--url` is included.
 
-Wildcard owner globs (e.g. `company-*/*`) query GitHub via `gh` and are scoped to
-orgs you belong to. `--role` controls which memberships count (default: `member`):
+### Providers
+
+Globs are resolved through the host's API: GitHub / GitHub Enterprise, GitLab,
+Bitbucket Cloud, Bitbucket Server/Data Center, Azure DevOps and Gitea/Forgejo. The provider
+is taken from `--provider`, then config `providers.<host>`, then well-known hosts, then by
+probing the host (see [Configuration](configuration.md#scm-providers), which also lists
+where API credentials come from). GitLab and Bitbucket need an extra
+(`repo-env[gitlab]`, `repo-env[bitbucket]`, or `repo-env[all]`).
+
+Listing is done once per top-level owner and as cheaply as each API allows: GitHub uses
+GraphQL (100 names per page), GitLab lists a group including all subgroups in one paginated
+call, and GitLab/Bitbucket Cloud receive the glob's longest literal word as a server-side
+search filter. The exact glob is always applied locally.
+
+Wildcard owner globs (e.g. `company-*/*`) are scoped to orgs/groups/workspaces/projects you
+belong to. `--role` controls which memberships count (default: `member`):
 
 | Value | Meaning |
 |-------|---------|
@@ -285,7 +331,8 @@ orgs you belong to. `--role` controls which memberships count (default: `member`
 
 If the default role finds nothing and you did not pass `--role` explicitly, `renv`
 automatically retries with `--role any`. When repos are matched with the default role,
-orgs that were skipped are reported.
+orgs that were skipped are reported. Azure DevOps organizations can't be enumerated, so the
+organization must be literal there (e.g. `--include 'my-org/*/*'`).
 
 ### Syncing existing clones
 
@@ -301,7 +348,10 @@ Both `--update` and `--reset-default` refuse to touch a dirty or diverged repo u
 
 ### Other options
 
-- `--source/-s DIR`, `--protocol ssh|https` (default: `gh`’s `git_protocol`, per host)
+- `--source/-s DIR`, `--protocol ssh|https` (default: `gh`’s `git_protocol` for GitHub hosts
+  when `gh` is installed, otherwise `ssh`)
+- `--provider KIND` (`github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
+  `azure-devops`, `gitea`)
 - `--jobs/-j N` (parallel clones/updates)
 - `--dry-run/-n`
 
@@ -317,12 +367,21 @@ renv clone -u https://github.company.com --include 'my-team/project-*'
 # All repos in orgs matching a prefix (active memberships only)
 renv clone -u https://github.com --include 'company-*/*'
 
+# GitLab: radar-* projects anywhere below a group
+renv clone -u https://gitlab.com --include 'my-group/*/radar-*'
+
+# Azure DevOps: every repo of one project
+renv clone -u https://dev.azure.com/my-org/my-project
+
+# Self-hosted Bitbucket Server under a sub-path
+renv config providers.bitbucket.corp 'bitbucket-server https://bitbucket.corp/bitbucket'
+renv clone -u https://bitbucket.corp --include 'PROJ/*'
+
 # Sync everything already cloned under ~/src
 renv clone -u https://github.com --include '**' --update
 ```
 
-Requires [GitHub CLI](https://cli.github.com/) (`gh`) when discovery needs the API
-(wildcard owner or repo globs). Full repo URLs clone directly without `gh`.
+Full repo URLs and literal `owner/repo` patterns clone directly without any API call.
 
 ---
 

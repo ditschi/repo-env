@@ -7,7 +7,7 @@ from typing import List, Optional
 
 import typer
 
-from repoenv.adapters import gh_adapter, state_store
+from repoenv.adapters import state_store
 from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import UsageError
@@ -33,15 +33,12 @@ def pr_command(
     push: bool = typer.Option(False, "--push", help="Push branches before creating PRs."),
     skip_no_diff: bool = typer.Option(False, "--skip-no-diff", help="Skip repos with no changes."),
     if_exists: str = typer.Option("skip", "--if-exists", help="When a PR exists: skip|fail."),
-    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without calling gh."),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without calling provider APIs."),
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON to stdout."),
 ) -> None:
     """Bulk-create pull requests. Never pushes unless ``--push`` is given."""
     if if_exists not in ("skip", "fail"):
         raise UsageError("--if-exists must be 'skip' or 'fail'.")
-    if not gh_adapter.is_available():
-        raise UsageError("The GitHub CLI 'gh' is not available.", hint="Install gh and run 'gh auth login'.")
-
     registry = state_store.load_registry()
     environment = resolve_environment(registry, env)
 

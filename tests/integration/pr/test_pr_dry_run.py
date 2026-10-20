@@ -19,8 +19,8 @@ def test_pr_dry_run(
 ) -> None:
     repo_factory.make_bare_and_clone("alpha")
 
-    # Avoid requiring the real GitHub CLI in integration tests.
-    monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: True)
+    # Preview needs neither the GitHub CLI nor provider credentials/network.
+    monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: False)
 
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)

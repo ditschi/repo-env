@@ -2,10 +2,10 @@
 
 ## Requirements
 
-- **Python 3.10 or newer** (3.12 recommended; tested on 3.10–3.14)
+- **Python 3.10 or newer** (3.12 recommended; tested on 3.10–3.15)
 - **Git 2.38+** (worktree support)
 - **Linux or macOS** (POSIX-only)
-- **GitHub CLI (`gh`)** — optional, required only for `renv pr` ([install](https://cli.github.com/))
+- **GitHub CLI (`gh`)** — optional, required only for GitHub/GHES PRs in `renv pr` ([install](https://cli.github.com/))
 
 ## Recommended: uv tool
 
@@ -35,7 +35,30 @@ renv --help
 renv --version
 ```
 
-## GitHub CLI (for `renv pr`)
+## SCM providers for `renv clone`
+
+GitHub / GitHub Enterprise, Azure DevOps and Gitea/Forgejo discovery work out of the box.
+GitLab and Bitbucket need their client library via an extra:
+
+| Extra | Adds |
+|-------|------|
+| `repo-env[gitlab]` | GitLab.com and self-managed GitLab (`python-gitlab`) |
+| `repo-env[bitbucket]` | Bitbucket Cloud and Bitbucket Server/Data Center (`atlassian-python-api`) |
+| `repo-env[all]` | All of the above |
+
+```bash
+uv tool install 'repo-env[all]'
+```
+
+`renv clone` tells you which extra to install when a host needs one that is missing.
+
+## PR provider authentication
+
+`renv pr` supports GitHub/GHES, GitLab, Bitbucket Cloud, Bitbucket Server/Data Center,
+Azure DevOps, and Gitea/Forgejo. Non-GitHub providers use REST APIs and the
+[configured credentials](configuration.md#credentials); no CLI or discovery extras are required.
+
+GitHub/GHES retains the GitHub CLI workflow:
 
 ```bash
 gh auth login

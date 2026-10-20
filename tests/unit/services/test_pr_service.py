@@ -6,9 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from repoenv.adapters import gh_adapter
+from repoenv.adapters import config_store, gh_adapter
 from repoenv.domain.models import Environment, RepoEntry
 from repoenv.services import pr_service
+
+
+@pytest.fixture(autouse=True)
+def github_remote(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config_store, "load_config", lambda: config_store.UserConfig())
+    monkeypatch.setattr(
+        "repoenv.adapters.git_adapter.remote_url", lambda wt, remote: "git@github.com:o/r.git"
+    )
+    monkeypatch.setattr("repoenv.adapters.gh_adapter.is_available", lambda: True)
 
 
 def _env(tmp_path: Path) -> Environment:
@@ -21,12 +30,13 @@ def _env(tmp_path: Path) -> Environment:
 def test_create_prs_renders_template(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = _env(tmp_path)
     monkeypatch.setattr("repoenv.adapters.git_adapter.current_branch", lambda wt: "feature")
-    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, head: None)
+    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, **kwargs: None)
 
     captured: dict[str, str] = {}
 
-    def fake_create(worktree, *, title, body, base, head, draft, reviewers, labels, assignees):
+    def fake_create(worktree, *, title, body, base, head, draft, reviewers, labels, assignees, repository):
         captured["title"] = title
+        assert repository == "github.com/o/r"
         return "https://example/pr/1"
 
     monkeypatch.setattr("repoenv.adapters.gh_adapter.create_pr", fake_create)
@@ -51,7 +61,7 @@ def test_create_prs_renders_template(tmp_path: Path, monkeypatch: pytest.MonkeyP
 def test_create_prs_skips_existing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = _env(tmp_path)
     monkeypatch.setattr("repoenv.adapters.git_adapter.current_branch", lambda wt: "feature")
-    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, head: "https://x/1")
+    monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, **kwargs: "https://x/1")
 
     outcome = pr_service.create_prs(
         env,
@@ -96,3 +106,28 @@ def test_pr_result_dataclass() -> None:
     result = gh_adapter.PrResult("r0", "url", created=True)
     assert result.created is True
     assert result.skipped is False
+
+
+def test_skip_no_diff_uses_base_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = []
+    monkeypatch.setattr("repoenv.adapters.git_adapter.current_branch", lambda wt: "feature")
+
+    def has_diff(worktree, ref):
+        seen.append(ref)
+        return False
+
+    monkeypatch.setattr("repoenv.adapters.git_adapter.has_diff", has_diff)
+    pr_service.create_prs(
+        _env(tmp_path),
+        title="t",
+        body="",
+        base="release",
+        draft=False,
+        reviewers=[],
+        labels=[],
+        assignees=[],
+        push=False,
+        skip_no_diff=True,
+        if_exists="skip",
+    )
+    assert seen == ["origin/release"]

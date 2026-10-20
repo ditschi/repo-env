@@ -15,7 +15,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 DEFAULT_PYTHON = "3.10"
 CI_PYTHON = "3.12"  # primary CI version for single-version sessions (integration, performance, lint, …)
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
@@ -73,7 +73,7 @@ nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 @nox.session(python=PYTHON_VERSIONS, tags=["unit", "tests"])
 def tests(session: nox.Session) -> None:
     """Run unit tests with coverage and xdist (all supported Python versions)."""
-    session.install("-e", ".[test]")
+    session.install("-e", ".[test,all]")
     session.run(
         "pytest",
         f"--cov={PACKAGE}",
@@ -88,15 +88,15 @@ def tests(session: nox.Session) -> None:
 
 @nox.session(python=CI_PYTHON, tags=["int-int", "integration", "int"])
 def integration(session: nox.Session) -> None:
-    """Run all integration tests (real temp git repos, mocked gh)."""
-    session.install("-e", ".[test]")
+    """Run integration tests with real temp git repos and mocked external APIs."""
+    session.install("-e", ".[test,all]")
     session.run("pytest", "-m", "integration", "tests/integration/", *session.posargs)
 
 
 @nox.session(python=CI_PYTHON, tags=["int-cli", "integration", "int"])
 def integration_cli(session: nox.Session) -> None:
     """Run CLI integration tests only."""
-    session.install("-e", ".[test]")
+    session.install("-e", ".[test,all]")
     session.run("pytest", "-m", "integration", "tests/integration/cli/", *session.posargs)
 
 
@@ -109,7 +109,7 @@ def integration_git(session: nox.Session) -> None:
 
 @nox.session(python=CI_PYTHON, tags=["int-pr", "integration", "int"])
 def integration_pr(session: nox.Session) -> None:
-    """Run PR (mocked gh) integration tests only."""
+    """Run PR integration tests with provider API calls mocked."""
     session.install("-e", ".[test]")
     session.run("pytest", "-m", "integration", "tests/integration/pr/", *session.posargs)
 
@@ -153,7 +153,7 @@ def check_syntax(session: nox.Session) -> None:
 @nox.session(python=DEFAULT_PYTHON)
 def check_types(session: nox.Session) -> None:
     """Static type checking with mypy."""
-    session.install("-e", ".[type-check]")
+    session.install("-e", ".[type-check,all]")
     session.run("mypy", "--package", PACKAGE)
 
 
@@ -179,7 +179,7 @@ def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional sess
 @nox.session(python=DEFAULT_PYTHON)
 def necessary_imports(session: nox.Session) -> None:
     """Detect undeclared/unused dependencies with fawltydeps."""
-    session.install("-e", ".[code-quality]")
+    session.install("-e", ".[code-quality,all]")
     session.run(
         "fawltydeps",
         "--detailed",

@@ -32,10 +32,10 @@ nox -s install_dev   # installs all dev extras into the active venv
 ## Run quality gates
 
 ```sh
-nox                  # default sessions: syntax, tests (3.12/3.13/3.14), lint, types, imports, dead code, dupes, cycles
+nox                  # default sessions: syntax, tests (3.12/3.13/3.14/3.15), lint, types, imports, dead code, dupes, cycles
 nox -s tests         # unit tests, all Python versions
 nox -s tests-3.12    # unit tests, specific Python version
-nox -s integration   # integration tests (real temp git repos, mocked gh)
+nox -s integration   # integration tests (real temp git repos, mocked provider APIs)
 nox -s lint          # ruff + black + flake8 + isort
 nox -s check_types   # mypy
 nox -s docs          # build docs strict (fails on any warning)
@@ -44,12 +44,12 @@ nox -s docs_serve    # live-reload local docs at http://127.0.0.1:8000
 
 ### Troubleshooting: missing Python interpreter in nox
 
-If nox prints `Session tests-3.14 skipped: Python interpreter 3.14 not found`:
+If nox prints `Session tests-3.15 skipped: Python interpreter 3.15 not found`:
 
 ```sh
 uv self update
-uv python install 3.14
-nox -s tests-3.14 --download-python always
+uv python install 3.15
+nox -s tests-3.15 --download-python always
 ```
 
 Notes:
@@ -82,7 +82,7 @@ src/repoenv/       Core package
   ui/              Rich terminal output helpers
 tests/
   unit/            Fast, no I/O
-  integration/     Real temp git repos, mocked gh
+  integration/     Real temp git repos, mocked provider APIs
   performance/     CLI cold-start latency budgets (help + bash completion)
 docs/              This site
 .github/workflows/ CI/CD pipelines

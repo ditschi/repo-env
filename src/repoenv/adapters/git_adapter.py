@@ -66,6 +66,11 @@ def is_git_repo(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def remote_url(repo: Path, remote: str) -> str:
+    """Return the configured remote URL, applying git's URL rewrites."""
+    return _run(["remote", "get-url", remote], cwd=repo).stdout.strip()
+
+
 def is_linked_worktree(path: Path) -> bool:
     """Return True if ``path`` is a git *linked* worktree (not a main repo/clone).
 
