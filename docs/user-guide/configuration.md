@@ -40,6 +40,11 @@ aliases:
 # Optional named repo selections: group name -> glob (or comma-separated globs)
 groups:
   backend: "*/backend-*"
+
+# Optional SCM provider per self-hosted host for `renv clone`: "<kind> [<base-url>]"
+providers:
+  git.company.com: gitlab
+  bitbucket.company.com: bitbucket-server https://bitbucket.company.com/bitbucket
 ```
 
 ## Aliases
@@ -70,6 +75,42 @@ renv config groups.backend --unset
 renv config groups.backend          # read one group
 renv create svc --include @backend
 ```
+
+## SCM providers
+
+`renv clone` needs to know which product serves a host before it can list repositories.
+Well-known hosts (`github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`,
+`codeberg.org`) are built in; other hosts are probed (hostname hints such as `github.*` or
+`gitlab.*` are tried first). Pin a host to skip probing, or when the server lives under a
+sub-path:
+
+```bash
+renv config providers.git.company.com gitlab
+renv config providers.bitbucket.company.com 'bitbucket-server https://bitbucket.company.com/bitbucket'
+renv config providers.tfs.company.com 'azure-devops https://tfs.company.com/tfs'
+```
+
+Kinds: `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`, `azure-devops`, `gitea`.
+
+### Credentials
+
+API credentials are looked up per host, without prompting:
+
+1. Environment variables:
+
+    | Provider | Variables |
+    |----------|-----------|
+    | GitHub.com | `GH_TOKEN`, `GITHUB_TOKEN` |
+    | GitHub Enterprise | `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN` |
+    | GitLab | `GITLAB_TOKEN`, `GL_TOKEN` |
+    | Bitbucket | `BITBUCKET_TOKEN` (+ `BITBUCKET_USERNAME` for app passwords / API tokens) |
+    | Azure DevOps | `AZURE_DEVOPS_EXT_PAT`, `AZURE_DEVOPS_TOKEN` |
+    | Gitea / Forgejo | `GITEA_TOKEN`, `FORGEJO_TOKEN` |
+
+2. GitHub only: `gh auth token --hostname <host>` if the GitHub CLI is installed.
+3. Your git credential helper for `https://<host>` (`git credential fill`), i.e. the same
+   credentials your HTTPS clones already use (Git Credential Manager, libsecret, keychain, …).
+4. Anonymous — enough for public repositories; listing your organizations needs a token.
 
 ## Environment variables
 

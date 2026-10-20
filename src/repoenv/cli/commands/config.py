@@ -9,6 +9,7 @@ from typing import Optional
 import typer
 
 from repoenv.adapters import config_store, paths, state_store
+from repoenv.domain.scm import parse_provider_setting
 from repoenv.errors import UsageError
 from repoenv.ui import console
 
@@ -40,7 +41,7 @@ def _snapshot(cfg: config_store.UserConfig, reg: state_store.Registry) -> dict[s
 def _handle_dict_key(
     cfg: config_store.UserConfig, key: str, value: str | None, unset: bool, *, prefix: str
 ) -> bool:
-    """Return True if handled as a '<prefix>.<name>' operation (aliases./groups.)."""
+    """Return True if handled as a '<prefix>.<name>' operation (aliases./groups./providers.)."""
     if not key.startswith(f"{prefix}."):
         return False
     target: dict[str, str] = getattr(cfg, prefix)
@@ -106,13 +107,17 @@ def config_command(
         return
     if _handle_dict_key(cfg, key, value, unset, prefix="groups"):
         return
+    if key.startswith("providers.") and value is not None and not unset:
+        parse_provider_setting(value)
+    if _handle_dict_key(cfg, key, value, unset, prefix="providers"):
+        return
 
     if key not in ("source", "dest", "default_branch", "install_completion", "autocorrect"):
         raise UsageError(
             f"Unknown key '{key}'.",
             hint=(
                 "Known keys: source, dest, default_branch, install_completion, autocorrect, "
-                "aliases.<name>, groups.<name>."
+                "aliases.<name>, groups.<name>, providers.<host>."
             ),
         )
 

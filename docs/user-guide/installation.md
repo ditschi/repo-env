@@ -35,6 +35,23 @@ renv --help
 renv --version
 ```
 
+## SCM providers for `renv clone`
+
+GitHub / GitHub Enterprise, Azure DevOps and Gitea/Forgejo discovery work out of the box.
+GitLab and Bitbucket need their client library via an extra:
+
+| Extra | Adds |
+|-------|------|
+| `repo-env[gitlab]` | GitLab.com and self-managed GitLab (`python-gitlab`) |
+| `repo-env[bitbucket]` | Bitbucket Cloud and Bitbucket Server/Data Center (`atlassian-python-api`) |
+| `repo-env[all]` | All of the above |
+
+```bash
+uv tool install 'repo-env[all]'
+```
+
+`renv clone` tells you which extra to install when a host needs one that is missing.
+
 ## GitHub CLI (for `renv pr`)
 
 ```bash

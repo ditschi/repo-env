@@ -6,6 +6,8 @@ from repoenv.domain.owner_repo import (
     expand_owner_repo_patterns,
     has_wildcard,
     match_owner_repo,
+    root_owner,
+    search_hint,
     validate_owner_repo_pattern,
 )
 from repoenv.errors import UsageError
@@ -18,6 +20,8 @@ from repoenv.errors import UsageError
         ("owner/repo2", ("owner", "repo2")),
         ("prefix-*/*", ("prefix-*", "*")),
         ("**", ("*", "*")),
+        ("group/sub/repo-*", ("group/sub", "repo-*")),
+        ("group/*/repo", ("group/*", "repo")),
     ],
 )
 def test_validate_owner_repo_pattern_valid(pattern: str, expected: tuple[str, str]) -> None:
@@ -29,9 +33,9 @@ def test_validate_owner_repo_pattern_valid(pattern: str, expected: tuple[str, st
     [
         "no-slash-here",
         "*",
-        "owner/repo/extra",
         "/repo",
         "owner/",
+        "group//repo",
         "",
     ],
 )
@@ -64,3 +68,30 @@ def test_match_owner_repo_wildcard_owner_does_not_leak_across_slash() -> None:
     patterns = expand_owner_repo_patterns(["prefix-*/*"])
     assert match_owner_repo("prefix-a", "anything", patterns) is True
     assert match_owner_repo("other", "anything", patterns) is False
+
+
+def test_match_owner_repo_nested_owner() -> None:
+    patterns = expand_owner_repo_patterns(["group/*/radar-*"])
+    assert match_owner_repo("group/sub", "radar-a", patterns) is True
+    assert match_owner_repo("group/sub/deeper", "radar-a", patterns) is True
+    assert match_owner_repo("group", "radar-a", patterns) is False
+
+
+def test_root_owner() -> None:
+    assert root_owner("group/sub") == "group"
+    assert root_owner("acme") == "acme"
+
+
+@pytest.mark.parametrize(
+    ("glob", "expected"),
+    [
+        ("radar-*", "radar"),
+        ("*-service-*", "service"),
+        ("ab*", None),
+        ("*", None),
+        ("proj[abc]tools*", "tools"),
+        ("exact-name", "exact"),
+    ],
+)
+def test_search_hint(glob: str, expected: str | None) -> None:
+    assert search_hint(glob) == expected

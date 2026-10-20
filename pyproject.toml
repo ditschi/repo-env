@@ -32,6 +32,7 @@ dependencies = [
     "ruamel.yaml>=0.18",
     "platformdirs>=4.2",
     "filelock>=3.14",
+    "PyGithub>=2.5",
 ]
 
 [project.urls]
@@ -42,6 +43,11 @@ Source = "https://github.com/ditschi/repo-env"
 renv = "repoenv.__main__:main"
 
 [project.optional-dependencies]
+# SCM providers for `renv clone` discovery. GitHub (PyGithub) is always installed;
+# Azure DevOps and Gitea/Forgejo need no extra.
+gitlab = ["python-gitlab>=4.4"]
+bitbucket = ["atlassian-python-api>=4.0"]
+all = ["repo-env[gitlab,bitbucket]"]
 test = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
@@ -71,7 +77,7 @@ docs = [
 dev = [
     "nox>=2024.4",
     "commitizen>=3.29",
-    "repo-env[test,lint,type-check,code-quality,docs]",
+    "repo-env[all,test,lint,type-check,code-quality,docs]",
 ]
 
 [tool.hatch.version]

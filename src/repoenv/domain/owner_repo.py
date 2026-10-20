@@ -6,8 +6,11 @@ Patterns select which remote repositories to clone by matching the combined
 a single relative path with ``fnmatch``, where ``*`` already crosses ``/``),
 here ``*`` is scoped to *one side* of the pair -- ``prefix-*/*`` must not
 accidentally match repos under an unrelated owner just because ``*`` also
-matches literal slashes. So each pattern is required to contain exactly one
-``/`` splitting an owner-glob from a repo-glob, matched independently.
+matches literal slashes. So each pattern is split at its *last* ``/`` into an
+owner-glob and a repo-glob, matched independently. The owner side may itself
+contain ``/`` for providers with nested owners: GitLab subgroups
+(``group/sub/repo-*``, ``group/*/repo-*``) and Azure DevOps
+(``organization/project/repo``).
 
 The one exception is the literal string ``**``, a shorthand for "match
 everything" (``*/*``) -- convenient when combined with ``--role`` to say
@@ -17,6 +20,7 @@ everything" (``*/*``) -- convenient when combined with ``--role`` to say
 
 from __future__ import annotations
 
+import re
 from fnmatch import fnmatch
 
 from repoenv.domain.selection import split_csv
@@ -30,25 +34,24 @@ def validate_owner_repo_pattern(pattern: str) -> tuple[str, str]:
 
     Rules:
     - ``"**"`` is shorthand for ``("*", "*")`` (match everything).
-    - Any other pattern must contain exactly one ``/``, with a non-empty glob
-      on each side.
+    - Any other pattern must contain at least one ``/``; it is split at the
+      last one, with a non-empty glob on each side.
     """
     if pattern == MATCH_ALL_PATTERN:
         return "*", "*"
 
-    if pattern.count("/") != 1:
+    if "/" not in pattern:
         raise UsageError(
             f"Invalid owner/repo pattern '{pattern}'.",
             hint=(
-                "Patterns must be 'owner/repo' with exactly one '/' "
-                "(globs allowed on either side), e.g. 'myorg/*', 'owner/repo', "
-                "or 'prefix-*/*'. Use '**' to match every repo in every "
-                "reachable owner."
+                "Patterns must be 'owner/repo' (globs allowed on either side), e.g. "
+                "'myorg/*', 'owner/repo', 'prefix-*/*', or 'group/subgroup/repo-*' for "
+                "nested owners. Use '**' to match every repo in every reachable owner."
             ),
         )
 
-    owner_glob, _, repo_glob = pattern.partition("/")
-    if not owner_glob or not repo_glob:
+    owner_glob, _, repo_glob = pattern.rpartition("/")
+    if not owner_glob or not repo_glob or "" in owner_glob.split("/"):
         raise UsageError(
             f"Invalid owner/repo pattern '{pattern}'.",
             hint="Both the owner and repo side of the pattern must be non-empty.",
@@ -64,6 +67,26 @@ def expand_owner_repo_patterns(patterns: list[str]) -> list[tuple[str, str]]:
 def has_wildcard(glob: str) -> bool:
     """Return True if ``glob`` contains any ``fnmatch`` wildcard character."""
     return any(char in glob for char in "*?[")
+
+
+def root_owner(owner: str) -> str:
+    """Top-level owner of a (possibly nested) owner path/glob: ``group/sub`` -> ``group``."""
+    return owner.split("/", 1)[0]
+
+
+_HINT_BREAKS = re.compile(r"\[[^\]]*\]|[*?\[\]\-_. /]")
+
+
+def search_hint(glob: str, *, min_length: int = 3) -> str | None:
+    """Longest alphanumeric literal in ``glob`` -- a server-side pre-filter, never the final match.
+
+    ``radar-*`` -> ``radar``. Separators are excluded because providers search
+    the display name, which may differ from the slug (``Radar Tools`` vs
+    ``radar-tools``). Returns ``None`` when no run reaches ``min_length``
+    (short terms are rejected or exact-matched by some provider search APIs).
+    """
+    longest = max(_HINT_BREAKS.split(glob), key=len)
+    return longest if len(longest) >= min_length else None
 
 
 def match_owner_repo(owner: str, repo: str, patterns: list[tuple[str, str]]) -> bool:

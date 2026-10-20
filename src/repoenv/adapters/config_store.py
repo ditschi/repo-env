@@ -49,6 +49,8 @@ class UserConfig(BaseModel):
     autocorrect: float | None = None
     aliases: dict[StrictStr, StrictStr] = Field(default_factory=dict)
     groups: dict[StrictStr, StrictStr] = Field(default_factory=dict)
+    # host -> "<provider-kind> [<base-url>]" for self-hosted SCM servers (renv clone).
+    providers: dict[StrictStr, StrictStr] = Field(default_factory=dict)
 
 
 def _yaml() -> YAML:
