@@ -17,7 +17,7 @@ from repoenv.errors import GitError
 
 @dataclass
 class PrResult:
-    """Outcome of a single ``gh pr create`` (or lookup) invocation."""
+    """Outcome of one provider's pull-request creation or lookup."""
 
     repo: str
     url: str
@@ -47,14 +47,17 @@ def is_available() -> bool:
     return result.returncode == 0
 
 
-def existing_pr_url(worktree: Path, *, head: str) -> str | None:
+def existing_pr_url(worktree: Path, *, head: str, repository: str | None = None) -> str | None:
     """Return the URL of an open PR for ``head`` if one exists, else ``None``."""
-    result = _run(
-        ["pr", "list", "--head", head, "--state", "open", "--json", "url", "--jq", ".[0].url"],
-        cwd=worktree,
-    )
+    argv = ["pr", "list", "--head", head, "--state", "open", "--json", "url", "--jq", ".[0].url"]
+    if repository:
+        argv += ["--repo", repository]
+    result = _run(argv, cwd=worktree)
     if result.returncode != 0:
-        return None
+        raise GitError(
+            f"gh pr list failed in {worktree.name}: {result.stderr.strip()}",
+            hint="Ensure 'gh auth status' is healthy.",
+        )
     url = result.stdout.strip()
     return url or None
 
@@ -70,9 +73,12 @@ def create_pr(
     reviewers: list[str],
     labels: list[str],
     assignees: list[str],
+    repository: str | None = None,
 ) -> str:
     """Create a pull request and return its URL. Raises ``GitError`` on failure."""
     argv = ["pr", "create", "--title", title, "--body", body, "--head", head]
+    if repository:
+        argv += ["--repo", repository]
     if base:
         argv += ["--base", base]
     if draft:

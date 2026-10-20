@@ -49,10 +49,28 @@ _OPENER = urllib.request.build_opener(_NoRedirect())
 
 def get(url: str, *, headers: dict[str, str] | None = None, timeout: float = 15.0) -> HttpResponse:
     """GET ``url``. Non-2xx statuses are returned, not raised; connection failures raise ``GitError``."""
+    return request(url, headers=headers, timeout=timeout)
+
+
+def request(
+    url: str,
+    *,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float = 15.0,
+) -> HttpResponse:
+    """Send a JSON request without following redirects (including for writes)."""
     if urlsplit(url).scheme not in ("http", "https"):
         raise GitError(f"Refusing non-HTTP URL: {url}")
+    request_headers = {"Accept": "application/json", "User-Agent": "repo-env", **(headers or {})}
+    if payload is not None:
+        request_headers["Content-Type"] = "application/json"
     request = urllib.request.Request(  # noqa: S310 - scheme checked above
-        url, headers={"Accept": "application/json", "User-Agent": "repo-env", **(headers or {})}
+        url,
+        headers=request_headers,
+        method=method,
+        data=json.dumps(payload).encode() if payload is not None else None,
     )
     try:
         with _OPENER.open(request, timeout=timeout) as response:

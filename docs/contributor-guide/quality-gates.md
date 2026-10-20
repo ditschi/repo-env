@@ -7,7 +7,7 @@ All gates run via `nox`. They also run in CI on every PR and push to `main`.
 | Job | Workflow(s) | Nox session(s) | Python |
 |-----|-------------|----------------|--------|
 | Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports` | 3.12 |
-| Unit tests | PR, main | `tests` | 3.12, 3.13, 3.14 (matrix) |
+| Unit tests | PR, main | `tests` | 3.12, 3.13, 3.14, 3.15 (matrix) |
 | Integration tests | PR, main | `integration` | 3.12 |
 | Performance budgets | PR | `performance` | 3.12 |
 | Docs build | PR | `docs` | 3.12 |
@@ -19,7 +19,7 @@ On `main`, the quality job runs `nox` with default sessions (same gates as above
 
 Unit tests run on a multi-Python matrix because they exercise language-level and library compatibility across supported versions.
 
-Integration tests are slower (real temp git repos, subprocess CLI invocations) and focus on end-to-end workflows — git worktrees, CLI commands, mocked `gh`. Python-version differences are already covered by the unit matrix; repeating integration on 3.13/3.14 would mostly add CI time without catching new failure modes.
+Integration tests are slower (real temp git repos, subprocess CLI invocations) and focus on end-to-end workflows — git worktrees, CLI commands, mocked provider APIs. Python-version differences are already covered by the unit matrix; repeating integration on 3.13–3.15 would mostly add CI time without catching new failure modes.
 
 CI uses **3.12** for integration — the same primary version as lint, types, and docs.
 
@@ -28,8 +28,8 @@ CI uses **3.12** for integration — the same primary version as lint, types, an
 | Session | Tool(s) | Python | What it checks |
 |---------|---------|--------|----------------|
 | `check_syntax` | `compileall` | 3.12 | Byte-compile; catches syntax errors fast |
-| `tests` | pytest + pytest-cov + pytest-xdist | 3.12, 3.13, 3.14 | Unit tests with coverage |
-| `integration` | pytest | 3.12 | Real temp git repos + mocked gh |
+| `tests` | pytest + pytest-cov + pytest-xdist | 3.12, 3.13, 3.14, 3.15 | Unit tests with coverage |
+| `integration` | pytest | 3.12 | Real temp git repos + mocked provider APIs |
 | `performance` | pytest | 3.12 | CLI cold-start latency budgets (help + bash completion) |
 | `lint` | ruff + black + flake8 + isort | 3.12 | Style + lint |
 | `check_types` | mypy | 3.12 | Static type checking |

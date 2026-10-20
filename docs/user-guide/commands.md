@@ -170,6 +170,33 @@ Highlights:
 - `--skip-no-diff` (skip repos with no commits vs base)
 - `--if-exists skip|fail`
 
+Each selected worktree's git remote determines its provider, using the same
+[`providers.<host>` configuration](configuration.md#scm-providers) and host detection
+as `renv clone`. Mixed-provider environments are supported, including nested GitLab
+groups, Azure organization/project URLs, and configured self-hosted context paths.
+
+| Provider | Transport | Optional creation flags |
+|----------|-----------|-------------------------|
+| GitHub / GHES | GitHub CLI (`gh`, required) | `--draft`, `--reviewer`, `--label`, `--assignee` |
+| GitLab | REST API | `--draft` (Draft title prefix) |
+| Bitbucket Cloud | REST API | None |
+| Bitbucket Server / Data Center | REST API | None |
+| Azure DevOps | REST API | `--draft` |
+| Gitea / Forgejo | REST API | None |
+
+Basic title/body/base/head creation and open-PR lookup work on every provider.
+API providers use the existing [token/credential-helper lookup](configuration.md#credentials)
+and require no optional discovery libraries. Unsupported metadata flags are errors,
+not silently ignored; all selected providers' flags are checked before any push.
+Set unsupported metadata in the provider UI after creation.
+
+`--if-exists skip` skips an open PR for the source branch; `fail` raises an error
+before pushing that repository. Authentication, lookup, and creation failures are
+surfaced rather than treated as an absent PR. Operations are sequential, not
+transactional: an error can leave earlier repositories' PRs created.
+`--dry-run` previews selection and rendered fields without provider detection,
+credential lookup, API calls, or requiring `gh`; it does not validate provider capabilities.
+
 !!! warning "No auto-push"
     `renv pr` never pushes unless `--push` is given.
 

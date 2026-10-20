@@ -66,7 +66,9 @@ renv repair web
 
 ## 6. Open pull requests
 
-Requires [GitHub CLI](https://cli.github.com/) (`gh auth login`).
+For GitHub/GHES, requires [GitHub CLI](https://cli.github.com/) (`gh auth login`).
+Other providers use [API credentials](configuration.md#credentials). `--draft` below
+is supported for GitHub/GHES, GitLab, and Azure DevOps; omit it for other providers.
 
 ```bash
 # Push yourself in each repo, then:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from repoenv.adapters import gh_adapter, git_adapter
+from repoenv.adapters import config_store, gh_adapter, git_adapter
+from repoenv.adapters.scm import pull_requests
 from repoenv.domain.models import Environment
 from repoenv.domain.selection import resolve_selection
+from repoenv.errors import GitError, UsageError
 
 
 @dataclass
@@ -42,7 +44,7 @@ def build_pr_preview(
     include: list[str] | None = None,
     exclude: list[str] | None = None,
 ) -> list[PrPlanItem]:
-    """Resolve the repos and rendered title/body/base a PR pass would use, without calling gh.
+    """Resolve the repos and rendered title/body/base without calling provider APIs.
 
     Applies the same --include/--exclude selection and {repo}/{branch}/{env}
     rendering as create_prs, so --dry-run accurately previews what would
@@ -85,24 +87,37 @@ def create_prs(
     exclude: list[str] | None = None,
 ) -> PrOutcome:
     """Create PRs for each repo in ``env``. Never pushes unless ``push`` is True."""
+    if if_exists not in ("skip", "fail"):
+        raise UsageError("--if-exists must be 'skip' or 'fail'.")
     outcome = PrOutcome()
     entries = list(env.repos)
     if include is not None or exclude is not None:
         selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
         entries = [e for e in entries if e.repo in selected]
 
+    settings = config_store.load_config().providers
+    clients = {
+        entry.repo: pull_requests.for_worktree(entry.worktree_path, entry.remote, settings=settings)
+        for entry in entries
+    }
+    for client in clients.values():
+        client.validate_options(draft=draft, reviewers=reviewers, labels=labels, assignees=assignees)
+
     for entry in entries:
         worktree = entry.worktree_path
         branch = git_adapter.current_branch(worktree) or entry.branch
+        client = clients[entry.repo]
 
-        if skip_no_diff and not git_adapter.has_diff(worktree, f"{entry.remote}/{entry.base}"):
+        if skip_no_diff and not git_adapter.has_diff(worktree, f"{entry.remote}/{base or entry.base}"):
             outcome.skipped.append(
                 gh_adapter.PrResult(entry.repo, "", created=False, skipped=True, reason="no diff")
             )
             continue
 
-        existing = gh_adapter.existing_pr_url(worktree, head=branch)
-        if existing and if_exists == "skip":
+        existing = client.existing_url(head=branch)
+        if existing:
+            if if_exists == "fail":
+                raise GitError(f"An open PR already exists for {entry.repo} on {branch}: {existing}")
             outcome.skipped.append(
                 gh_adapter.PrResult(entry.repo, existing, created=False, skipped=True, reason="exists")
             )
@@ -111,8 +126,7 @@ def create_prs(
         if push:
             git_adapter.push(worktree, remote=entry.remote, branch=branch)
 
-        url = gh_adapter.create_pr(
-            worktree,
+        url = client.create(
             title=_render(title, repo=entry.repo, branch=branch, env=env.name),
             body=_render(body, repo=entry.repo, branch=branch, env=env.name),
             base=base or entry.base,

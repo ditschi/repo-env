@@ -2,10 +2,10 @@
 
 ## Requirements
 
-- **Python 3.10 or newer** (3.12 recommended; tested on 3.10–3.14)
+- **Python 3.10 or newer** (3.12 recommended; tested on 3.10–3.15)
 - **Git 2.38+** (worktree support)
 - **Linux or macOS** (POSIX-only)
-- **GitHub CLI (`gh`)** — optional, required only for `renv pr` ([install](https://cli.github.com/))
+- **GitHub CLI (`gh`)** — optional, required only for GitHub/GHES PRs in `renv pr` ([install](https://cli.github.com/))
 
 ## Recommended: uv tool
 
@@ -52,7 +52,13 @@ uv tool install 'repo-env[all]'
 
 `renv clone` tells you which extra to install when a host needs one that is missing.
 
-## GitHub CLI (for `renv pr`)
+## PR provider authentication
+
+`renv pr` supports GitHub/GHES, GitLab, Bitbucket Cloud, Bitbucket Server/Data Center,
+Azure DevOps, and Gitea/Forgejo. Non-GitHub providers use REST APIs and the
+[configured credentials](configuration.md#credentials); no CLI or discovery extras are required.
+
+GitHub/GHES retains the GitHub CLI workflow:
 
 ```bash
 gh auth login

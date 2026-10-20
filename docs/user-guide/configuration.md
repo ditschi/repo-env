@@ -41,7 +41,7 @@ aliases:
 groups:
   backend: "*/backend-*"
 
-# Optional SCM provider per self-hosted host for `renv clone`: "<kind> [<base-url>]"
+# Optional SCM provider per self-hosted host for clone/PR: "<kind> [<base-url>]"
 providers:
   git.company.com: gitlab
   bitbucket.company.com: bitbucket-server https://bitbucket.company.com/bitbucket
@@ -78,7 +78,9 @@ renv create svc --include @backend
 
 ## SCM providers
 
-`renv clone` needs to know which product serves a host before it can list repositories.
+`renv clone` and `renv pr` need to know which product serves a host.
+PR creation resolves each worktree's configured remote independently, so an
+environment can contain repositories from different providers.
 Well-known hosts (`github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`,
 `codeberg.org`) are built in; other hosts are probed (hostname hints such as `github.*` or
 `gitlab.*` are tried first). Pin a host to skip probing, or when the server lives under a
@@ -111,6 +113,11 @@ API credentials are looked up per host, without prompting:
 3. Your git credential helper for `https://<host>` (`git credential fill`), i.e. the same
    credentials your HTTPS clones already use (Git Credential Manager, libsecret, keychain, …).
 4. Anonymous — enough for public repositories; listing your organizations needs a token.
+
+Non-GitHub PR operations require credentials with repository read and PR/MR write
+permissions (for example GitLab `api`, Azure DevOps Code read/write, or the equivalent
+Bitbucket/Gitea permissions). GitHub/GHES PRs use `gh` authentication instead of
+the credential-helper fallback. No git push occurs unless `--push` is supplied.
 
 ## Environment variables
 

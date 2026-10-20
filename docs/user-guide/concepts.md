@@ -87,6 +87,6 @@ with `renv config groups.<name> <pattern>` — and mixes freely with literal glo
 
 - Source clones: treated as read-only.
 - `renv rm`: removes worktrees and the env directory by default; `--keep-files` only updates the registry. `-i`/`-x` remove just some repos.
-- `renv pr`: never pushes unless `--push` is given; requires the GitHub CLI (`gh`).
+- `renv pr`: never pushes unless `--push` is given; only GitHub/GHES requires the GitHub CLI (`gh`). Other SCM providers use their APIs and configured credentials.
 
 See [Troubleshooting](troubleshooting.md) for recovery when disk and registry diverge.

@@ -15,7 +15,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 DEFAULT_PYTHON = "3.10"
 CI_PYTHON = "3.12"  # primary CI version for single-version sessions (integration, performance, lint, …)
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
@@ -88,7 +88,7 @@ def tests(session: nox.Session) -> None:
 
 @nox.session(python=CI_PYTHON, tags=["int-int", "integration", "int"])
 def integration(session: nox.Session) -> None:
-    """Run all integration tests (real temp git repos, mocked gh)."""
+    """Run integration tests with real temp git repos and mocked external APIs."""
     session.install("-e", ".[test,all]")
     session.run("pytest", "-m", "integration", "tests/integration/", *session.posargs)
 
@@ -109,7 +109,7 @@ def integration_git(session: nox.Session) -> None:
 
 @nox.session(python=CI_PYTHON, tags=["int-pr", "integration", "int"])
 def integration_pr(session: nox.Session) -> None:
-    """Run PR (mocked gh) integration tests only."""
+    """Run PR integration tests with provider API calls mocked."""
     session.install("-e", ".[test]")
     session.run("pytest", "-m", "integration", "tests/integration/pr/", *session.posargs)
 
