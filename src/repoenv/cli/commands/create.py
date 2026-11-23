@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import getpass
 import socket
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -12,9 +13,25 @@ import typer
 from repoenv import __version__
 from repoenv.adapters import config_store, paths, state_store
 from repoenv.cli.completion_helpers import complete_repo_name
+from repoenv.domain.models import Environment
 from repoenv.errors import PartialFailureError, UsageError
 from repoenv.services import environment_service
 from repoenv.ui import console
+
+
+@dataclass(frozen=True)
+class _CreateArgs:
+    """The ``renv create`` arguments as given (after ``@group`` expansion)."""
+
+    source: Path | None
+    dest: Path | None
+    include: list[str]
+    exclude: list[str]
+    include_worktrees: bool
+    branch: str | None
+    default_branch: str | None
+    alias: str | None
+    preserve: bool
 
 
 def _resolve_create_paths(
@@ -46,50 +63,41 @@ def _reconcile_existing_env(name: str) -> None:
         raise UsageError(f"Environment '{name}' already exists.", hint="Use 'renv add' to extend it.")
 
 
-def _build_create_marker(
-    *,
-    ctx: typer.Context,
-    env_name: str,
-    env_path: Path,
-    source_path: Path,
-    include: list[str],
-    exclude: list[str],
-    include_renv: bool,
-    source: Path | None,
-    dest: Path | None,
-    branch: str | None,
-    default_branch: str | None,
-    alias: str | None,
-    preserve: bool,
-) -> dict[str, object]:
+def _recreate_flags(args: _CreateArgs) -> list[str]:
+    """Return the CLI flags that recreate an environment created with *args*."""
+    flags: list[str] = []
+    for pattern in args.include:
+        flags.extend(["--include", pattern])
+    for pattern in args.exclude:
+        flags.extend(["--exclude", pattern])
+    if args.include_worktrees:
+        flags.append("--include-worktrees")
+    optional: list[tuple[str, object]] = [
+        ("--source", args.source),
+        ("--dest", args.dest),
+        ("--branch", args.branch),
+        ("--default-branch", args.default_branch),
+        ("--alias", args.alias),
+    ]
+    for flag, value in optional:
+        if value is not None:
+            flags.extend([flag, str(value)])
+    if args.preserve:
+        flags.append("--preserve")
+    return flags
+
+
+def _build_create_marker(ctx: typer.Context, env: Environment, args: _CreateArgs) -> dict[str, object]:
     command_name = ctx.info_name or "create"
-    recreate_parts = [f"renv {command_name}", env_name]
-    for pattern in include:
-        recreate_parts.extend(["--include", pattern])
-    for pattern in exclude:
-        recreate_parts.extend(["--exclude", pattern])
-    if include_renv:
-        recreate_parts.append("--include-worktrees")
-    if source is not None:
-        recreate_parts.extend(["--source", str(source)])
-    if dest is not None:
-        recreate_parts.extend(["--dest", str(dest)])
-    if branch is not None:
-        recreate_parts.extend(["--branch", branch])
-    if default_branch is not None:
-        recreate_parts.extend(["--default-branch", default_branch])
-    if alias is not None:
-        recreate_parts.extend(["--alias", alias])
-    if preserve:
-        recreate_parts.append("--preserve")
+    recreate_parts = [f"renv {command_name}", env.name, *_recreate_flags(args)]
     return {
         "schema_version": 1,
         "kind": "repo-env-marker",
         "tool": "repo-env",
         "tool_version": __version__,
-        "environment_name": env_name,
-        "environment_path": str(env_path),
-        "source_path": str(source_path),
+        "environment_name": env.name,
+        "environment_path": str(env.path),
+        "source_path": str(env.source),
         "host": socket.gethostname(),
         "user": getpass.getuser(),
         "command": {
@@ -97,6 +105,67 @@ def _build_create_marker(
             "recreate": " ".join(recreate_parts),
         },
     }
+
+
+def _build_plan(
+    name: str, source_and_dest: tuple[Path, Path], args: _CreateArgs, config_default_branch: str | None
+) -> environment_service.CreatePlan:
+    source, dest = source_and_dest
+    return environment_service.build_create_plan(
+        environment_service.CreateRequest(
+            name=name,
+            source=source,
+            dest=dest,
+            include=args.include or None,
+            exclude=args.exclude or None,
+            branch=args.branch,
+            alias=args.alias,
+            default_branch=args.default_branch or config_default_branch,
+            include_worktrees=args.include_worktrees,
+        )
+    )
+
+
+def _print_plan(name: str, plan: environment_service.CreatePlan) -> None:
+    console.print_info(f"Environment '{name}' -> {plan.env_path}")
+    if plan.skipped_worktrees:
+        console.print_info(
+            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
+        )
+    console.print_info(f"Repositories ({len(plan.repos)}):")
+    console.render_repositories(plan.repos)
+
+
+def _print_progress(repo: str, current: int, total: int) -> None:
+    console.print_info(f"  [{current}/{total}] {repo}")
+
+
+def _print_activate_hint(name: str, *, activate: bool, active_set: bool) -> None:
+    if not activate and not active_set:
+        console.print_info(f"Hint: run 'renv activate {name}' to set it as the default.")
+
+
+def _raise_on_failures(env: Environment) -> None:
+    if not environment_service.failed_repos(env):
+        return
+    details = environment_service.failure_details(env)
+    lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
+    raise PartialFailureError(
+        f"Some repositories failed:\n{lines}",
+        hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
+    )
+
+
+def _execute_and_register(
+    plan: environment_service.CreatePlan, options: environment_service.ExecuteOptions, *, activate: bool
+) -> Environment:
+    with state_store.registry_transaction() as registry:
+        env = environment_service.execute_create_plan(plan, options=options)
+        registry.add(env)
+        if activate:
+            registry.set_active(env.name)
+        state_store.write_env_metadata(env)
+    return env
 
 
 def create_command(
@@ -136,81 +205,34 @@ def create_command(
     resolved_source, resolved_dest = _resolve_create_paths(source=source, dest=dest, config=config)
     _reconcile_existing_env(name)
 
-    include = environment_service.expand_repo_groups(include, config.groups)
-    exclude = environment_service.expand_repo_groups(exclude, config.groups)
-
-    plan = environment_service.build_create_plan(
-        environment_service.CreateRequest(
-            name=name,
-            source=resolved_source,
-            dest=resolved_dest,
-            include=include or None,
-            exclude=exclude or None,
-            branch=branch,
-            alias=alias,
-            default_branch=default_branch or config.default_branch,
-            include_worktrees=include_worktrees,
-        )
+    args = _CreateArgs(
+        source=source,
+        dest=dest,
+        include=environment_service.expand_repo_groups(include, config.groups),
+        exclude=environment_service.expand_repo_groups(exclude, config.groups),
+        include_worktrees=include_worktrees,
+        branch=branch,
+        default_branch=default_branch,
+        alias=alias,
+        preserve=preserve,
     )
-
-    console.print_info(f"Environment '{name}' -> {plan.env_path}")
-    if plan.skipped_worktrees:
-        console.print_info(
-            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
-        )
-    console.print_info(f"Repositories ({len(plan.repos)}):")
-    console.render_repositories(plan.repos)
+    plan = _build_plan(name, (resolved_source, resolved_dest), args, config.default_branch)
+    _print_plan(name, plan)
 
     with state_store.registry_transaction() as registry:
         active_set = registry.get_active() is not None
 
     if dry_run:
         console.print_info("Dry run: no changes made.")
-        if not activate and not active_set:
-            console.print_info(f"Hint: run 'renv activate {name}' to set it as the default.")
+        _print_activate_hint(name, activate=activate, active_set=active_set)
         return
 
-    with state_store.registry_transaction() as registry:
-        env = environment_service.execute_create_plan(
-            plan,
-            options=environment_service.ExecuteOptions(
-                preserve=preserve,
-                on_branch_conflict=on_branch_conflict,
-                on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
-            ),
-        )
-        registry.add(env)
-        if activate:
-            registry.set_active(env.name)
-            active_set = True
-        state_store.write_env_metadata(env)
-    marker = _build_create_marker(
-        ctx=ctx,
-        env_name=env.name,
-        env_path=env.path,
-        source_path=env.source,
-        include=include,
-        exclude=exclude,
-        include_renv=include_worktrees,
-        source=source,
-        dest=dest,
-        branch=branch,
-        default_branch=default_branch,
-        alias=alias,
-        preserve=preserve,
+    options = environment_service.ExecuteOptions(
+        preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=_print_progress
     )
-    state_store.write_env_metadata(env, marker=marker)
+    env = _execute_and_register(plan, options, activate=activate)
+    state_store.write_env_metadata(env, marker=_build_create_marker(ctx, env, args))
 
-    failed = environment_service.failed_repos(env)
-    if failed:
-        details = environment_service.failure_details(env)
-        lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
-        raise PartialFailureError(
-            f"Some repositories failed:\n{lines}",
-            hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
-        )
-
-    if not activate and not active_set:
-        console.print_info(f"Hint: run 'renv activate {env.name}' to set it as the default.")
-
+    _raise_on_failures(env)
+    _print_activate_hint(env.name, activate=activate, active_set=active_set)
     console.print_info(f"Created environment '{name}' with {len(env.repos)} worktree(s).")
