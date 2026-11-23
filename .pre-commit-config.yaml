@@ -95,6 +95,12 @@ repos:
         entry: uv run --isolated --extra lint flake8
         language: system
         types: [python]
+      - id: code-health
+        name: code-health (changed files vs HEAD)
+        entry: uv run --isolated --extra code-quality python -m tools.code_health --changed HEAD
+        language: system
+        pass_filenames: false
+        types_or: [python, toml]
       - id: mypy
         name: mypy
         entry: uv run --isolated --extra type-check mypy

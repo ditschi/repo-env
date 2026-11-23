@@ -1,7 +1,7 @@
 """Nox sessions for repo-env.
 
 Uses uv backend, Python 3.10 default, and quality gates
-(ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps).
+(ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps/code-health).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ CI_PYTHON = "3.12"  # primary CI version for single-version sessions (integratio
 PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
+TOOLS = "tools"
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
@@ -66,6 +67,7 @@ _CI_DEFAULT = [
     "dead_code",
     "duplicates",
     "cyclic_imports",
+    "code-health",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -155,25 +157,26 @@ def check_types(session: nox.Session) -> None:
     """Static type checking with mypy."""
     session.install("-e", ".[type-check,all]")
     session.run("mypy", "--package", PACKAGE)
+    session.run("mypy", TOOLS)
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "lint"])
 def lint(session: nox.Session) -> None:
     """Run ruff, black --check, flake8, isort --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("black", "--check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("isort", "--check-only", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("flake8", "--exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("ruff", "check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("black", "--check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("isort", "--check-only", "--skip", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("flake8", "--exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "format"])
 def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
     """Auto-format with black, isort, and ruff --fix (local only)."""
     session.install("-e", ".[lint]")
-    session.run("isort", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("black", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("ruff", "check", "--fix", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("isort", "--skip", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("black", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("ruff", "check", "--fix", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -193,6 +196,7 @@ def necessary_imports(session: nox.Session) -> None:
         "vulture",
         "black",
         "commitizen",
+        "complexipy",
         "fawltydeps",
         "flake8",
         "isort",
@@ -208,6 +212,7 @@ def necessary_imports(session: nox.Session) -> None:
         "pytest-cov",
         "pytest-xdist",
         "ruff",
+        "tomli",
     )
 
 
@@ -236,6 +241,17 @@ def cyclic_imports(session: nox.Session) -> None:
     """Detect cyclic imports (pylint R0401)."""
     session.install("-e", ".[code-quality]")
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
+
+
+@nox.session(name="code-health", python=DEFAULT_PYTHON, tags=["quality"])
+def code_health(session: nox.Session) -> None:
+    """CodeScene-style code health score (1-10) with ratchet gate; see docs/contributor-guide/code-health.md.
+
+    Examples: ``nox -s code-health``, ``nox -s code-health -- --changed``,
+    ``nox -s code-health -- --changed origin/main --json``.
+    """
+    session.install("-e", ".[code-quality]")
+    session.run("python", "-m", "tools.code_health", *session.posargs)
 
 
 @nox.session(python=DEFAULT_PYTHON, venv_backend="none")

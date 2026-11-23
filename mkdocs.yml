@@ -111,6 +111,7 @@ nav:
   - Contributor Guide:
       - Development Setup: contributor-guide/dev-setup.md
       - Quality Gates: contributor-guide/quality-gates.md
+      - Code Health: contributor-guide/code-health.md
       - Commit Convention: contributor-guide/commit-convention.md
       - Release Process: contributor-guide/release-process.md
   - API Reference: api-reference.md

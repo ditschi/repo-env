@@ -67,6 +67,10 @@ code-quality = [
     "fawltydeps>=0.16",
     "vulture>=2.11",
     "pylint>=3.2",
+    # code health score (tools/code_health): cognitive complexity + TOML on 3.10
+    "complexipy>=9.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "ruff>=0.5",
 ]
 docs = [
     "mkdocs>=1.6,<2",
@@ -114,6 +118,8 @@ major_version_zero = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# repo root on sys.path so tests can import the dev tooling under tools/ (code health checker)
+pythonpath = ["."]
 markers = [
     "integration: integration tests using real temp git repos / mocked external APIs (deselect with -m 'not integration')",
     "int: alias for integration (deselect with -m 'not int')",

@@ -8,6 +8,5 @@ exclude =
     __pycache__
     .nox
     .venv
-    tools
     tests/*/resources/
     tests/fixtures/

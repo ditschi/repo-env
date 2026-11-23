@@ -39,3 +39,19 @@ Tooling is managed with **uv** (package manager) and **nox** (task runner). See
 
 A [devcontainer](.devcontainer/) also exists (VS Code / GitHub Codespaces) with the same
 tooling plus `asciinema`/`agg` for regenerating `docs/assets/casts/*.gif`.
+
+## Code Health (required before every commit)
+
+The repo uses a CodeScene-style code health score from 1 to 10 (`tools/code_health`, config
+`code-health.toml`, docs `docs/contributor-guide/code-health.md`). Target: repo ≥ 9.5, ideally 10.
+
+- Run `nox -s code-health -- --changed` (or `--changed --json` for structured output) **before every
+  commit**. Every changed file must reach ≥ 9.5 (or its value in `code-health-baseline.json`), must
+  not get worse than in the base commit, and the repo score must not drop.
+- **Fix smells instead of suppressing them.** Extract functions, flatten nesting with guard clauses,
+  introduce parameter objects or dataclasses, and parametrize tests or use assertion helpers.
+- Suppressions are allowed only as an inline comment with a reason, for example
+  `# code-health: ignore[complex-method] -- <why this is acceptable>`.
+- Refactorings must keep behaviour unchanged, and the tests must stay green. After improving a
+  grandfathered file, run `nox -s code-health -- --update-baseline` and commit the tighter baseline.
+- Do not change thresholds or weights in `code-health.toml` to make the gate pass.

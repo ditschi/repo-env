@@ -6,7 +6,7 @@ All gates run via `nox`. They also run in CI on every PR and push to `main`.
 
 | Job | Workflow(s) | Nox session(s) | Python |
 |-----|-------------|----------------|--------|
-| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports` | 3.12 |
+| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports`, `code-health` | 3.12 |
 | Unit tests | PR, main | `tests` | 3.12, 3.13, 3.14, 3.15 (matrix) |
 | Integration tests | PR, main | `integration` | 3.12 |
 | Performance budgets | PR | `performance` | 3.12 |
@@ -37,6 +37,7 @@ CI uses **3.12** for integration — the same primary version as lint, types, an
 | `dead_code` | vulture | 3.12 | Unused code |
 | `duplicates` | pylint R0801 | 3.12 | Duplicate code blocks |
 | `cyclic_imports` | pylint R0401 | 3.12 | Circular import detection |
+| `code-health` | ruff + complexipy + pylint symilar + AST (`tools/code_health`) | 3.10 | CodeScene-style score 1–10, ratchet gate ([details](code-health.md)) |
 | `docs` | mkdocs build --strict | 3.12 | Docs build with zero warnings |
 
 ## Coverage

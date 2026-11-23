@@ -35,6 +35,9 @@ jobs:
               - '.flake8'
               - 'pylintrc'
               - 'vulture_whitelist.py'
+              - 'tools/**'
+              - 'code-health.toml'
+              - 'code-health-baseline.json'
               - '.github/workflows/pr.yml'
             docs:
               - 'docs/**'
@@ -79,6 +82,8 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # code-health compares against the PR base commit
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -99,6 +104,8 @@ jobs:
         run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
+      - name: Code health (changed files vs PR base)
+        run: nox -s code-health -- --changed ${{ github.event.pull_request.base.sha }}
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})

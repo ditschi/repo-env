@@ -1,0 +1,121 @@
+# Code Health configuration (CodeScene-inspired, OSS tools only).
+#
+# Concepts follow CodeScene "Code Health"
+# (https://codescene.io/docs/guides/technical/code-health.html); the score is our
+# own approximation and NOT the proprietary CodeScene score. Documentation:
+# docs/contributor-guide/code-health.md
+#
+# Scoring: every file starts at `score.start`; each smell subtracts
+#   weight * min(cap, value / max)
+# where `value` is the measured metric and `max` the largest allowed value
+# (a smell is reported when value > max). Files never drop below `score.minimum`.
+# The repo score is the LOC-weighted mean of all file scores.
+#
+# Thresholds marked "CodeScene" follow the published/commonly cited CodeScene
+# defaults; everything marked "assumption" is our own choice and may be tuned.
+# Changing a threshold or weight is a reviewed change: bump `version`.
+
+version = 1
+
+[score]
+start = 10.0
+minimum = 1.0
+target = 9.5        # gate: every changed file and the repo must reach this
+tolerance = 0.005   # float noise allowed when comparing scores
+
+[paths]
+include = ["src", "tests", "tools", "noxfile.py"]
+exclude = ["src/repoenv/_version.py", "tests/*/resources/*", "tests/fixtures/*"]
+tests = ["tests/*"]                  # files that also get test-specific smells
+duplicate_scope = ["src", "tools"]   # assumption: tests are covered by the assertion-block smells
+baseline = "code-health-baseline.json"
+
+# Parameters whose default (or Annotated metadata) is created by one of these
+# factories are framework-declared CLI options, not design choices; they are not
+# counted for many-arguments / primitive-obsession (assumption).
+[cli]
+param_factories = ["typer.Option", "typer.Argument", "Option", "Argument"]
+
+# ── Function level ─────────────────────────────────────────────────────────────
+[smells.complex-method]        # source: ruff C901 (mccabe); CodeScene: CC > 9
+max = 9
+weight = 0.6
+cap = 3.0
+
+[smells.large-method]          # source: AST, code lines without docstring; assumption: > 70 lines
+max = 70
+weight = 0.5
+cap = 3.0
+
+[smells.brain-method]          # derived: complex-method AND large-method in one function
+max = 0
+weight = 1.5
+cap = 1.0
+
+[smells.many-arguments]        # source: ruff PLR0913; CodeScene: >= 5 arguments
+max = 4
+weight = 0.3
+cap = 3.0
+
+[smells.primitive-obsession]   # source: AST; assumption: >= 5 primitive-typed parameters (str/int/float/bool/bytes)
+max = 4
+weight = 0.3
+cap = 3.0
+
+[smells.code-duplication]      # source: pylint R0801; assumption: >= 6 similar lines (matches `nox -s duplicates`)
+max = 5
+weight = 0.4
+cap = 3.0
+
+# ── Implementation level ───────────────────────────────────────────────────────
+[smells.cognitive-complexity]  # source: complexipy; assumption: SonarSource default > 15
+max = 15
+weight = 0.3
+cap = 3.0
+
+[smells.nested-complexity]     # source: ruff PLR1702; CodeScene: nesting depth >= 4
+max = 3
+weight = 0.5
+cap = 3.0
+
+[smells.bumpy-road]            # source: AST; bumps = separate blocks nested >= 2 deep; assumption: >= 2 bumps
+max = 1
+weight = 0.4
+cap = 3.0
+
+[smells.complex-conditional]   # source: AST; CodeScene: a condition with >= 4 and/or operators
+max = 3
+weight = 0.3
+cap = 2.0
+
+# ── Module level ───────────────────────────────────────────────────────────────
+[smells.large-file]            # source: AST/tokenize code lines; assumption: > 600 lines
+max = 600
+weight = 1.0
+cap = 3.0
+
+[smells.many-functions]        # source: AST; assumption: > 40 functions/methods per module
+max = 40
+weight = 0.5
+cap = 3.0
+
+[smells.low-cohesion]          # source: AST LCOM4 per class (>= 4 methods); assumption: LCOM4 >= 3
+max = 2
+weight = 0.5
+cap = 3.0
+
+[smells.brain-class]           # derived: class with a brain-method and (>= 15 methods or > 300 lines); assumption
+max = 0
+weight = 1.5
+cap = 1.0
+
+# ── Tests ──────────────────────────────────────────────────────────────────────
+[smells.large-assertion-block]       # source: AST; assumption: >= 4 consecutive assertions
+max = 3
+weight = 0.2
+cap = 2.0
+
+[smells.duplicated-assertion-block]  # source: AST; assumption: identical block of >= 3 assertions repeated in a file
+max = 0
+weight = 0.3
+cap = 1.0
