@@ -58,9 +58,9 @@ def test_merge_intersect_conflicting_branch_prefers_left_and_reports(
 
     merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "intersect"])
     assert merge.exit_code == 0, merge.output
-    assert "branch conflict" in merge.output
-    assert "feature/left" in merge.output
-    assert "feature/right" in merge.output
+    assert all(
+        text in merge.output for text in ("branch conflict", "feature/left", "feature/right")
+    ), merge.output
 
     assert RepoFactory.current_branch(worktrees_dir / "merged" / "alpha") == "feature/left"
 
@@ -128,5 +128,8 @@ def test_merge_does_not_carry_over_plain_detached_checkout(
     merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
     assert merge.exit_code == 0, merge.output
     assert "branch conflict" not in merge.output
-    assert RepoFactory.is_detached(worktrees_dir / "merged" / "alpha") is True
-    assert RepoFactory.current_branch(worktrees_dir / "merged" / "beta") == "feature/b"
+    merged = worktrees_dir / "merged"
+    assert (RepoFactory.is_detached(merged / "alpha"), RepoFactory.current_branch(merged / "beta")) == (
+        True,
+        "feature/b",
+    )

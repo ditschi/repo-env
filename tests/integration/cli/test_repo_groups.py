@@ -12,7 +12,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory
+from tests.integration.support.gitfixtures import RepoFactory, existing_repos
 from tests.integration.support.renv_helpers import init_renv
 
 
@@ -46,9 +46,10 @@ def test_create_include_expands_repo_group(
     create = runner.invoke(app, ["create", "svc", "--include", "@backend"])
     assert create.exit_code == 0, create.output
 
-    assert (worktrees_dir / "svc" / "backend-alpha").exists()
-    assert (worktrees_dir / "svc" / "backend-beta").exists()
-    assert not (worktrees_dir / "svc" / "frontend-app").exists()
+    assert existing_repos(worktrees_dir / "svc", ("backend-alpha", "backend-beta", "frontend-app")) == {
+        "backend-alpha",
+        "backend-beta",
+    }
 
 
 def test_include_mixes_group_and_literal_glob(
@@ -64,9 +65,10 @@ def test_include_mixes_group_and_literal_glob(
     create = runner.invoke(app, ["create", "svc", "--include", "@backend,frontend-*"])
     assert create.exit_code == 0, create.output
 
-    assert (worktrees_dir / "svc" / "backend-alpha").exists()
-    assert (worktrees_dir / "svc" / "frontend-app").exists()
-    assert not (worktrees_dir / "svc" / "tool-x").exists()
+    assert existing_repos(worktrees_dir / "svc", ("backend-alpha", "frontend-app", "tool-x")) == {
+        "backend-alpha",
+        "frontend-app",
+    }
 
 
 def test_unknown_group_errors_clearly(

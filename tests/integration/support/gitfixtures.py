@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 
@@ -16,6 +17,11 @@ def run_git(cmd: list[str], *, cwd: Path, check: bool = True) -> subprocess.Comp
         capture_output=True,
         text=True,
     )
+
+
+def existing_repos(env_dir: Path, names: Iterable[str]) -> set[str]:
+    """Return the subset of ``names`` that exist as entries under ``env_dir``."""
+    return {name for name in names if (env_dir / name).exists()}
 
 
 def write_file(repo: Path, relpath: str, content: str) -> None:

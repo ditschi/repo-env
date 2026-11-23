@@ -67,7 +67,7 @@ def test_power_user_batch_edit_commit_push_and_pr(
 
     created: list[tuple[str, str]] = []
 
-    def fake_create_pr(worktree, *, title, body, base, head, draft, reviewers, labels, assignees, repository):
+    def fake_create_pr(worktree, *, title, repository, **_options):
         assert repository == f"github.com/example/{worktree.name}"
         created.append((worktree.name, title))
         return f"https://example.test/{worktree.name}/pull/1"
@@ -127,18 +127,16 @@ def test_subset_follow_up_only_touches_marked_repos(
     )
     assert follow_up.exit_code == 0, follow_up.output
 
-    alpha_head = run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / "svc-alpha").stdout.strip()
-    beta_head = run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / "svc-beta").stdout.strip()
-    gamma_head = run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / "svc-gamma").stdout.strip()
-    assert alpha_head != beta_head_before
-    assert gamma_head != beta_head_before
-    assert beta_head == beta_head_before
-    assert (
-        RepoFactory.latest_commit_message(worktrees_dir / "batch" / "svc-alpha") == "chore: follow-up subset"
-    )
-    assert (
-        RepoFactory.latest_commit_message(worktrees_dir / "batch" / "svc-gamma") == "chore: follow-up subset"
-    )
+    heads = {
+        name: run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / name).stdout.strip()
+        for name in ("svc-alpha", "svc-beta", "svc-gamma")
+    }
+    assert {name for name, head in heads.items() if head != beta_head_before} == {"svc-alpha", "svc-gamma"}
+    marked_messages = {
+        name: RepoFactory.latest_commit_message(worktrees_dir / "batch" / name)
+        for name in ("svc-alpha", "svc-gamma")
+    }
+    assert marked_messages == {"svc-alpha": "chore: follow-up subset", "svc-gamma": "chore: follow-up subset"}
 
 
 def test_same_branch_across_disjoint_envs(
@@ -160,8 +158,11 @@ def test_same_branch_across_disjoint_envs(
     )
     assert first.exit_code == 0, first.output
     assert second.exit_code == 0, second.output
-    assert RepoFactory.current_branch(worktrees_dir / "env-a" / "alpha") == branch
-    assert RepoFactory.current_branch(worktrees_dir / "env-b" / "beta") == branch
+    branches = (
+        RepoFactory.current_branch(worktrees_dir / "env-a" / "alpha"),
+        RepoFactory.current_branch(worktrees_dir / "env-b" / "beta"),
+    )
+    assert branches == (branch, branch)
 
 
 def test_mixed_manual_branch_state_then_move_follow_up(
