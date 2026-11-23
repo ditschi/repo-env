@@ -176,5 +176,5 @@ def test_clone_github_without_token_uses_paginated_rest(
 
     assert result.exit_code == 0, result.output
     assert "Resolved 3 repositories" in result.output
-    assert sum(p.startswith("/api/v3/orgs/acme/repos") for p in server.seen.paths) == 3
-    assert server.seen.auth_headers == set()
+    pages = sum(p.startswith("/api/v3/orgs/acme/repos") for p in server.seen.paths)
+    assert (pages, server.seen.auth_headers) == (3, set())
