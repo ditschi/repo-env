@@ -8,17 +8,24 @@ mid-batch leaves a consistent, resumable state.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING, TypedDict
 
 from repoenv.adapters import git_adapter, paths
 from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import SetOp, resolve_selection, set_combine
 from repoenv.errors import NothingMatchedError, UsageError
 
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
 _RENV_MARKER_FILENAMES = (paths.ENV_META_FILENAME, paths.ENV_MARKER_FILENAME)
+_REMOTE = "origin"
+
+ProgressCallback = Callable[[str, int, int], None]
 
 
 class BranchConflictStrategy(str, Enum):
@@ -80,6 +87,44 @@ def _filter_candidates(
     return result, skipped_worktrees
 
 
+@dataclass(frozen=True)
+class CreateRequest:
+    """User input for :func:`build_create_plan`."""
+
+    name: str
+    source: Path
+    dest: Path
+    include: list[str] | None = None
+    exclude: list[str] | None = None
+    branch: str | None = None
+    alias: str | None = None
+    default_branch: str | None = None
+    include_worktrees: bool = False
+
+
+@dataclass(frozen=True)
+class MergeTarget:
+    """Name, parent directory and alias of the environment a merge creates."""
+
+    name: str
+    dest_root: Path
+    alias: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecuteOptions:
+    """Run-wide options for :func:`execute_create_plan` / :func:`execute_add_plan`.
+
+    If ``preserve=True``, source repos are used as-is without fetching or
+    updating. *on_repo_start(repo_name, current_index, total)* is called before
+    each repo so the caller can show progress.
+    """
+
+    preserve: bool = False
+    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH
+    on_repo_start: ProgressCallback | None = None
+
+
 @dataclass
 class CreatePlan:
     """A validated, previewable plan for creating an environment."""
@@ -109,6 +154,53 @@ class AddPlan:
     skipped_worktrees: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class WorktreeRequest:
+    """Everything needed to create (or attach) one repository's worktree."""
+
+    repo_path: Path
+    worktree_path: Path
+    remote: str
+    base: str
+    target_branch: str
+    create_branch: bool
+    preserve: bool
+    on_branch_conflict: BranchConflictStrategy
+    move_context: str
+
+    @property
+    def start_point(self) -> str:
+        """The ref a new worktree starts from."""
+        return "HEAD" if self.preserve else f"{self.remote}/{self.base}"
+
+
+class _WorktreeKwargs(TypedDict):
+    """Keyword form of :class:`WorktreeRequest` (see :func:`_create_or_attach_worktree`)."""
+
+    repo_path: Path
+    worktree_path: Path
+    remote: str
+    base: str
+    target_branch: str
+    create_branch: bool
+    preserve: bool
+    on_branch_conflict: BranchConflictStrategy
+    move_context: str
+
+
+@dataclass(frozen=True)
+class _RepoJob:
+    """One repository to materialise during a create/add run."""
+
+    env_name: str
+    repo_name: str
+    source: Path
+    env_path: Path
+    base_branch: str | None
+    branch: str | None
+    fallback_branch: str | None
+
+
 def _normalize_patterns(patterns: list[str], source: Path) -> list[str]:
     """Expand ``~`` and make absolute patterns relative to *source*.
 
@@ -130,6 +222,19 @@ def _normalize_patterns(patterns: list[str], source: Path) -> list[str]:
     return result
 
 
+def _expand_group_token(token: str, groups: dict[str, str]) -> str:
+    """Return the stored glob for an ``@group`` token, or the token itself."""
+    if not token.startswith("@"):
+        return token
+    group_name = token[1:]
+    if group_name not in groups:
+        raise UsageError(
+            f"Unknown repo group '@{group_name}'.",
+            hint="Set it with 'renv config groups.<name> <pattern>', " "or run 'renv config' to list groups.",
+        )
+    return groups[group_name]
+
+
 def expand_repo_groups(patterns: list[str], groups: dict[str, str]) -> list[str]:
     """Expand ``@group`` tokens in include/exclude patterns into their stored globs.
 
@@ -138,87 +243,67 @@ def expand_repo_groups(patterns: list[str], groups: dict[str, str]) -> list[str]
     ``renv config groups.<name> <pattern>``. Plain (non-``@``) tokens pass
     through unchanged, so this is safe to call unconditionally.
     """
-    expanded: list[str] = []
-    for raw in patterns:
-        for part in raw.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            if part.startswith("@"):
-                group_name = part[1:]
-                if group_name not in groups:
-                    raise UsageError(
-                        f"Unknown repo group '@{group_name}'.",
-                        hint="Set it with 'renv config groups.<name> <pattern>', "
-                        "or run 'renv config' to list groups.",
-                    )
-                expanded.append(groups[group_name])
-            else:
-                expanded.append(part)
-    return expanded
+    tokens = (part.strip() for raw in patterns for part in raw.split(","))
+    return [_expand_group_token(token, groups) for token in tokens if token]
 
 
-def build_create_plan(
-    *,
-    name: str,
-    source: Path,
-    dest: Path,
-    include: list[str] | None,
-    exclude: list[str] | None,
-    branch: str | None,
-    alias: str | None,
-    default_branch: str | None,
-    include_worktrees: bool = False,
-) -> CreatePlan:
+def _discover_candidates(source: Path, *, hint: str) -> list[str]:
+    candidates = git_adapter.discover_repos(source)
+    if not candidates:
+        raise NothingMatchedError(f"No git repositories found under {source}.", hint=hint)
+    return candidates
+
+
+def _select_repos(
+    candidates: list[str], source: Path, include: list[str] | None, exclude: list[str] | None
+) -> list[str]:
+    norm_include = _normalize_patterns(include, source) if include else include
+    norm_exclude = _normalize_patterns(exclude, source) if exclude else exclude
+    return resolve_selection(candidates, include=norm_include, exclude=norm_exclude)
+
+
+def _nothing_matched(skipped_worktrees: list[str]) -> NothingMatchedError:
+    hint = "Check your glob patterns and --exclude filters."
+    if skipped_worktrees:
+        hint += (
+            f" {len(skipped_worktrees)} repo(s) were skipped because they are "
+            "git worktrees; pass --include-worktrees to include them."
+        )
+    return NothingMatchedError("No repositories matched the selection.", hint=hint)
+
+
+def build_create_plan(request: CreateRequest) -> CreatePlan:
     """Validate inputs and return a plan without touching the filesystem."""
-    if not name:
+    if not request.name:
         raise UsageError("Environment name must not be empty.")
 
     # Always work with resolved absolute paths so stored metadata is portable.
-    source = source.resolve()
-    dest = dest.resolve()
+    source = request.source.resolve()
+    dest = request.dest.resolve()
 
     if not source.exists():
         raise UsageError(f"Source directory does not exist: {source}")
 
-    candidates = git_adapter.discover_repos(source)
-    if not candidates:
-        raise NothingMatchedError(
-            f"No git repositories found under {source}.",
-            hint="Point --source at a directory containing cloned repositories.",
-        )
-
-    candidates, skipped_wt = _filter_candidates(
-        source=source, candidates=candidates, dest=dest, include_worktrees=include_worktrees
+    candidates = _discover_candidates(
+        source, hint="Point --source at a directory containing cloned repositories."
     )
-
-    norm_include = _normalize_patterns(include, source) if include else include
-    norm_exclude = _normalize_patterns(exclude, source) if exclude else exclude
-    selected = resolve_selection(candidates, include=norm_include, exclude=norm_exclude)
+    candidates, skipped_wt = _filter_candidates(
+        source=source, candidates=candidates, dest=dest, include_worktrees=request.include_worktrees
+    )
+    selected = _select_repos(candidates, source, request.include, request.exclude)
     if not selected:
-        hint = "Check your glob patterns and --exclude filters."
-        if skipped_wt:
-            hint += (
-                f" {len(skipped_wt)} repo(s) were skipped because they are "
-                "git worktrees; pass --include-worktrees to include them."
-            )
-        raise NothingMatchedError("No repositories matched the selection.", hint=hint)
+        raise _nothing_matched(skipped_wt)
 
-    env_path = (dest / name).resolve()
-    plan = CreatePlan(
-        name=name,
-        env_path=env_path,
+    return CreatePlan(
+        name=request.name,
+        env_path=(dest / request.name).resolve(),
         source=source,
-        base_branch=default_branch,
-        new_branch=branch,
-        alias=alias,
+        base_branch=request.default_branch,
+        new_branch=request.branch,
+        alias=request.alias,
+        repos=list(selected),
         skipped_worktrees=skipped_wt,
     )
-
-    for repo_name in selected:
-        plan.repos.append(repo_name)
-
-    return plan
 
 
 def _ensure_worktree_path_is_clean(worktree_path: Path) -> None:
@@ -241,114 +326,164 @@ def _resolve_source_sha(repo_path: Path, *, remote: str, base: str, preserve: bo
         return None
 
 
-def _create_or_attach_worktree(
-    *,
-    repo_path: Path,
-    worktree_path: Path,
-    remote: str,
-    base: str,
-    target_branch: str,
-    create_branch: bool,
-    preserve: bool,
-    on_branch_conflict: BranchConflictStrategy,
-    move_context: str,
-) -> str | None:
-    """Ensure a worktree exists; return an optional note for the RepoEntry."""
-    if git_adapter.is_linked_worktree(repo_path):
-        raise UsageError(
-            f"Source repository '{repo_path}' is a linked worktree and cannot host new worktrees.",
-            hint=(
-                "Use the main clone/repository as --source, or omit "
-                "--include-worktrees to skip linked worktrees."
-            ),
-        )
-
-    git_adapter.prune_worktrees(repo_path)
-    if not preserve:
-        git_adapter.fetch(repo_path, remote)
-
-    if not create_branch:
-        git_adapter.add_worktree(
-            repo_path,
-            worktree_path,
-            branch=target_branch,
-            base=f"{remote}/{base}" if not preserve else "HEAD",
-            create_branch=False,
-        )
-        return None
-
-    in_use = git_adapter.find_worktree_for_branch(repo_path, target_branch)
-    if in_use is not None:
-        if on_branch_conflict is BranchConflictStrategy.FAIL:
-            raise UsageError(
-                f"Branch '{target_branch}' is already checked out in {in_use}.",
-                hint="Free the branch, or pass --on-branch-conflict=detach|move.",
-            )
-        if on_branch_conflict is BranchConflictStrategy.MOVE:
-            created = git_adapter.stash_push(
-                in_use,
-                include_untracked=True,
-                message=f"repo-env move {move_context}",
-            )
-            if Path(in_use).resolve() == Path(repo_path).resolve():
-                git_adapter.checkout(in_use, base)
-            else:
-                git_adapter.checkout(in_use, "--detach")
-            git_adapter.add_worktree_existing_branch(repo_path, worktree_path, target_branch)
-            if created:
-                git_adapter.stash_pop(worktree_path)
-            return f"moved branch '{target_branch}' from {in_use}"
-
-        git_adapter.add_worktree(
-            repo_path,
-            worktree_path,
-            branch=target_branch,
-            base=f"{remote}/{base}" if not preserve else "HEAD",
-            create_branch=False,
-        )
-        return f"branch '{target_branch}' in use at {in_use}; created detached worktree"
-
-    if git_adapter.branch_exists(repo_path, target_branch):
-        git_adapter.add_worktree_existing_branch(repo_path, worktree_path, target_branch)
-        return None
-
-    git_adapter.add_worktree(
-        repo_path,
-        worktree_path,
-        branch=target_branch,
-        base=f"{remote}/{base}" if not preserve else "HEAD",
-        create_branch=True,
+def _reject_linked_worktree_source(repo_path: Path) -> None:
+    if not git_adapter.is_linked_worktree(repo_path):
+        return
+    raise UsageError(
+        f"Source repository '{repo_path}' is a linked worktree and cannot host new worktrees.",
+        hint=(
+            "Use the main clone/repository as --source, or omit "
+            "--include-worktrees to skip linked worktrees."
+        ),
     )
+
+
+def _add_worktree_from_start_point(request: WorktreeRequest, *, create_branch: bool) -> None:
+    git_adapter.add_worktree(
+        request.repo_path,
+        request.worktree_path,
+        branch=request.target_branch,
+        base=request.start_point,
+        create_branch=create_branch,
+    )
+
+
+def _move_branch_into_worktree(request: WorktreeRequest, in_use: Path) -> str:
+    """Move the branch (and its local changes) from *in_use* into the new worktree."""
+    created = git_adapter.stash_push(
+        in_use,
+        include_untracked=True,
+        message=f"repo-env move {request.move_context}",
+    )
+    if Path(in_use).resolve() == Path(request.repo_path).resolve():
+        git_adapter.checkout(in_use, request.base)
+    else:
+        git_adapter.checkout(in_use, "--detach")
+    git_adapter.add_worktree_existing_branch(request.repo_path, request.worktree_path, request.target_branch)
+    if created:
+        git_adapter.stash_pop(request.worktree_path)
+    return f"moved branch '{request.target_branch}' from {in_use}"
+
+
+def _resolve_branch_conflict(request: WorktreeRequest, in_use: Path) -> str:
+    """Handle a target branch that is already checked out in *in_use*."""
+    strategy = request.on_branch_conflict
+    if strategy is BranchConflictStrategy.FAIL:
+        raise UsageError(
+            f"Branch '{request.target_branch}' is already checked out in {in_use}.",
+            hint="Free the branch, or pass --on-branch-conflict=detach|move.",
+        )
+    if strategy is BranchConflictStrategy.MOVE:
+        return _move_branch_into_worktree(request, in_use)
+    _add_worktree_from_start_point(request, create_branch=False)
+    return f"branch '{request.target_branch}' in use at {in_use}; created detached worktree"
+
+
+def _attach_worktree(request: WorktreeRequest) -> str | None:
+    """Ensure a worktree exists; return an optional note for the RepoEntry."""
+    _reject_linked_worktree_source(request.repo_path)
+    git_adapter.prune_worktrees(request.repo_path)
+    if not request.preserve:
+        git_adapter.fetch(request.repo_path, request.remote)
+
+    if not request.create_branch:
+        _add_worktree_from_start_point(request, create_branch=False)
+        return None
+
+    in_use = git_adapter.find_worktree_for_branch(request.repo_path, request.target_branch)
+    if in_use is not None:
+        return _resolve_branch_conflict(request, in_use)
+
+    if git_adapter.branch_exists(request.repo_path, request.target_branch):
+        git_adapter.add_worktree_existing_branch(
+            request.repo_path, request.worktree_path, request.target_branch
+        )
+        return None
+
+    _add_worktree_from_start_point(request, create_branch=True)
     return None
 
 
-def execute_create_plan(
-    plan: CreatePlan,
-    *,
-    preserve: bool = False,
-    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
-    on_repo_start: Callable[[str, int, int], None] | None = None,
-) -> Environment:
+def _create_or_attach_worktree(**kwargs: Unpack[_WorktreeKwargs]) -> str | None:
+    """Keyword entry point for :func:`_attach_worktree` (used by ``renv repair``)."""
+    return _attach_worktree(WorktreeRequest(**kwargs))
+
+
+def _materialize_repo(job: _RepoJob, options: ExecuteOptions) -> RepoEntry:
+    """Create the worktree for one repo and return its entry (FAILED on error)."""
+    repo_path = job.source / job.repo_name
+    worktree_path = job.env_path / job.repo_name
+    create_branch = job.branch is not None
+    resolved_base, target_branch = job.base_branch, job.branch
+    already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
+    status, note = RepoStatus.OK, None
+    try:
+        if resolved_base is None:
+            resolved_base = git_adapter.default_branch(repo_path, _REMOTE)
+        if target_branch is None:
+            target_branch = resolved_base
+        if not already_exists:
+            _ensure_worktree_path_is_clean(worktree_path)
+            note = _attach_worktree(
+                WorktreeRequest(
+                    repo_path=repo_path,
+                    worktree_path=worktree_path,
+                    remote=_REMOTE,
+                    base=resolved_base,
+                    target_branch=target_branch,
+                    create_branch=create_branch,
+                    preserve=options.preserve,
+                    on_branch_conflict=options.on_branch_conflict,
+                    move_context=f"{job.env_name}/{job.repo_name}/{target_branch}",
+                )
+            )
+    except Exception as exc:  # noqa: BLE001 - per-repo robustness
+        status, note = RepoStatus.FAILED, f"failed: {exc}"
+    base = resolved_base or "unknown"
+    return RepoEntry(
+        repo=job.repo_name,
+        worktree_path=worktree_path,
+        remote=_REMOTE,
+        base=base,
+        branch=target_branch or job.fallback_branch or base,
+        branch_created=create_branch,
+        source_sha=_resolve_source_sha(repo_path, remote=_REMOTE, base=base, preserve=options.preserve),
+        status=status,
+        note=note,
+    )
+
+
+def _run_jobs(jobs: list[_RepoJob], options: ExecuteOptions) -> Iterator[RepoEntry]:
+    """Materialise *jobs* in order, reporting progress before each one."""
+    total = len(jobs)
+    for idx, job in enumerate(jobs, start=1):
+        if options.on_repo_start is not None:
+            options.on_repo_start(job.repo_name, idx, total)
+        yield _materialize_repo(job, options)
+
+
+def _ensure_destination_usable(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+    has_marker = any((env_path / m).exists() for m in _RENV_MARKER_FILENAMES)
+    if not has_marker and any(env_path.iterdir()):
+        raise UsageError(
+            f"Destination '{env_path}' already exists and is not empty.",
+            hint="Remove the directory manually, or run 'renv import' if it contains existing worktrees.",
+        )
+
+
+def execute_create_plan(plan: CreatePlan, *, options: ExecuteOptions | None = None) -> Environment:
     """Execute a validated plan: create worktrees and return the environment.
 
-    If ``preserve=True``, use source repos as-is without fetching or updating.
-    Otherwise fetch latest from remote and update to default branch.
-
-    *on_repo_start(repo_name, current_index, total)* is called before each repo
-    so the caller can show progress.
+    See :class:`ExecuteOptions` for ``preserve``, the branch-conflict strategy
+    and the progress callback.
 
     Raises :class:`~repoenv.errors.UsageError` if *plan.env_path* already exists
     on disk with content but without an renv marker (indicates a stale/conflicting
     directory that was not created by repo-env).
     """
-    if plan.env_path.exists():
-        has_marker = any((plan.env_path / m).exists() for m in _RENV_MARKER_FILENAMES)
-        if not has_marker and any(plan.env_path.iterdir()):
-            raise UsageError(
-                f"Destination '{plan.env_path}' already exists and is not empty.",
-                hint="Remove the directory manually, or run 'renv import' if it contains existing worktrees.",
-            )
-
+    _ensure_destination_usable(plan.env_path)
     plan.env_path.mkdir(parents=True, exist_ok=True)
     env = Environment(
         name=plan.name,
@@ -357,57 +492,19 @@ def execute_create_plan(
         source=plan.source,
         base_branch=plan.base_branch,
     )
-
-    total = len(plan.repos)
-    failures: list[str] = []
-    for idx, repo_name in enumerate(plan.repos):
-        if on_repo_start is not None:
-            on_repo_start(repo_name, idx + 1, total)
-        repo_path = plan.source / repo_name
-        remote = "origin"
-        resolved_base: str | None = plan.base_branch
-        target_branch: str | None = plan.branch_overrides.get(repo_name, plan.new_branch)
-        create_branch = target_branch is not None
-        worktree_path = plan.env_path / repo_name
-
-        already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
-        note: str | None = None
-        try:
-            if resolved_base is None:
-                resolved_base = git_adapter.default_branch(repo_path, remote)
-            if target_branch is None:
-                target_branch = resolved_base
-            if not already_exists:
-                _ensure_worktree_path_is_clean(worktree_path)
-                note = _create_or_attach_worktree(
-                    repo_path=repo_path,
-                    worktree_path=worktree_path,
-                    remote=remote,
-                    base=resolved_base,
-                    target_branch=target_branch,
-                    create_branch=create_branch,
-                    preserve=preserve,
-                    on_branch_conflict=on_branch_conflict,
-                    move_context=f"{plan.name}/{repo_name}/{target_branch}",
-                )
-        except Exception as exc:  # noqa: BLE001 - per-repo robustness
-            failures.append(repo_name)
-            note = f"failed: {exc}"
-        base = resolved_base or plan.base_branch or "unknown"
-        branch_name = target_branch or plan.new_branch or base
-        env.repos.append(
-            RepoEntry(
-                repo=repo_name,
-                worktree_path=worktree_path,
-                remote=remote,
-                base=base,
-                branch=branch_name,
-                branch_created=create_branch,
-                source_sha=_resolve_source_sha(repo_path, remote=remote, base=base, preserve=preserve),
-                status=RepoStatus.FAILED if repo_name in failures else RepoStatus.OK,
-                note=note,
-            )
+    jobs = [
+        _RepoJob(
+            env_name=plan.name,
+            repo_name=repo_name,
+            source=plan.source,
+            env_path=plan.env_path,
+            base_branch=plan.base_branch,
+            branch=plan.branch_overrides.get(repo_name, plan.new_branch),
+            fallback_branch=plan.new_branch,
         )
+        for repo_name in plan.repos
+    ]
+    env.repos.extend(_run_jobs(jobs, options or ExecuteOptions()))
     return env
 
 
@@ -442,35 +539,20 @@ def build_add_plan(
     include_worktrees: bool = False,
 ) -> AddPlan:
     """Validate inputs and build a plan to add repos into ``env``."""
-    candidates = git_adapter.discover_repos(env.source)
-    if not candidates:
-        raise NothingMatchedError(
-            f"No git repositories found under {env.source}.",
-            hint="Point source to a directory containing cloned repositories.",
-        )
-
+    candidates = _discover_candidates(
+        env.source, hint="Point source to a directory containing cloned repositories."
+    )
     candidates, skipped_wt = _filter_candidates(
         source=env.source, candidates=candidates, dest=None, include_worktrees=include_worktrees
     )
-    norm_include = _normalize_patterns(include, env.source) if include else include
-    norm_exclude = _normalize_patterns(exclude, env.source) if exclude else exclude
-    selected = resolve_selection(candidates, include=norm_include, exclude=norm_exclude)
+    selected = _select_repos(candidates, env.source, include, exclude)
     if not selected:
-        hint = "Check your glob patterns and --exclude filters."
-        if skipped_wt:
-            hint += (
-                f" {len(skipped_wt)} repo(s) were skipped because they are "
-                "git worktrees; pass --include-worktrees to include them."
-            )
-        raise NothingMatchedError("No repositories matched the selection.", hint=hint)
+        raise _nothing_matched(skipped_wt)
 
     existing = {entry.repo for entry in env.repos}
     plan = AddPlan(env_name=env.name, source=env.source, env_path=env.path, skipped_worktrees=skipped_wt)
-    for repo_name in selected:
-        if repo_name in existing:
-            plan.skipped[repo_name] = "already present in environment"
-            continue
-        plan.repos.append(repo_name)
+    plan.skipped = {repo: "already present in environment" for repo in selected if repo in existing}
+    plan.repos = [repo for repo in selected if repo not in existing]
 
     if not plan.repos:
         raise NothingMatchedError(
@@ -485,78 +567,54 @@ def execute_add_plan(
     plan: AddPlan,
     *,
     branch: str | None = None,
-    preserve: bool = False,
-    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
-    on_repo_start: Callable[[str, int, int], None] | None = None,
+    options: ExecuteOptions | None = None,
 ) -> Environment:
     """Execute a validated add plan and append new repo entries to ``env``.
 
-    If ``preserve=True``, use source repos as-is without fetching or updating.
-    *on_repo_start(repo_name, current_index, total)* is called before each repo.
+    See :class:`ExecuteOptions` for ``preserve``, the branch-conflict strategy
+    and the progress callback.
     """
-    total = len(plan.repos)
-    failures: list[str] = []
-    for idx, repo_name in enumerate(plan.repos):
-        if on_repo_start is not None:
-            on_repo_start(repo_name, idx + 1, total)
-        repo_path = plan.source / repo_name
-        remote = "origin"
-        resolved_base: str | None = env.base_branch
-        target_branch: str | None = branch
-        create_branch = branch is not None
-        worktree_path = plan.env_path / repo_name
-
-        already_exists = worktree_path.exists() and git_adapter.is_worktree_root(worktree_path)
-        note: str | None = None
-        try:
-            if resolved_base is None:
-                resolved_base = git_adapter.default_branch(repo_path, remote)
-            if target_branch is None:
-                target_branch = resolved_base
-            if not already_exists:
-                _ensure_worktree_path_is_clean(worktree_path)
-                note = _create_or_attach_worktree(
-                    repo_path=repo_path,
-                    worktree_path=worktree_path,
-                    remote=remote,
-                    base=resolved_base,
-                    target_branch=target_branch,
-                    create_branch=create_branch,
-                    preserve=preserve,
-                    on_branch_conflict=on_branch_conflict,
-                    move_context=f"{env.name}/{repo_name}/{target_branch}",
-                )
-        except Exception as exc:  # noqa: BLE001 - per-repo robustness
-            failures.append(repo_name)
-            note = f"failed: {exc}"
-        base = resolved_base or env.base_branch or "unknown"
-        branch_name = target_branch or branch or base
-        env.repos.append(
-            RepoEntry(
-                repo=repo_name,
-                worktree_path=worktree_path,
-                remote=remote,
-                base=base,
-                branch=branch_name,
-                branch_created=create_branch,
-                source_sha=_resolve_source_sha(repo_path, remote=remote, base=base, preserve=preserve),
-                status=RepoStatus.FAILED if repo_name in failures else RepoStatus.OK,
-                note=note,
-            )
+    jobs = [
+        _RepoJob(
+            env_name=env.name,
+            repo_name=repo_name,
+            source=plan.source,
+            env_path=plan.env_path,
+            base_branch=env.base_branch,
+            branch=branch,
+            fallback_branch=branch,
         )
+        for repo_name in plan.repos
+    ]
+    env.repos.extend(_run_jobs(jobs, options or ExecuteOptions()))
     env.touch()
     return env
 
 
-def build_merge_plan(
-    *,
-    left: Environment,
-    right: Environment,
-    op: SetOp,
-    dest_name: str,
-    dest_root: Path,
-    alias: str | None,
-) -> CreatePlan:
+def _carry_over_branches(
+    left: Environment, right: Environment, merged: Iterable[str]
+) -> tuple[dict[str, str], list[str]]:
+    """Return ``(branch_overrides, branch_conflicts)`` for the merged repos."""
+    left_branches = {entry.repo: entry.branch for entry in left.repos if entry.branch_created}
+    right_branches = {entry.repo: entry.branch for entry in right.repos if entry.branch_created}
+
+    branch_overrides: dict[str, str] = {}
+    branch_conflicts: list[str] = []
+    for repo in merged:
+        left_branch = left_branches.get(repo)
+        right_branch = right_branches.get(repo)
+        chosen = left_branch or right_branch
+        if chosen is not None:
+            branch_overrides[repo] = chosen
+        if left_branch is not None and right_branch is not None and left_branch != right_branch:
+            branch_conflicts.append(
+                f"{repo}: '{left_branch}' (from {left.name}) vs '{right_branch}' "
+                f"(from {right.name}); using '{left_branch}'"
+            )
+    return branch_overrides, branch_conflicts
+
+
+def build_merge_plan(*, left: Environment, right: Environment, op: SetOp, target: MergeTarget) -> CreatePlan:
     """Build a create plan by combining repo sets from two environments.
 
     Each repo keeps the task branch it already had in ``left``/``right`` (only
@@ -574,33 +632,15 @@ def build_merge_plan(
             hint="Try a different set operation or source environments.",
         )
 
-    left_branches = {entry.repo: entry.branch for entry in left.repos if entry.branch_created}
-    right_branches = {entry.repo: entry.branch for entry in right.repos if entry.branch_created}
-
-    branch_overrides: dict[str, str] = {}
-    branch_conflicts: list[str] = []
-    for repo in merged:
-        left_branch = left_branches.get(repo)
-        right_branch = right_branches.get(repo)
-        chosen = left_branch or right_branch
-        if chosen is not None:
-            branch_overrides[repo] = chosen
-        if left_branch is not None and right_branch is not None and left_branch != right_branch:
-            branch_conflicts.append(
-                f"{repo}: '{left_branch}' (from {left.name}) vs '{right_branch}' "
-                f"(from {right.name}); using '{left_branch}'"
-            )
-
     plan = build_create_plan(
-        name=dest_name,
-        source=left.source,
-        dest=dest_root,
-        include=merged,
-        exclude=None,
-        branch=None,
-        alias=alias,
-        default_branch=left.base_branch,
+        CreateRequest(
+            name=target.name,
+            source=left.source,
+            dest=target.dest_root,
+            include=merged,
+            alias=target.alias,
+            default_branch=left.base_branch,
+        )
     )
-    plan.branch_overrides = branch_overrides
-    plan.branch_conflicts = branch_conflicts
+    plan.branch_overrides, plan.branch_conflicts = _carry_over_branches(left, right, merged)
     return plan
