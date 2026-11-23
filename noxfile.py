@@ -68,6 +68,7 @@ _CI_DEFAULT = [
     "duplicates",
     "cyclic_imports",
     "code-health",
+    "code-health-own",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -243,12 +244,35 @@ def cyclic_imports(session: nox.Session) -> None:
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
 
 
-@nox.session(name="code-health", python=DEFAULT_PYTHON, tags=["quality"])
+@nox.session(name="code-health", python=CI_PYTHON, tags=["quality"])
 def code_health(session: nox.Session) -> None:
-    """CodeScene-style code health score (1-10) with ratchet gate; see docs/contributor-guide/code-health.md.
+    """Code health via ai-health (profile in .aihealth.toml); see docs/contributor-guide/code-health.md.
 
-    Examples: ``nox -s code-health``, ``nox -s code-health -- --changed``,
-    ``nox -s code-health -- --changed origin/main --json``.
+    Without arguments: project report (``scan``) plus the gate ``delta --base origin/main``.
+    With arguments they go straight to ``aihealth``, e.g.
+    ``nox -s code-health -- delta --format json`` or ``nox -s code-health -- scan . --report``.
+    """
+    # Install exactly the locked dependency group (single version pin in pyproject.toml).
+    session.run_install(
+        "uv",
+        "sync",
+        "--frozen",
+        "--only-group",
+        "code-health",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    if session.posargs:
+        session.run("aihealth", *session.posargs)
+        return
+    session.run("aihealth", "scan", ".", "--format", "markdown", "--max-findings", "20")
+    session.run("aihealth", "delta", "--base", "origin/main")
+
+
+@nox.session(name="code-health-own", python=DEFAULT_PYTHON, tags=["quality"])
+def code_health_own(session: nox.Session) -> None:
+    """Own CodeScene-style checker (tools/code_health), kept as a cross-check for ai-health.
+
+    Examples: ``nox -s code-health-own``, ``nox -s code-health-own -- --changed --json``.
     """
     session.install("-e", ".[code-quality]")
     session.run("python", "-m", "tools.code_health", *session.posargs)

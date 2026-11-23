@@ -38,6 +38,7 @@ jobs:
               - 'tools/**'
               - 'code-health.toml'
               - 'code-health-baseline.json'
+              - '.aihealth.toml'
               - '.github/workflows/pr.yml'
             docs:
               - 'docs/**'
@@ -104,8 +105,17 @@ jobs:
         run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
-      - name: Code health (changed files vs PR base)
-        run: nox -s code-health -- --changed ${{ github.event.pull_request.base.sha }}
+      - name: Cache tree-sitter grammars (ai-health)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tree-sitter-language-pack
+          key: tree-sitter-language-pack-${{ hashFiles('uv.lock') }}
+      - name: Code health report (ai-health scan)
+        run: nox -s code-health -- scan . --format markdown --max-findings 20 >> "$GITHUB_STEP_SUMMARY"
+      - name: Code health gate (ai-health delta vs PR base)
+        run: nox -s code-health -- delta --base origin/${{ github.event.pull_request.base.ref }}
+      - name: Code health cross-check (own checker)
+        run: nox -s code-health-own -- --changed ${{ github.event.pull_request.base.sha }}
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})

@@ -1,0 +1,17 @@
+# ai-health configuration (https://github.com/epatel/ai-health, pinned in pyproject
+# [dependency-groups] code-health). Profile "strict" — the single place to tune it.
+# Values are provisional until the owner confirms them (Q15); all other keys use the
+# ai-health defaults (see src/aihealth/config.py of the pinned release).
+# Docs: docs/contributor-guide/code-health.md
+
+[thresholds]
+large_file = 600            # code lines per file (default 1000)
+primitive_obsession = 0.3   # share of typed params that are primitive (default 0.6)
+
+[score]
+decay = 8                   # stricter than the default 15
+symbol_cap = 4
+density_loc = 100000        # large files are not relieved through finding density
+
+[delta]
+tolerance = 0.0             # any degradation fails the gate

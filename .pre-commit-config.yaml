@@ -96,7 +96,12 @@ repos:
         language: system
         types: [python]
       - id: code-health
-        name: code-health (changed files vs HEAD)
+        name: code-health (ai-health delta of staged changes)
+        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --staged
+        language: system
+        pass_filenames: false
+      - id: code-health-own
+        name: code-health-own (cross-check, changed files vs HEAD)
         entry: uv run --isolated --extra code-quality python -m tools.code_health --changed HEAD
         language: system
         pass_filenames: false

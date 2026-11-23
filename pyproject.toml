@@ -125,3 +125,10 @@ markers = [
     "int: alias for integration (deselect with -m 'not int')",
     "performance: CLI cold-start latency budget checks (help and bash completion)",
 ]
+
+[dependency-groups]
+# Code health gate (ai-health, MIT). Pinned to a release: scores can change between versions.
+# Python >= 3.11 only; used by `nox -s code-health` (3.12) and the pre-commit hook.
+code-health = [
+    "aihealth @ git+https://github.com/epatel/ai-health@v0.4.0 ; python_version >= '3.11'",
+]
