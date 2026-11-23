@@ -180,7 +180,7 @@ _GITLAB_SETTING = {"Git.Corp": "gitlab https://git.corp/gl"}
 
 
 @pytest.mark.parametrize(
-    ("host", "override", "settings", "expected"),
+    "case",  # (host, override, settings, expected)
     [
         ("git.corp", None, _GITLAB_SETTING, (ProviderKind.GITLAB, "https://git.corp/gl")),
         ("git.corp", ProviderKind.GITHUB, _GITLAB_SETTING, (ProviderKind.GITHUB, "https://git.corp/gl")),
@@ -189,13 +189,8 @@ _GITLAB_SETTING = {"Git.Corp": "gitlab https://git.corp/gl"}
         ("other.corp", None, {}, (ProviderKind.GITEA, None)),
     ],
 )
-def test_detect_precedence(
-    monkeypatch: pytest.MonkeyPatch,
-    host: str,
-    override: ProviderKind | None,
-    settings: dict[str, str],
-    expected: tuple[ProviderKind, str | None],
-) -> None:
+def test_detect_precedence(monkeypatch: pytest.MonkeyPatch, case: tuple) -> None:
+    host, override, settings, expected = case
     monkeypatch.setattr(detect, "probe", lambda host: ProviderKind.GITEA)
 
     assert detect.detect(host, override=override, settings=settings) == expected

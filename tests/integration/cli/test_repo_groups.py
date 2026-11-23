@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory, existing_repos
+from tests.integration.support.gitfixtures import RepoFactory
 from tests.integration.support.renv_helpers import init_renv
 
 
@@ -33,42 +34,29 @@ def test_config_groups_set_get_unset(repoenv_home: Path) -> None:
     assert get_after_unset.output.strip() == ""
 
 
+GROUP_CASES = [
+    # (repos in source, --include value, repos expected in the environment)
+    (("backend-alpha", "backend-beta", "frontend-app"), "@backend", {"backend-alpha", "backend-beta"}),
+    (("backend-alpha", "frontend-app", "tool-x"), "@backend,frontend-*", {"backend-alpha", "frontend-app"}),
+]
+
+
+@pytest.mark.usefixtures("repoenv_home")
+@pytest.mark.parametrize("case", GROUP_CASES, ids=["group-only", "group-and-literal-glob"])
 def test_create_include_expands_repo_group(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
+    repo_factory: RepoFactory, source_dir: Path, worktrees_dir: Path, case: tuple
 ) -> None:
-    for name in ("backend-alpha", "backend-beta", "frontend-app"):
+    repos, include, expected = case
+    for name in repos:
         repo_factory.make_bare_and_clone(name)
 
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
     assert runner.invoke(app, ["config", "groups.backend", "backend-*"]).exit_code == 0
 
-    create = runner.invoke(app, ["create", "svc", "--include", "@backend"])
+    create = runner.invoke(app, ["create", "svc", "--include", include])
     assert create.exit_code == 0, create.output
-
-    assert existing_repos(worktrees_dir / "svc", ("backend-alpha", "backend-beta", "frontend-app")) == {
-        "backend-alpha",
-        "backend-beta",
-    }
-
-
-def test_include_mixes_group_and_literal_glob(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    for name in ("backend-alpha", "frontend-app", "tool-x"):
-        repo_factory.make_bare_and_clone(name)
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["config", "groups.backend", "backend-*"]).exit_code == 0
-
-    create = runner.invoke(app, ["create", "svc", "--include", "@backend,frontend-*"])
-    assert create.exit_code == 0, create.output
-
-    assert existing_repos(worktrees_dir / "svc", ("backend-alpha", "frontend-app", "tool-x")) == {
-        "backend-alpha",
-        "frontend-app",
-    }
+    assert {name for name in repos if (worktrees_dir / "svc" / name).exists()} == expected
 
 
 def test_unknown_group_errors_clearly(

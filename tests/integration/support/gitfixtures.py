@@ -24,7 +24,7 @@ def existing_repos(env_dir: Path, names: Iterable[str]) -> set[str]:
     return {name for name in names if (env_dir / name).exists()}
 
 
-def write_file(repo: Path, relpath: str, content: str) -> None:
+def write_file(repo: Path, relpath: str | Path, content: str) -> None:
     path = repo / relpath
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")

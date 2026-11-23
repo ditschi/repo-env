@@ -15,3 +15,8 @@ density_loc = 100000        # large files are not relieved through finding densi
 
 [delta]
 tolerance = 0.0             # any degradation fails the gate
+
+[scan]
+# The own checker is a temporary cross-check and will be removed once the ai-health gate is
+# established; it is not product code. Added to the ai-health default excludes.
+exclude = ["tools/code_health/*"]

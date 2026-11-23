@@ -171,21 +171,21 @@ def test_build_add_plan_skips_linked_worktrees_by_default(
 # ---------------------------------------------------------------------------
 
 
+def _single_repo_plan(
+    monkeypatch: pytest.MonkeyPatch, source: Path, dest: Path
+) -> environment_service.CreatePlan:
+    """Plan an env ``myenv`` from a source containing one ordinary repo."""
+    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
+    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
+    request = environment_service.CreateRequest(name="myenv", source=source, dest=dest, default_branch="main")
+    return environment_service.build_create_plan(request)
+
+
 def test_build_create_plan_stores_absolute_env_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
 
-    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
-    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
-
-    plan = environment_service.build_create_plan(
-        environment_service.CreateRequest(
-            name="myenv",
-            source=source,
-            dest=tmp_path / "dest",
-            default_branch="main",
-        )
-    )
+    plan = _single_repo_plan(monkeypatch, source, tmp_path / "dest")
 
     assert plan.env_path.is_absolute()
     assert plan.source.is_absolute()
@@ -198,18 +198,8 @@ def test_build_create_plan_resolves_relative_dest(monkeypatch: pytest.MonkeyPatc
     dest = tmp_path / "dest"
     dest.mkdir()
 
-    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
-    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
-
     # Use a real Path — resolve() inside build_create_plan makes it absolute.
-    plan = environment_service.build_create_plan(
-        environment_service.CreateRequest(
-            name="myenv",
-            source=source,
-            dest=dest,
-            default_branch="main",
-        )
-    )
+    plan = _single_repo_plan(monkeypatch, source, dest)
 
     assert plan.env_path.is_absolute()
     assert plan.env_path == (dest / "myenv").resolve()
@@ -271,6 +261,15 @@ def test_execute_create_plan_does_not_raise_when_dest_has_renv_marker(
 # ---------------------------------------------------------------------------
 
 
+def _progress_recorder() -> tuple[list[tuple[str, int, int]], environment_service.ExecuteOptions]:
+    """Execute options whose progress callback records ``(repo, index, total)`` calls."""
+    calls: list[tuple[str, int, int]] = []
+    options = environment_service.ExecuteOptions(
+        on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
+    )
+    return calls, options
+
+
 def test_execute_create_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     env_path = tmp_path / "envs" / "myenv"
@@ -286,13 +285,8 @@ def test_execute_create_plan_calls_progress_callback(monkeypatch: pytest.MonkeyP
     )
 
     _base_monkeypatches(monkeypatch)
-    calls: list[tuple[str, int, int]] = []
-    environment_service.execute_create_plan(
-        plan,
-        options=environment_service.ExecuteOptions(
-            on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
-        ),
-    )
+    calls, options = _progress_recorder()
+    environment_service.execute_create_plan(plan, options=options)
 
     assert calls == [("alpha", 1, 2), ("beta", 2, 2)]
 
@@ -306,14 +300,8 @@ def test_execute_add_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatc
     )
 
     _base_monkeypatches(monkeypatch)
-    calls: list[tuple[str, int, int]] = []
-    environment_service.execute_add_plan(
-        env,
-        plan,
-        options=environment_service.ExecuteOptions(
-            on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
-        ),
-    )
+    calls, options = _progress_recorder()
+    environment_service.execute_add_plan(env, plan, options=options)
 
     assert calls == [("gamma", 1, 2), ("delta", 2, 2)]
 

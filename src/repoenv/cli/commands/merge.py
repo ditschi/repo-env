@@ -1,4 +1,5 @@
 """``renv merge`` — combine two environments into a new one."""
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
 
 from __future__ import annotations
 

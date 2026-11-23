@@ -1,4 +1,5 @@
 """``renv add`` — add repositories to an existing environment."""
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
 
 from __future__ import annotations
 
