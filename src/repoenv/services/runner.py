@@ -67,21 +67,26 @@ def _run_one(ctx: _RunContext, index: int, entry: RepoEntry) -> RunResult:
     )
 
 
-def run_across(
-    env: Environment,
-    argv: list[str],
-    *,
-    jobs: int = 1,
-    use_shell: bool = False,
-    include: list[str] | None = None,
-    exclude: list[str] | None = None,
-) -> list[RunResult]:
+@dataclass(frozen=True)
+class RunOptions:
+    """How ``run_across`` executes: parallelism, shell mode and repo selection."""
+
+    jobs: int = 1
+    use_shell: bool = False
+    include: list[str] | None = None
+    exclude: list[str] | None = None
+
+
+def run_across(env: Environment, argv: list[str], options: RunOptions | None = None) -> list[RunResult]:
     """Run ``argv`` in each worktree and return results ordered by repo name."""
+    options = options or RunOptions()
+    jobs = options.jobs
     entries = sorted(env.repos, key=lambda e: e.repo)
-    if include is not None or exclude is not None:
-        selected = set(resolve_selection([e.repo for e in entries], include=include, exclude=exclude))
+    if options.include is not None or options.exclude is not None:
+        names = [e.repo for e in entries]
+        selected = set(resolve_selection(names, include=options.include, exclude=options.exclude))
         entries = [e for e in entries if e.repo in selected]
-    ctx = _RunContext(env=env, argv=argv, total=len(entries), use_shell=use_shell)
+    ctx = _RunContext(env=env, argv=argv, total=len(entries), use_shell=options.use_shell)
 
     if jobs <= 1:
         return [_run_one(ctx, index, entry) for index, entry in enumerate(entries, start=1)]

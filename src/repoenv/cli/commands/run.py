@@ -82,14 +82,10 @@ def run_command(
 
     registry = state_store.load_registry()
     environment = resolve_environment(registry, env)
-    results = runner.run_across(
-        environment,
-        list(command),
-        jobs=jobs,
-        use_shell=use_shell,
-        include=include or None,
-        exclude=exclude or None,
+    options = runner.RunOptions(
+        jobs=jobs, use_shell=use_shell, include=include or None, exclude=exclude or None
     )
+    results = runner.run_across(environment, list(command), options)
 
     if as_json:
         payload = [r.model_dump(mode="json") for r in results]
