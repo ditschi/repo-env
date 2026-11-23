@@ -192,6 +192,7 @@ def necessary_imports(session: nox.Session) -> None:
         "--deps-parser-choice",
         "pyproject.toml",
         "--ignore-unused",
+        "aihealth",
         "vulture",
         "commitizen",
         "complexipy",
