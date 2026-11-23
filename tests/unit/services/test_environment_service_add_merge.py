@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,67 @@ def test_build_merge_plan_union(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     assert plan.repos == ["alpha", "beta"]
 
 
+def _stub_git(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    default_branch: Callable[[Path, str], str] = lambda _repo, _remote: "main",
+    rev_parse: Callable[[Path, str], str] = lambda _repo, _ref: "deadbeef",
+) -> None:
+    """Silence the git calls made while executing a plan; override the interesting ones."""
+    monkeypatch.setattr(environment_service.git_adapter, "default_branch", default_branch)
+    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
+    monkeypatch.setattr(environment_service.git_adapter, "is_worktree_root", lambda _path: False)
+    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
+    monkeypatch.setattr(environment_service.git_adapter, "branch_exists", lambda _repo, _branch: False)
+    monkeypatch.setattr(
+        environment_service.git_adapter,
+        "add_worktree",
+        lambda _repo, _worktree_path, **_kwargs: None,
+    )
+    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", rev_parse)
+
+
+def _fail_for_beta(error: Exception, result: str) -> Callable[[Path, str], str]:
+    """A git stub that raises ``error`` for the ``beta`` repo and returns ``result`` otherwise."""
+
+    def _stub(repo: Path, _arg: str) -> str:
+        if repo.name == "beta":
+            raise error
+        return result
+
+    return _stub
+
+
+def _execute_alpha_beta(kind: str, tmp_path: Path, base_branch: str | None) -> Environment:
+    """Execute a create or add plan for the repos ``alpha`` and ``beta``."""
+    source = tmp_path / "src"
+    (source / "alpha").mkdir(parents=True)
+    (source / "beta").mkdir()
+    repos = ["alpha", "beta"]
+
+    if kind == "create":
+        plan = environment_service.CreatePlan(
+            name="test",
+            env_path=tmp_path / "envs" / "test",
+            source=source,
+            base_branch=base_branch,
+            new_branch=None,
+            alias=None,
+            repos=repos,
+        )
+        return environment_service.execute_create_plan(plan)
+
+    env_path = tmp_path / "envs" / "web"
+    env = Environment(name="web", path=env_path, source=source, base_branch=base_branch)
+    add_plan = environment_service.AddPlan(env_name="web", source=source, env_path=env_path, repos=repos)
+    return environment_service.execute_add_plan(env, add_plan)
+
+
+_PLAN_KINDS = pytest.mark.parametrize(
+    ("kind", "sha"), [("create", "deadbeef"), ("add", "cafebabe")], ids=["create", "add"]
+)
+
+
 def test_execute_create_plan_preserves_nested_repo_structure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -73,15 +135,12 @@ def test_execute_create_plan_preserves_nested_repo_structure(
     )
 
     calls: list[Path] = []
-    monkeypatch.setattr(environment_service.git_adapter, "default_branch", lambda _repo, _remote: "main")
-    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
-    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
+    _stub_git(monkeypatch)
     monkeypatch.setattr(
         environment_service.git_adapter,
         "add_worktree",
         lambda _repo, worktree_path, **_kwargs: calls.append(worktree_path),
     )
-    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", lambda _repo, _ref: "deadbeef")
 
     env = environment_service.execute_create_plan(plan)
 
@@ -90,166 +149,30 @@ def test_execute_create_plan_preserves_nested_repo_structure(
     assert [entry.worktree_path for entry in env.repos] == calls
 
 
-def test_execute_create_plan_continues_when_rev_parse_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@_PLAN_KINDS
+def test_execute_plan_continues_when_rev_parse_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kind: str, sha: str
 ) -> None:
-    source = tmp_path / "src"
-    env_root = tmp_path / "envs"
-    source.mkdir()
-    (source / "alpha").mkdir()
-    (source / "beta").mkdir()
+    _stub_git(monkeypatch, rev_parse=_fail_for_beta(RuntimeError("corrupt repo"), sha))
 
-    plan = environment_service.CreatePlan(
-        name="test",
-        env_path=env_root / "test",
-        source=source,
-        base_branch="main",
-        new_branch=None,
-        alias=None,
-        repos=["alpha", "beta"],
-    )
-
-    monkeypatch.setattr(environment_service.git_adapter, "default_branch", lambda _repo, _remote: "main")
-    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
-    monkeypatch.setattr(environment_service.git_adapter, "is_worktree_root", lambda _path: False)
-    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
-    monkeypatch.setattr(environment_service.git_adapter, "branch_exists", lambda _repo, _branch: False)
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "add_worktree",
-        lambda _repo, _worktree_path, **_kwargs: None,
-    )
-
-    def _rev_parse(repo: Path, _ref: str) -> str:
-        if repo.name == "beta":
-            raise RuntimeError("corrupt repo")
-        return "deadbeef"
-
-    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", _rev_parse)
-
-    env = environment_service.execute_create_plan(plan)
+    env = _execute_alpha_beta(kind, tmp_path, base_branch="main")
 
     assert _sha_and_status(env) == [
-        ("alpha", "deadbeef", RepoStatus.OK),
+        ("alpha", sha, RepoStatus.OK),
         ("beta", None, RepoStatus.OK),
     ]
 
 
-def test_execute_create_plan_marks_repo_failed_when_default_branch_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@_PLAN_KINDS
+def test_execute_plan_marks_repo_failed_when_default_branch_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kind: str, sha: str
 ) -> None:
-    source = tmp_path / "src"
-    env_root = tmp_path / "envs"
-    source.mkdir()
-    (source / "alpha").mkdir()
-    (source / "beta").mkdir()
+    failing = _fail_for_beta(GitError("Could not determine the default branch."), "main")
+    _stub_git(monkeypatch, default_branch=failing, rev_parse=lambda _repo, _ref: sha)
 
-    plan = environment_service.CreatePlan(
-        name="test",
-        env_path=env_root / "test",
-        source=source,
-        base_branch=None,
-        new_branch=None,
-        alias=None,
-        repos=["alpha", "beta"],
-    )
-
-    def _default_branch(repo: Path, _remote: str) -> str:
-        if repo.name == "beta":
-            raise GitError("Could not determine the default branch.")
-        return "main"
-
-    monkeypatch.setattr(environment_service.git_adapter, "default_branch", _default_branch)
-    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
-    monkeypatch.setattr(environment_service.git_adapter, "is_worktree_root", lambda _path: False)
-    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
-    monkeypatch.setattr(environment_service.git_adapter, "branch_exists", lambda _repo, _branch: False)
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "add_worktree",
-        lambda _repo, _worktree_path, **_kwargs: None,
-    )
-    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", lambda _repo, _ref: "deadbeef")
-
-    env = environment_service.execute_create_plan(plan)
+    env = _execute_alpha_beta(kind, tmp_path, base_branch=None)
 
     _assert_second_repo_failed_on_default_branch(env)
-
-
-def test_execute_add_plan_marks_repo_failed_when_default_branch_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    source = tmp_path / "src"
-    env_path = tmp_path / "envs" / "web"
-    source.mkdir(parents=True)
-    (source / "alpha").mkdir()
-    (source / "beta").mkdir()
-
-    env = Environment(name="web", path=env_path, source=source, base_branch=None)
-    plan = environment_service.AddPlan(
-        env_name="web", source=source, env_path=env_path, repos=["alpha", "beta"]
-    )
-
-    def _default_branch(repo: Path, _remote: str) -> str:
-        if repo.name == "beta":
-            raise GitError("Could not determine the default branch.")
-        return "main"
-
-    monkeypatch.setattr(environment_service.git_adapter, "default_branch", _default_branch)
-    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
-    monkeypatch.setattr(environment_service.git_adapter, "is_worktree_root", lambda _path: False)
-    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
-    monkeypatch.setattr(environment_service.git_adapter, "branch_exists", lambda _repo, _branch: False)
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "add_worktree",
-        lambda _repo, _worktree_path, **_kwargs: None,
-    )
-    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", lambda _repo, _ref: "cafebabe")
-
-    result = environment_service.execute_add_plan(env, plan)
-
-    _assert_second_repo_failed_on_default_branch(result)
-
-
-def test_execute_add_plan_continues_when_rev_parse_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    source = tmp_path / "src"
-    env_path = tmp_path / "envs" / "web"
-    source.mkdir(parents=True)
-    (source / "alpha").mkdir()
-    (source / "beta").mkdir()
-
-    env = Environment(name="web", path=env_path, source=source, base_branch="main")
-    plan = environment_service.AddPlan(
-        env_name="web", source=source, env_path=env_path, repos=["alpha", "beta"]
-    )
-
-    monkeypatch.setattr(environment_service.git_adapter, "default_branch", lambda _repo, _remote: "main")
-    monkeypatch.setattr(environment_service.git_adapter, "fetch", lambda _repo, _remote: None)
-    monkeypatch.setattr(environment_service.git_adapter, "is_worktree_root", lambda _path: False)
-    monkeypatch.setattr(environment_service.git_adapter, "prune_worktrees", lambda _repo: None)
-    monkeypatch.setattr(environment_service.git_adapter, "branch_exists", lambda _repo, _branch: False)
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "add_worktree",
-        lambda _repo, _worktree_path, **_kwargs: None,
-    )
-
-    def _rev_parse(repo: Path, _ref: str) -> str:
-        if repo.name == "beta":
-            raise RuntimeError("corrupt repo")
-        return "cafebabe"
-
-    monkeypatch.setattr(environment_service.git_adapter, "rev_parse", _rev_parse)
-
-    result = environment_service.execute_add_plan(env, plan)
-
-    assert _sha_and_status(result) == [
-        ("alpha", "cafebabe", RepoStatus.OK),
-        ("beta", None, RepoStatus.OK),
-    ]
 
 
 def test_build_create_plan_excludes_nested_renv_by_default(
