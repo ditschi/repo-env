@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 
 from repoenv.domain.repo_url import UrlSpec, build_clone_url, parse_url, url_host
@@ -138,30 +140,45 @@ def test_parse_url_azure_devops_is_detected_from_host(raw: str, expected: UrlSpe
     assert url_host(raw) == "dev.azure.com"
 
 
+@dataclass(frozen=True)
+class _CloneUrlCase:
+    kind: ProviderKind
+    host: str
+    owner: str
+    protocol: str
+    expected: str
+
+
 @pytest.mark.parametrize(
-    ("kind", "host", "owner", "protocol", "expected"),
+    "case",
     [
-        (ProviderKind.GITLAB, "gitlab.com", "grp/sub", "ssh", "git@gitlab.com:grp/sub/repo.git"),
-        (ProviderKind.BITBUCKET_SERVER, "bb.corp", "PROJ", "https", "https://bb.corp/scm/PROJ/repo.git"),
-        (ProviderKind.BITBUCKET_SERVER, "bb.corp", "PROJ", "ssh", "ssh://git@bb.corp:7999/PROJ/repo.git"),
-        (
+        _CloneUrlCase(ProviderKind.GITLAB, "gitlab.com", "grp/sub", "ssh", "git@gitlab.com:grp/sub/repo.git"),
+        _CloneUrlCase(
+            ProviderKind.BITBUCKET_SERVER, "bb.corp", "PROJ", "https", "https://bb.corp/scm/PROJ/repo.git"
+        ),
+        _CloneUrlCase(
+            ProviderKind.BITBUCKET_SERVER, "bb.corp", "PROJ", "ssh", "ssh://git@bb.corp:7999/PROJ/repo.git"
+        ),
+        _CloneUrlCase(
             ProviderKind.AZURE_DEVOPS,
             "dev.azure.com",
             "org/My Proj",
             "https",
             "https://dev.azure.com/org/My%20Proj/_git/repo",
         ),
-        (
+        _CloneUrlCase(
             ProviderKind.AZURE_DEVOPS,
             "dev.azure.com",
             "org/proj",
             "ssh",
             "git@ssh.dev.azure.com:v3/org/proj/repo",
         ),
-        (ProviderKind.AZURE_DEVOPS, "tfs.corp", "coll/proj", "ssh", "ssh://tfs.corp:22/coll/proj/_git/repo"),
+        _CloneUrlCase(
+            ProviderKind.AZURE_DEVOPS, "tfs.corp", "coll/proj", "ssh", "ssh://tfs.corp:22/coll/proj/_git/repo"
+        ),
     ],
+    ids=lambda case: f"{case.kind.value}-{case.host}-{case.protocol}",
 )
-def test_build_clone_url_provider_layouts(
-    kind: ProviderKind, host: str, owner: str, protocol: str, expected: str
-) -> None:
-    assert build_clone_url(host, owner, "repo", protocol=protocol, kind=kind) == expected
+def test_build_clone_url_provider_layouts(case: _CloneUrlCase) -> None:
+    url = build_clone_url(case.host, case.owner, "repo", protocol=case.protocol, kind=case.kind)
+    assert url == case.expected

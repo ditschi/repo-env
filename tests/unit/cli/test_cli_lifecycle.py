@@ -100,20 +100,12 @@ def test_sync_reports_failures(repoenv_home: Path, monkeypatch: pytest.MonkeyPat
     assert result.exit_code != 0
 
 
-def test_status_json(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("command", ["status", "check"], ids=["status", "check-alias"])
+def test_status_json(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, command: str) -> None:
     _register(repoenv_home)
     monkeypatch.setattr("repoenv.adapters.git_adapter.is_clean", lambda path: True)
     runner = CliRunner()
-    result = runner.invoke(app, ["status", "demo", "--json"])
-    assert result.exit_code == 0
-    assert '"environment": "demo"' in result.stdout
-
-
-def test_check_alias_for_status(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _register(repoenv_home)
-    monkeypatch.setattr("repoenv.adapters.git_adapter.is_clean", lambda path: True)
-    runner = CliRunner()
-    result = runner.invoke(app, ["check", "demo", "--json"])
+    result = runner.invoke(app, [command, "demo", "--json"])
     assert result.exit_code == 0
     assert '"environment": "demo"' in result.stdout
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -168,11 +169,18 @@ def test_draft_payload(kind, tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("kind", API_KINDS)
 @pytest.mark.parametrize(
-    "status,payload", [(401, {"message": "secret"}), (500, {}), (200, None), (200, "bad")]
+    "response",
+    [
+        _response({"message": "secret"}, 401),
+        _response({}, 500),
+        _response(None, 200),
+        _response("bad", 200),
+    ],
+    ids=["401-secret", "500-empty", "200-null", "200-string"],
 )
-def test_api_errors_are_not_absence(kind, status, payload, tmp_path, monkeypatch):
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: _response(payload, status))
-    with pytest.raises(GitError, match=f"HTTP {status}") as exc:
+def test_api_errors_are_not_absence(kind, response, tmp_path, monkeypatch):
+    monkeypatch.setattr(rest, "request", lambda *a, **kw: response)
+    with pytest.raises(GitError, match=f"HTTP {response.status}") as exc:
         _client(kind, tmp_path).existing_url(head="f")
     assert "secret" not in str(exc.value)
 
@@ -190,39 +198,54 @@ def test_missing_credentials_and_creation_url(kind, tmp_path, monkeypatch):
         client.create(_request())
 
 
+@dataclass(frozen=True)
+class _RemoteCase:
+    raw: str
+    setting: str | None
+    kind: ProviderKind
+    owner: str
+    repo: str
+
+
 @pytest.mark.parametrize(
-    "raw,setting,kind,owner,repo",
+    "case",
     [
-        ("git@github.com:o/r.git", None, ProviderKind.GITHUB, "o", "r"),
-        ("ssh://git@ghe.example/o/r.git", "github", ProviderKind.GITHUB, "o", "r"),
-        ("https://gitlab.com/group/sub/r.git", None, ProviderKind.GITLAB, "group/sub", "r"),
-        ("git@bitbucket.org:o/r.git", None, ProviderKind.BITBUCKET_CLOUD, "o", "r"),
-        (
+        _RemoteCase("git@github.com:o/r.git", None, ProviderKind.GITHUB, "o", "r"),
+        _RemoteCase("ssh://git@ghe.example/o/r.git", "github", ProviderKind.GITHUB, "o", "r"),
+        _RemoteCase("https://gitlab.com/group/sub/r.git", None, ProviderKind.GITLAB, "group/sub", "r"),
+        _RemoteCase("git@bitbucket.org:o/r.git", None, ProviderKind.BITBUCKET_CLOUD, "o", "r"),
+        _RemoteCase(
             "ssh://git@bb.example:7999/PROJ/r.git",
             "bitbucket-server",
             ProviderKind.BITBUCKET_SERVER,
             "PROJ",
             "r",
         ),
-        (
+        _RemoteCase(
             "https://bb.example/bitbucket/scm/PROJ/r.git",
             "bitbucket-server https://bb.example/bitbucket",
             ProviderKind.BITBUCKET_SERVER,
             "PROJ",
             "r",
         ),
-        ("https://dev.azure.com/org/project/_git/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"),
-        ("git@ssh.dev.azure.com:v3/org/project/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"),
-        ("https://org.visualstudio.com/project/_git/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"),
-        (
+        _RemoteCase(
+            "https://dev.azure.com/org/project/_git/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"
+        ),
+        _RemoteCase(
+            "git@ssh.dev.azure.com:v3/org/project/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"
+        ),
+        _RemoteCase(
+            "https://org.visualstudio.com/project/_git/r", None, ProviderKind.AZURE_DEVOPS, "org/project", "r"
+        ),
+        _RemoteCase(
             "https://tfs.example/tfs/collection/project/_git/r",
             "azure-devops https://tfs.example/tfs",
             ProviderKind.AZURE_DEVOPS,
             "collection/project",
             "r",
         ),
-        ("git@codeberg.org:o/r.git", None, ProviderKind.GITEA, "o", "r"),
-        (
+        _RemoteCase("git@codeberg.org:o/r.git", None, ProviderKind.GITEA, "o", "r"),
+        _RemoteCase(
             "https://forge.example/forge/o/r.git",
             "gitea https://forge.example/forge",
             ProviderKind.GITEA,
@@ -230,17 +253,18 @@ def test_missing_credentials_and_creation_url(kind, tmp_path, monkeypatch):
             "r",
         ),
     ],
+    ids=lambda case: case.raw,
 )
-def test_remote_resolution(raw, setting, kind, owner, repo, tmp_path, monkeypatch):
+def test_remote_resolution(case, tmp_path, monkeypatch):
     monkeypatch.setattr(
         git_adapter,
         "remote_url",
-        lambda wt, remote: raw if remote == "upstream" else pytest.fail("wrong remote"),
+        lambda wt, remote: case.raw if remote == "upstream" else pytest.fail("wrong remote"),
     )
     monkeypatch.setattr(credentials, "resolve", lambda *a: pytest.fail("not needed for resolution"))
-    settings = {pull_requests.url_host(raw): setting} if setting else {}
+    settings = {pull_requests.url_host(case.raw): case.setting} if case.setting else {}
     client = pull_requests.for_worktree(tmp_path, "upstream", settings=settings)
-    assert (client.provider.kind, client.owner, client.repo) == (kind, owner, repo)
+    assert (client.provider.kind, client.owner, client.repo) == (case.kind, case.owner, case.repo)
 
 
 @pytest.mark.parametrize("kind", [ProviderKind.GITEA, ProviderKind.BITBUCKET_CLOUD])
