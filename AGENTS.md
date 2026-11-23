@@ -42,16 +42,19 @@ tooling plus `asciinema`/`agg` for regenerating `docs/assets/casts/*.gif`.
 
 ## Code Health (required before every commit)
 
-The repo uses a CodeScene-style code health score from 1 to 10 (`tools/code_health`, config
-`code-health.toml`, docs `docs/contributor-guide/code-health.md`). Target: repo ≥ 9.5, ideally 10.
+Code health is measured by **ai-health** (pinned in the `code-health` dependency group, profile
+"strict" in `.aihealth.toml`, docs `docs/contributor-guide/code-health.md`). Goal: 10, i.e. no
+findings; 9.5 is only the minimum.
 
-- Run `nox -s code-health -- --changed` (or `--changed --json` for structured output) **before every
-  commit**. Every changed file must reach ≥ 9.5 (or its value in `code-health-baseline.json`), must
-  not get worse than in the base commit, and the repo score must not drop.
-- **Fix smells instead of suppressing them.** Extract functions, flatten nesting with guard clauses,
-  introduce parameter objects or dataclasses, and parametrize tests or use assertion helpers.
-- Suppressions are allowed only as an inline comment with a reason, for example
-  `# code-health: ignore[complex-method] -- <why this is acceptable>`.
-- Refactorings must keep behaviour unchanged, and the tests must stay green. After improving a
-  grandfathered file, run `nox -s code-health -- --update-baseline` and commit the tighter baseline.
-- Do not change thresholds or weights in `code-health.toml` to make the gate pass.
+- Run `nox -s code-health -- delta --format json` **before every commit** (the pre-commit hook runs
+  `aihealth delta --staged`). No file may get worse, and new files must have no findings. CI also
+  checks against the merge-base and compares the component scores (repo, `src`, `tests`).
+- **Fix findings instead of suppressing them.** Extract shared helpers instead of duplicating code
+  (also in tests), use parameter objects or dataclasses, flatten nesting with guard clauses, and use
+  `@pytest.mark.usefixtures` for fixtures that are only needed for their side effects.
+- Suppressions are file-wide only and need a reason after ` -- `, for example
+  `# aihealth: disable=primitive_obsession -- typer CLI boundary`. Use them only where an interface
+  imposes the signature.
+- Refactorings must keep behaviour unchanged, and the tests must stay green.
+- Do not change `.aihealth.toml` to make the gate pass.
+- The own checker (`nox -s code-health-own`, `tools/code_health`) is a temporary cross-check.

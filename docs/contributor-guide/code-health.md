@@ -1,36 +1,102 @@
 # Code Health
 
-`nox -s code-health` computes a **CodeScene-inspired code health score from 1 to 10** for every
-Python file. It uses free/OSS tools only. This is **not** the proprietary CodeScene score: it
-reuses the concepts of [CodeScene Code Health](https://codescene.io/docs/guides/technical/code-health.html)
-and the "AI-Ready Code" white paper (A. Tornhill, 2026). The paper reports that AI-generated changes
-to unhealthy code have at least 60 % more defects, and it only studied code with health 7 or higher.
+Code health is measured with **[ai-health](https://github.com/epatel/ai-health)** (MIT, deterministic,
+no AI involved) and gated in pre-commit and CI. ai-health estimates a CodeScene-style score from 1 to
+10 per file and per project. It is **not** the proprietary CodeScene score. The concepts come from
+[CodeScene Code Health](https://codescene.io/docs/guides/technical/code-health.html) and the
+"AI-Ready Code" white paper (A. Tornhill, 2026). The paper reports that AI-generated changes to
+unhealthy code have at least 60 % more defects; it only studied code with health 7 or higher.
 Healthy code is a precondition for agents to work reliably. Tests, coverage and review are still
 required.
 
 | Band | Score |
 |------|-------|
-| green (healthy) | ≥ 9.0 |
-| yellow | 4.0 – 8.9 |
-| red | < 4.0 |
+| healthy | ≥ 9 |
+| warning | 4 – 9 |
+| alert | < 4 |
 
-**Repo target: ≥ 9.5, aiming for 10.**
+**Goal: 10, meaning no findings.** 9.5 is only the minimum on the way there.
 
 ## Usage
 
 ```sh
-nox -s code-health                                 # all files: table + gate against the baseline
-nox -s code-health -- --changed                    # only files changed vs merge-base with origin/main
-nox -s code-health -- --changed HEAD               # uncommitted changes only (what pre-commit runs)
-nox -s code-health -- --changed origin/main --json # machine-readable, for agents and CI
-nox -s code-health -- --update-baseline            # rewrite the ratchet baseline
+nox -s code-health                                  # report (scan) + gate (delta vs merge-base with origin/main)
+nox -s code-health -- delta                         # working tree (incl. untracked) vs HEAD
+nox -s code-health -- delta --format json           # machine-readable, for agents
+nox -s code-health -- scan src --format markdown    # report for one component
+nox -s code-health -- scan . --report               # full report in AI-HEALTH.md
+nox -s code-health-components                       # component scores (repo/src/tests): merge-base vs HEAD
 ```
 
-Without nox: `python -m tools.code_health …`. You need the `code-quality` extra installed.
+The nox session always passes `--config <repo>/.aihealth.toml`. Without it, `aihealth scan <dir>`
+would silently fall back to the defaults. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
+Its version is pinned to a commit in exactly one place: the `code-health` dependency group in
+`pyproject.toml`, locked in `uv.lock`.
 
-Exit codes: `0` gate passed, `1` gate failed, `2` tool error (for example a missing analyzer).
+## Profile "strict" (`.aihealth.toml`)
+
+`.aihealth.toml` is the single place to tune the profile (confirmed by the owner, Q15). All keys not
+listed use the ai-health defaults of the pinned release.
+
+| Key | Value | Default | Meaning |
+|---|---|---|---|
+| `thresholds.large_file` | 600 | 1000 | code lines per file |
+| `thresholds.primitive_obsession` | 0.3 | 0.6 | share of typed params that are primitive |
+| `score.decay` | 8 | 15 | steeper score curve |
+| `score.symbol_cap` | 4 | 4 | |
+| `score.density_loc` | 100000 | 300 | large files are not relieved through finding density |
+| `delta.tolerance` | 0.0 | 0.1 | any degradation fails the gate |
+| `scan.exclude` | `tools/code_health/*` | – | the temporary own checker (below) is not scored |
 
 ## Gate
+
+| Where | Command | Fails when |
+|---|---|---|
+| pre-commit `code-health` | `aihealth delta --config .aihealth.toml --staged` | a staged file got worse, or a new file has a finding |
+| PR CI, quality job | `delta --base "$(git merge-base origin/<base> HEAD)" --head HEAD` | same, for the whole PR |
+| PR CI, quality job | `nox -s code-health-components -- origin/<base>` | the project score of `.`, `src` or `tests` drops |
+| PR CI, job summary | `scan . --format markdown` | report only |
+
+The CI checks against the **merge-base**, so changes that landed on `main` later are not counted
+against the branch. The tree-sitter grammars (~30 MB, `~/.cache/tree-sitter-language-pack`) are
+cached in CI.
+
+### Suppressions
+
+ai-health only supports file-wide suppressions. Use them only where an interface imposes the
+signature (CLI/JSON boundaries). The reason must follow ` -- `; without that separator ai-health
+silently ignores the suppression. The pre-commit hook `aihealth-suppression-reason` enforces a
+reason of at least 10 characters.
+
+```python
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
+```
+
+Current suppressions: `src/repoenv/cli/commands/add.py` and `merge.py` (primitive_obsession, typer
+CLI boundary).
+
+### One source per smell
+
+Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
+pylint has its design checks (too-many-*, too-many-lines) disabled and no `fail-under` score gate.
+ruff is the single linter and formatter (Q8, replaces black/isort/flake8). The pylint sessions
+`duplicates` (R0801) and `cyclic_imports` still run; R0801 overlaps with ai-health's duplication
+smell and can go once the ai-health gate is established.
+
+## Working with agents
+
+Run `nox -s code-health -- delta --format json` (or the ai-health MCP server) before every commit.
+Fix findings instead of suppressing them. The output lists every new or worsened smell with
+`path:line` and a fix hint.
+
+## Own checker (cross-check, temporary)
+
+`tools/code_health` (`nox -s code-health-own`, config `code-health.toml`) was built first, from
+ruff, complexipy, pylint symilar and AST checks. It stays as a cross-check until the ai-health gate
+runs green in CI, then it can be removed. Its thresholds are looser than the CodeScene defaults
+(see the Steckbrief, section 4).
+
+### Gate
 
 The gate runs in pre-commit (`--changed HEAD`) and in the PR quality job (`--changed <PR base>`).
 
@@ -46,7 +112,7 @@ The gate runs in pre-commit (`--changed HEAD`) and in the PR quality job (`--cha
 A full run (without `--changed`) checks every file against target or baseline. It has no base
 comparison.
 
-## Score
+### Score
 
 Every file starts at `10.0`. Each smell subtracts `weight × min(cap, value / max)`, where `value` is
 the measured metric and `max` the largest allowed value. A smell is reported when
@@ -75,7 +141,7 @@ which is versioned and reviewed like code.
 | large-assertion-block | tests | AST | ≤ 3 consecutive assertions | assumption |
 | duplicated-assertion-block | tests | AST | identical block of ≥ 3 assertions repeated | assumption |
 
-### Reused linters, no duplicated checks
+#### Reused linters, no duplicated checks
 
 * **ruff** supplies cyclomatic complexity (C901), argument count (PLR0913) and nesting depth
   (PLR1702). The checker calls ruff with its own thresholds through `--config` overrides, so
@@ -87,7 +153,7 @@ which is versioned and reviewed like code.
   conditionals in any condition (not only `if`), LCOM4, primitive obsession, assertion blocks and
   large methods measured in code lines.
 
-### Conventions (assumptions)
+#### Conventions (assumptions)
 
 * Parameters declared as CLI options (`typer.Option`/`typer.Argument`, see `[cli]`) and
   pytest-injected fixture parameters of `test_*` functions and fixtures are not counted as
@@ -95,7 +161,7 @@ which is versioned and reviewed like code.
 * Duplicate detection runs on `src/` and `tools/`. Duplication in tests is covered by the
   assertion-block smells.
 
-## Suppressions
+### Suppressions
 
 Use suppressions only as an inline comment with a reason of at least 10 characters. Put it on the
 line of the smell, the line above it, or the `def` line of the enclosing function:
@@ -107,151 +173,133 @@ def parse(token):  # code-health: ignore[complex-method] -- mirrors the grammar 
 The checker ignores a suppression without a reason and prints a warning. **Fix smells instead of
 suppressing them.** Suppressed smells stay visible in the report.
 
-## Working with agents
+### Working with agents (own checker)
 
-Run `nox -s code-health -- --changed --json` before every commit. The JSON lists each changed file
+Optional cross-check: `nox -s code-health-own -- --changed --json`. The JSON lists each changed file
 with `score`, `smells[]` (`kind`, `line`, `value`, `max`, `deduction`) and `gate.violations`.
-Refactor until `gate.passed` is `true`.
+The own checker's gate (`gate.passed`) still runs in pre-commit and CI until it is removed.
+
 
 ## Steckbrief Code Health
 
 ### 1. Messumfang: was zählt, was nicht, mit Begründung
 
-- **Gemessen:** alle Python-Dateien unter `src/`, `tests/` und `tools/` sowie `noxfile.py` (155 Dateien, rund 11 600 Codezeilen). Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode. Der Checker bewertet sich selbst mit.
-- **Ausgenommen:**
-  - `src/repoenv/_version.py`: wird von hatch-vcs generiert.
-  - `tests/*/resources/*` und `tests/fixtures/*`: Testdaten, kein Code.
-  - Markdown, YAML und Shell. Das Repo ist ein reines Python-CLI, die übrigen Dateien sind Konfiguration oder Doku.
-- **LOC** zählt nur Codezeilen, also ohne Leerzeilen, Kommentare und Docstrings. Kommentare sollen den Score nicht verschlechtern.
+- **ai-health bewertet** alle von ihm unterstützten Dateien im Repo: Python unter `src/`, `tests/` und `noxfile.py`, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.
+- **Ausgenommen sind:**
+  - die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner;
+  - `tools/code_health/*`: Der eigene Checker ist eine befristete Gegenprobe und wird entfernt, sobald das ai-health-Gate in der CI grün läuft.
+- **Komponenten** für den Score-Vergleich: das ganze Repo (`.`), `src` und `tests`.
 
 ### 2. Tools und Versionen, je Sprache
 
-Nur Python, alle Tools frei bzw. OSS:
+| Tool | Version | Rolle |
+|---|---|---|
+| ai-health | 0.4.0, gepinnt auf Commit `033d186` | **einzige Quelle** für Smells und Score (tree-sitter-basiert, Python ≥ 3.11) |
+| ruff | 0.15.x | einziger Linter und Formatter (E/W/F/I und `ruff format`); keine Strukturregeln |
+| pylint | 4.0.x | nur R0801 (Duplikate, auslaufend) und R0401 (zyklische Importe), kein Score-Gate |
+| eigener Checker (`tools/code_health`) | – | Gegenprobe: ruff C901/PLR0913/PLR1702, complexipy 9.0, pylint symilar, AST |
 
-| Tool | Version | Rolle | Neu? |
-|---|---|---|---|
-| ruff | 0.15.20 | C901 (mccabe), PLR0913 (Argumente), PLR1702 (Verschachtelung) | vorhanden |
-| pylint `symilar` | 4.0.6 | Duplikate (gleiche Engine wie R0801 in `nox -s duplicates`) | vorhanden |
-| complexipy | 9.0.0 (MIT) | kognitive Komplexität | **neu**, kein vorhandener Linter liefert sie |
-| Python `ast`/`tokenize` | stdlib | eigene Checks (siehe 3) | — |
-| tomli | ≥ 2.0 | TOML nur auf Python 3.10 | neu, winzig |
-
-- **flake8:** Sein mccabe-Plugin würde dieselbe Kennzahl wie ruff C901 messen, deshalb wird es nicht zusätzlich eingesetzt.
-- **vulture:** Toter Code ist kein CodeScene-Kriterium. vulture bleibt als eigenes Gate (`dead_code`).
-- **lizard, radon/xenon, jscpd:** Nicht übernommen. Sie hätten ruff/pylint nur dupliziert, jscpd bräuchte außerdem Node.
+- black, isort und flake8 sind entfallen (Q8).
+- Die Versionsangabe für ai-health steht nur in der Dependency-Group `code-health` in `pyproject.toml` und ist in `uv.lock` festgeschrieben.
 
 ### 3. Abgebildete Smells, mit Zuordnung zu den CodeScene-Kriterien; nicht abgebildete mit Grund
 
-| CodeScene-Kriterium | Smell hier | Quelle |
-|---|---|---|
-| Complex Method | `complex-method` | ruff C901 |
-| Large Method | `large-method` | AST (Codezeilen) |
-| Brain Method | `brain-method` | abgeleitet: complex + large |
-| Primitive Obsession / viele Argumente | `primitive-obsession`, `many-arguments` | AST / ruff PLR0913 |
-| DRY Violations | `code-duplication` | pylint symilar |
-| Nested Complexity | `nested-complexity` | ruff PLR1702 |
-| Bumpy Road | `bumpy-road` | AST |
-| Complex Conditional | `complex-conditional` | AST (alle Bedingungen, nicht nur `if` wie ruff PLR0916) |
-| (kognitive Komplexität, Zusatz) | `cognitive-complexity` | complexipy |
-| Lines of Code | `large-file` | tokenize |
-| Brain/God Class | `brain-class` | abgeleitet |
-| Low Cohesion | `low-cohesion` (LCOM4 je Klasse) | AST |
-| (viele Funktionen, Zusatz) | `many-functions` | AST |
-| Large Assertion Blocks | `large-assertion-block` | AST |
-| Duplicated Assertion Blocks | `duplicated-assertion-block` | AST |
-
-Nicht abgebildet:
-- **Developer Congestion** und **Complex Code by Former Contributors:** Das sind Git-Verhaltensmetriken, keine Codeeigenschaften. Bei einem Ein-Personen-Repo sagen sie nichts aus.
-- **LCOM4 für Module aus freien Funktionen:** CLI-Module mit unabhängigen Commands wären dort immer „inkohäsiv“.
-- **Duplikate in Tests:** werden nicht gemessen, sie sind über die Assertion-Block-Smells abgedeckt (Annahme).
+- **Von ai-health abgebildet:** Brain Method, Large Method, Complex Method, Cognitive Complexity, Deep Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion (LCOM4), Primitive Obsession, Code Duplication.
+- **Nicht abgebildet:**
+  - **Large/Duplicated Assertion Blocks:** Nur der eigene Checker misst sie, weil ai-health sie nicht kennt. Duplizierte Tests fängt aber die Duplikat-Erkennung von ai-health.
+  - **Developer Congestion und Complex Code by Former Contributors:** Das sind Git-Verhaltensmetriken; in einem Ein-Personen-Repo sagen sie nichts aus.
+  - **Brain Class:** ai-health hat dafür keinen eigenen Smell. Low Cohesion und Large File decken den Großteil ab.
 
 ### 4. Schwellen, Gewichte und Score-Formel
 
-- **Formel:** Jede Datei startet bei 10.0, jeder Smell zieht `weight × min(cap, value / max)` ab, das Minimum ist 1.0.
-- **Repo-Score:** LOC-gewichteter Mittelwert; die schlechteste Datei wird zusätzlich ausgewiesen.
-- **Konfiguration:** alle Werte in `code-health.toml` (versioniert, `version = 1`); die Tabelle oben unter „Score“ nennt die Defaults.
-- **Wie CodeScene:** CC > 9, Verschachtelung ≥ 4, Funktion > 70 Zeilen, Bumpy Road ab 2 Bumps der Tiefe 2, Datei > 600 Zeilen, Assertion-Blöcke ab 4.
-- **Lockerer als die CodeScene-Standardwerte für Python** (nachträglich vom Owner bestätigt, Checker bewusst nicht mehr angepasst):
-  - Argumente: hier ab 5 markiert, CodeScene ab 4.
-  - Complex Conditional: hier ab 4 `and`/`or`, CodeScene ab 2 Verzweigungen.
-  - Primitive Obsession: hier ≥ 5 primitive Parameter (absolut), CodeScene 30 % Anteil.
-  - Duplikate: hier ≥ 6 identische Zeilen, CodeScene 10 Zeilen bei 75 % Ähnlichkeit.
-  - Duplizierte Assertion-Blöcke: hier ab 3 Assertions, CodeScene 4.
-- **Gegenprobe mit CodeScene-Schwellen** (Argumente max 3, Conditional max 1, Duplikate ab 10 Zeilen; Prozent- und Ähnlichkeitsregeln nicht nachgebildet): Repo **9.44** statt 9.97, 22 Dateien unter 9.5. Schlechteste Datei: `tests/integration/support/fake_scm.py` mit 5.40. Treffer: 43 × `many-arguments` (4 Argumente), 24 × `complex-conditional` (2–3 Operatoren).
-- **Annahmen:**
-  - Large Method > 70 Zeilen, kognitive Komplexität > 15, ≥ 2 Bumps.
-  - Datei > 600 Codezeilen, > 40 Funktionen, LCOM4 ≥ 3.
-  - ≥ 4 Assertions am Stück, Duplikat-Blöcke ab 3 Assertions, Code-Duplikate ab 6 Zeilen.
-  - Gewichte zwischen 0.2 (Assertion-Block) und 1.5 (Brain Method/Class).
-- **Ausgenommen von Argument-Zählungen** (vom Framework erzwungene Signaturen):
-  - `typer.Option`/`typer.Argument`-Parameter;
-  - pytest-injizierte Parameter von `test_*`-Funktionen und Fixtures.
+- **ai-health, Profil strict** (vom Owner bestätigt):
+  - eigene Werte: large_file 600, primitive_obsession 0.3, decay 8, symbol_cap 4, density_loc 100000, delta.tolerance 0;
+  - ai-health-Defaults für den Rest: Methode > 70 Zeilen, CC > 9, kognitive Komplexität > 15, Verschachtelung ≥ 4, Bumpy Road ≥ 2 Bumps, Argumente > 4, Complex Conditional ≥ 2 Operatoren, LCOM4 ≥ 3, Duplikate ab 6 Zeilen bzw. 50 Tokens.
+- **Formel ai-health:**
+  - Je Smell wird `weight × severity` aufsummiert, mit einem Deckel je Symbol (`symbol_cap`).
+  - Daraus folgt der Score über eine Abklingkurve: `decay` 8 macht sie steiler.
+  - Der Projekt-Score ist der LOC-gewichtete Mittelwert.
+  - Details stehen in `scoring.py` des gepinnten Releases.
+- **Eigener Checker:**
+  - Start bei 10, Abzug `weight × min(cap, value/max)`, Minimum 1, LOC-gewichtet (Konfiguration: `code-health.toml`).
+  - Er ist an mehreren Stellen lockerer als CodeScene: Argumente ab 5 statt 4, Bedingungen ab 4 statt 2 Operatoren, Primitive Obsession absolut statt 30 %, Duplikate ab 6 identischen Zeilen statt 10 Zeilen bei 75 % Ähnlichkeit.
 
 ### 5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit
 
-- **Befehl:** `nox -s code-health [-- --changed [BASE]] [--json] [--update-baseline]`. Ohne nox: `python -m tools.code_health`.
-- **Ausgabe:** Tabelle mit Score, LOC und Datei; darunter die Smells mit Zeile, Messwert, Schwelle und Abzug.
-- **`--json`:** liefert `repo_score`, `worst_file`, `files[].smells[]` und `gate.violations`.
-- **`--changed`:** prüft nur die Dateien, die sich gegenüber BASE geändert haben. BASE ist standardmäßig die merge-base mit `origin/main`, sonst `main` oder `HEAD`. Der Basis-Stand wird per `git archive` exportiert und parallel bewertet.
-- **Laufzeit:** Vollscan ca. 5 s, `--changed` ca. 5–7 s. Den größten Anteil hat pylint symilar mit rund 4,5 s; ruff, complexipy und die AST-Checks brauchen zusammen unter 1 s.
-- **Exit-Codes:** 0 bestanden, 1 Gate verletzt, 2 Tool-Fehler.
+- **Befehl:** `nox -s code-health`. Ohne Argumente erzeugt es den Bericht (`scan`) und prüft `delta` gegen die Merge-Base. Argumente reicht es an `aihealth` weiter.
+- **Komponenten-Vergleich:** `nox -s code-health-components`.
+- **Ausgabe:** Text, Markdown oder JSON (`--format`); `scan . --report` erzeugt einen vollständigen Bericht.
+- **Nur geänderte Dateien:** `delta` (Working Tree gegen HEAD), `delta --staged` (pre-commit) oder `delta --base <ref> --head HEAD` (CI).
+- **Laufzeit:** `scan` ca. 1,6 s, `delta` gegen die Merge-Base ca. 4 s, pre-commit-Hook ca. 0,3 s (aus dem uv-Cache).
+- Beim ersten Lauf lädt tree-sitter rund 30 MB Grammatiken; in der CI werden sie gecacht.
 
 ### 6. Gate: Hook, CI, Ratchet und Baseline, Suppressions
 
-- **Pre-commit:** der Hook `code-health` (`--changed HEAD`).
-- **CI:** im PR-Job „Quality gates“ als `--changed <PR-Base-SHA>`, mit `fetch-depth: 0`.
-- **Regeln:**
-  - Geänderte Dateien müssen ≥ 9.5 haben.
-  - Keine Datei darf schlechter werden als in der Basis.
-  - Der Repo-Score darf nicht sinken.
-  - Ein Vollscan prüft gegen `code-health-baseline.json`.
-- **Ratchet:** Die Baseline hielt anfangs 33 Dateien unter 9.5 fest. Seit dem Refactoring ist sie **leer**, es ist also keine Datei mehr unter 9.5 zugelassen.
-- **Suppressions:** nur inline als `# code-health: ignore[<smell>] -- <Begründung ≥ 10 Zeichen>`. Ohne Begründung werden sie ignoriert und erzeugen eine Warnung. Unterdrückte Smells bleiben im Report sichtbar. Aktuell gibt es **0** Suppressions.
+- **pre-commit:**
+  - `aihealth delta --staged` (Toleranz 0; neue Dateien dürfen keinen Fund haben);
+  - pygrep-Hook für die Begründung bei Suppressions.
+- **CI (PR-Quality-Job):**
+  - `delta` gegen die Merge-Base;
+  - Komponenten-Score von Merge-Base und Head; kein Score von `.`, `src` oder `tests` darf sinken;
+  - `scan` als Bericht in der Job-Summary.
+- **Ratchet:** ai-health braucht keine Baseline-Datei. Das `delta` gegen die Basis ist die Ratsche. Die eigene Baseline-Datei (`code-health-baseline.json`) ist leer.
+- **Suppressions:**
+  - nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`;
+  - aktuell 2, nämlich `primitive_obsession` in `cli/commands/add.py` und `merge.py`, wegen der typer-CLI-Grenze.
 
 ### 7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
 
-- **Vorher** (`main`, 138 Dateien): Repo **8.93**, 33 Dateien unter 9.5.
-  - Schlechteste: `services/environment_service.py` 1.00, `services/clone_service.py` 6.35, `cli/commands/add.py` 6.92, `cli/commands/create.py` 7.26.
-- **Nachher** (155 Dateien inkl. Checker und neuer Tests): Repo **9.97**, **0** Dateien unter 9.5.
-  - Schlechteste: `tests/integration/git/test_create_command_git_flow.py` mit 9.60.
-- **Verbleibende Smells** (15 Dateien, alle ≥ 9.6):
-  - je einmal `many-arguments` mit 5 Argumenten in `git_adapter.add_worktree`, `scm/rest.request`, `repo_url.build_clone_url` und einem Test-Helper;
-  - einmal `cognitive-complexity` 16 in `rm_command`;
-  - 9 große Assertion-Blöcke in Integrationstests.
-- **Hotspots:** Die größten haben jetzt alle 10.0 (environment_service, clone_service, pr_service, create/add/merge, resolve, didyoumean, config).
-- **Tests:** Alle Unit- und Integrationstests sind grün, das Verhalten ist unverändert.
+| Komponente | `main` (ai-health strict) | Branch |
+|---|---|---|
+| Repo | 6.87 | **7.82** |
+| `src` | 7.32 | **8.60** |
+| `tests` | 6.31 | **7.03** |
+
+- **Gate:** `delta` gegen `main` meldet IMPROVED, also keine Datei verschlechtert.
+- **Eigener Checker:** von 8.93 auf 9.97, 0 Dateien unter 9.5.
+- **Schlechteste Dateien (ai-health strict):**
+  - `tests/integration/git/test_repair.py` 2.37 und `test_worktree_conflicts.py` 2.58 (Duplikate);
+  - `tests/integration/cli/test_merge_branches.py` 3.64;
+  - `tests/integration/support/fake_scm.py` 4.13.
+- **Verbleibende Funde** (62 Dateien):
+  - Duplikate 81×, vor allem in Tests;
+  - Excess Arguments 31×, auch durch pytest-Fixtures, die ai-health als Parameter zählt;
+  - Primitive Obsession 22×;
+  - Complex Method 20×;
+  - Complex Conditional 17×;
+  - Cognitive Complexity 1×.
+- **Davon in `src`:** Primitive Obsession 17×, Complex Method 16×, Complex Conditional 12×, Excess Arguments 10×, Duplikate 3×, Cognitive Complexity 1×.
+- Die Refactorings in Richtung 10 brauchen die Freigabe des Owners.
 
 ### 8. Skills: geprüfte und übernommene Skills
 
 - **Geprüft:** Die SKILL.md-Dateien von 16 skills.sh-Treffern wurden gelesen.
-- **Shortlist:**
-  - `l-mb/python-refactoring-skills@py-complexity` (empfohlen, ohne dessen Setup-Schritt, der Claude-Settings ändert)
-  - `wondelai/skills@refactoring-patterns` (empfohlen)
-  - `l-mb/…@py-refactor`
-  - `l-mb/…@py-code-health`
-  - `github/awesome-copilot@refactor-method-complexity-reduce`
-  - `kucherenko/jscpd@dry-refactoring`
-  - `fastapi/typer@typer`
+- **Empfohlen:**
+  - `l-mb/python-refactoring-skills@py-complexity`, ohne dessen Setup-Schritt, der Claude-Settings ändert;
+  - `wondelai/skills@refactoring-patterns`.
 - **Ausgeschieden:** `*@codehealth-mcp`, weil es ein kostenpflichtiges Token braucht.
-- **Übernommen:** bisher keine. Installiert wird erst nach Freigabe durch den Owner.
+- **Übernommen:** bisher keine, es fehlt noch die Freigabe.
+- ai-health bringt selbst einen MCP-Server und Claude-Code-Hooks mit (`review_changes`, `preview_change`). Sie sind eine Alternative zu Skills, aber noch nicht eingerichtet.
 
 ### 9. Erfahrungen
 
 - **Gut:**
-  - Die vorhandenen Linter sind über `--config`-Overrides wiederverwendet. Es gibt keine zweite Konfiguration und keine doppelte Messung.
-  - Der Basisvergleich per `git archive` macht „nicht schlechter werden“ ohne Baseline-Merge-Konflikte prüfbar.
-  - `--json` mit Zeilennummern und Abzug pro Smell eignet sich gut für Agents: Vier parallele Agents haben die Hotspots in getrennten Datei-Gruppen ohne Rückfragen auf 10 gebracht.
+  - ai-health läuft deterministisch und schnell.
+  - `delta` gegen die Merge-Base ersetzt die Baseline-Datei.
+  - Die Fix-Hinweise mit `path:line` helfen Agents direkt.
+  - Der Einbau über eine uv-Dependency-Group hält die Version an einer Stelle und läuft offline aus dem Cache.
 - **Schwierig:**
-  - complexipy (Rust-Extension) ist nicht thread-safe; es gab Segfaults, bis die Aufrufe serialisiert wurden.
-  - pylint symilar ist der Laufzeit-Engpass.
-  - Agents neigen zum Metrik-Gaming. Beispiele: `**kwargs: Unpack[TypedDict]` statt Parameterobjekt, oder `staticmethod`-Aliase gegen LCOM4. Beides wurde im Review zurückgebaut. Ein Review bleibt also nötig.
-  - Unsere additive Formel ist strenger als CodeScene: Eine Datei mit vielen Smells fällt bis auf 1.0.
+  - **Werkzeug-Abhängigkeit:** Refactorings, die für den eigenen Checker gemacht wurden, waren unter ai-health teils schlechter. Beispiele: zusammengefasste Assertions erzeugten neue Duplikate, und ausgelagerte Helfer trieben die Primitive-Obsession-Quote über die Mindestzahl von 10 Parametern. Man sollte sich deshalb früh auf ein Werkzeug festlegen.
+  - **Stille Fallstricke:** Ohne `--config` fällt `scan <unterordner>` still auf die Defaults zurück, und eine Suppression ohne ` -- ` greift still nicht.
+  - **pytest-Fixtures:** ai-health zählt sie als Argumente. Abhilfe ist `@pytest.mark.usefixtures` für Fixtures, die nur Seiteneffekte haben.
+  - **Metrik-Gaming durch Agents:** Agents umgehen Metriken gern, etwa mit `**kwargs` oder Alias-Tricks. Ein Review bleibt nötig.
 - **Übertragbar:**
-  - Formel „Start 10, gewichtete Abzüge, LOC-gewichteter Mittelwert“;
-  - Gate-Logik aus Basisvergleich und Ratchet;
-  - Suppressions nur mit Begründung;
-  - AST-Checks für Bumpy Road, Assertion-Blöcke und LCOM4 bei anderen Python-Repos.
+  - Pin auf einen Commit;
+  - nox-Session mit festem `--config`;
+  - `delta` gegen die Merge-Base in der CI;
+  - Komponenten-Vergleich;
+  - pygrep-Hook für Suppressions;
+  - eine Quelle je Smell, also die Strukturregeln der Linter aus.
 - **Projektspezifisch:**
-  - Die Typer-Ausnahme, weil CLI-Optionen als Funktionsparameter deklariert werden.
-  - Die pytest-Fixture-Ausnahme.
-  - Duplikat-Messung nur in `src/` und `tools/`.
+  - Suppressions für typer-CLI-Module;
+  - pfadgefilterte PR-Jobs: `.aihealth.toml` steht im Filter.
