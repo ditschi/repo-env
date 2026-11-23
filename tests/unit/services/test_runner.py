@@ -25,8 +25,10 @@ def test_run_across_injects_env(monkeypatch) -> None:
     monkeypatch.setattr(Path, "exists", lambda self: True)
 
     results = runner.run_across(env, ["git", "status"], jobs=1)
-    assert len(results) == 1
-    assert results[0].exit_code == 0
-    assert captured["argv"] == ["git", "status"]
-    assert captured["env"]["ENV_NAME"] == "env1"
-    assert captured["env"]["REPO_NAME"] == "alpha"
+    assert [r.exit_code for r in results] == [0]
+    child_env = captured["env"]
+    assert (captured["argv"], child_env["ENV_NAME"], child_env["REPO_NAME"]) == (
+        ["git", "status"],
+        "env1",
+        "alpha",
+    )
