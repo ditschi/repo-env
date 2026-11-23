@@ -127,8 +127,9 @@ markers = [
 ]
 
 [dependency-groups]
-# Code health gate (ai-health, MIT). Pinned to a release: scores can change between versions.
+# Code health gate (ai-health, MIT). Pinned to the commit behind v0.4.0 (a commit pin resolves
+# offline from the cache; scores can change between versions). The only place this pin lives.
 # Python >= 3.11 only; used by `nox -s code-health` (3.12) and the pre-commit hook.
 code-health = [
-    "aihealth @ git+https://github.com/epatel/ai-health@v0.4.0 ; python_version >= '3.11'",
+    "aihealth @ git+https://github.com/epatel/ai-health@033d1867fe514867d944d9387ee72db0188eed47 ; python_version >= '3.11'",
 ]

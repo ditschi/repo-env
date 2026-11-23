@@ -19,6 +19,7 @@ PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
 TOOLS = "tools"
+AIHEALTH_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".aihealth.toml")
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
@@ -248,8 +249,8 @@ def cyclic_imports(session: nox.Session) -> None:
 def code_health(session: nox.Session) -> None:
     """Code health via ai-health (profile in .aihealth.toml); see docs/contributor-guide/code-health.md.
 
-    Without arguments: project report (``scan``) plus the gate ``delta --base origin/main``.
-    With arguments they go straight to ``aihealth``, e.g.
+    Without arguments: project report (``scan``) plus the gate ``delta`` against the merge-base
+    with origin/main. With arguments they go to ``aihealth`` (``--config`` is added), e.g.
     ``nox -s code-health -- delta --format json`` or ``nox -s code-health -- scan . --report``.
     """
     # Install exactly the locked dependency group (single version pin in pyproject.toml).
@@ -261,11 +262,13 @@ def code_health(session: nox.Session) -> None:
         "code-health",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
+    config = ("--config", AIHEALTH_CONFIG)  # never let a sub-path fall back to defaults silently
     if session.posargs:
-        session.run("aihealth", *session.posargs)
+        session.run("aihealth", *session.posargs[:1], *config, *session.posargs[1:])
         return
-    session.run("aihealth", "scan", ".", "--format", "markdown", "--max-findings", "20")
-    session.run("aihealth", "delta", "--base", "origin/main")
+    session.run("aihealth", "scan", ".", *config, "--format", "markdown", "--max-findings", "20")
+    base = session.run("git", "merge-base", "origin/main", "HEAD", silent=True, external=True)
+    session.run("aihealth", "delta", *config, "--base", str(base).strip(), "--head", "HEAD")
 
 
 @nox.session(name="code-health-own", python=DEFAULT_PYTHON, tags=["quality"])

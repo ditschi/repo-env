@@ -97,9 +97,14 @@ repos:
         types: [python]
       - id: code-health
         name: code-health (ai-health delta of staged changes)
-        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --staged
+        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --config .aihealth.toml --staged
         language: system
         pass_filenames: false
+      - id: aihealth-suppression-reason
+        name: "ai-health suppressions need a reason (# aihealth: disable=<smell> -- <why>)"
+        language: pygrep
+        entry: 'aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})'
+        types_or: [python, shell, makefile]
       - id: code-health-own
         name: code-health-own (cross-check, changed files vs HEAD)
         entry: uv run --isolated --extra code-quality python -m tools.code_health --changed HEAD

@@ -113,7 +113,7 @@ jobs:
       - name: Code health report (ai-health scan)
         run: nox -s code-health -- scan . --format markdown --max-findings 20 >> "$GITHUB_STEP_SUMMARY"
       - name: Code health gate (ai-health delta vs PR base)
-        run: nox -s code-health -- delta --base origin/${{ github.event.pull_request.base.ref }}
+        run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)" --head HEAD
       - name: Code health cross-check (own checker)
         run: nox -s code-health-own -- --changed ${{ github.event.pull_request.base.sha }}
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────

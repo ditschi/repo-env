@@ -13,7 +13,7 @@ resolution-markers = [
 [[package]]
 name = "aihealth"
 version = "0.4.0"
-source = { git = "https://github.com/epatel/ai-health?rev=v0.4.0#033d1867fe514867d944d9387ee72db0188eed47" }
+source = { git = "https://github.com/epatel/ai-health?rev=033d1867fe514867d944d9387ee72db0188eed47#033d1867fe514867d944d9387ee72db0188eed47" }
 dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
@@ -2334,7 +2334,7 @@ requires-dist = [
 provides-extras = ["all", "bitbucket", "code-quality", "dev", "docs", "gitlab", "lint", "test", "type-check"]
 
 [package.metadata.requires-dev]
-code-health = [{ name = "aihealth", marker = "python_full_version >= '3.11'", git = "https://github.com/epatel/ai-health?rev=v0.4.0" }]
+code-health = [{ name = "aihealth", marker = "python_full_version >= '3.11'", git = "https://github.com/epatel/ai-health?rev=033d1867fe514867d944d9387ee72db0188eed47" }]
 
 [[package]]
 name = "requests"
