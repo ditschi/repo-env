@@ -6,7 +6,10 @@ Uses uv backend, Python 3.10 default, and quality gates
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import tempfile
 
 import nox
 
@@ -20,6 +23,8 @@ PACKAGE = "repoenv"
 SRC = "src/repoenv"
 TOOLS = "tools"
 AIHEALTH_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".aihealth.toml")
+# Components whose ai-health project score must not drop between merge-base and HEAD.
+AIHEALTH_COMPONENTS = (".", "src", "tests")
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
@@ -248,7 +253,17 @@ def code_health(session: nox.Session) -> None:
     with origin/main. With arguments they go to ``aihealth`` (``--config`` is added), e.g.
     ``nox -s code-health -- delta --format json`` or ``nox -s code-health -- scan . --report``.
     """
-    # Install exactly the locked dependency group (single version pin in pyproject.toml).
+    _install_aihealth(session)  # exactly the locked dependency group (single pin in pyproject.toml)
+    config = ("--config", AIHEALTH_CONFIG)  # never let a sub-path fall back to defaults silently
+    if session.posargs:
+        session.run("aihealth", *session.posargs[:1], *config, *session.posargs[1:])
+        return
+    session.run("aihealth", "scan", ".", *config, "--format", "markdown", "--max-findings", "20")
+    base = session.run("git", "merge-base", "origin/main", "HEAD", silent=True, external=True)
+    session.run("aihealth", "delta", *config, "--base", str(base).strip(), "--head", "HEAD")
+
+
+def _install_aihealth(session: nox.Session) -> None:
     session.run_install(
         "uv",
         "sync",
@@ -257,13 +272,42 @@ def code_health(session: nox.Session) -> None:
         "code-health",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
-    config = ("--config", AIHEALTH_CONFIG)  # never let a sub-path fall back to defaults silently
-    if session.posargs:
-        session.run("aihealth", *session.posargs[:1], *config, *session.posargs[1:])
-        return
-    session.run("aihealth", "scan", ".", *config, "--format", "markdown", "--max-findings", "20")
-    base = session.run("git", "merge-base", "origin/main", "HEAD", silent=True, external=True)
-    session.run("aihealth", "delta", *config, "--base", str(base).strip(), "--head", "HEAD")
+
+
+def _component_scores(session: nox.Session) -> dict[str, float]:
+    scores = {}
+    for component in AIHEALTH_COMPONENTS:
+        out = session.run(
+            "aihealth", "scan", component, "--config", AIHEALTH_CONFIG, "--format", "json", silent=True
+        )
+        scores[component] = json.loads(str(out))["score"]
+    return scores
+
+
+@nox.session(name="code-health-components", python=CI_PYTHON, tags=["quality"])
+def code_health_components(session: nox.Session) -> None:
+    """Compare ai-health component scores (repo, src, tests) of the merge-base and HEAD.
+
+    Fails when any component score drops. Base defaults to the merge-base with origin/main;
+    pass another ref as argument, e.g. ``nox -s code-health-components -- origin/release``.
+    """
+    _install_aihealth(session)
+    ref = session.posargs[0] if session.posargs else "origin/main"
+    base = subprocess.run(["git", "merge-base", ref, "HEAD"], capture_output=True, text=True, check=True)
+    head_scores = _component_scores(session)
+    with tempfile.TemporaryDirectory(prefix="aihealth-base-") as tmp:
+        archive = subprocess.run(["git", "archive", base.stdout.strip()], capture_output=True, check=True)
+        subprocess.run(["tar", "-x", "-C", tmp], input=archive.stdout, check=True)
+        with session.chdir(tmp):
+            base_scores = _component_scores(session)
+    dropped = []
+    for component in AIHEALTH_COMPONENTS:
+        before, after = base_scores[component], head_scores[component]
+        session.log(f"component {component}: {before:.2f} -> {after:.2f}")
+        if after < before:
+            dropped.append(component)
+    if dropped:
+        session.error(f"component score dropped: {', '.join(dropped)}")
 
 
 @nox.session(name="code-health-own", python=DEFAULT_PYTHON, tags=["quality"])
