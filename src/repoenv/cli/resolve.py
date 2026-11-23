@@ -64,7 +64,7 @@ def _env_containing(registry: Registry, cwd: Path, active_name: str | None) -> E
     env = next((candidate for candidate in registry.list() if _is_within(cwd, candidate.path)), None)
     if env is not None and active_name and active_name != env.name:
         console.print_info(
-            f"Using environment '{env.name}' from current directory " f"(active: '{active_name}')."
+            f"Using environment '{env.name}' from current directory (active: '{active_name}')."
         )
     return env
 

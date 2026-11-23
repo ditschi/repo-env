@@ -59,9 +59,9 @@ def test_merge_intersect_conflicting_branch_prefers_left_and_reports(
 
     merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "intersect"])
     assert merge.exit_code == 0, merge.output
-    assert all(
-        text in merge.output for text in ("branch conflict", "feature/left", "feature/right")
-    ), merge.output
+    assert all(text in merge.output for text in ("branch conflict", "feature/left", "feature/right")), (
+        merge.output
+    )
 
     assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/left"
 

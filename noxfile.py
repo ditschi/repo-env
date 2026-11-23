@@ -1,7 +1,7 @@
 """Nox sessions for repo-env.
 
 Uses uv backend, Python 3.10 default, and quality gates
-(ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps/code-health).
+(ruff/pylint/mypy/vulture/fawltydeps/ai-health code-health).
 """
 
 from __future__ import annotations
@@ -164,21 +164,18 @@ def check_types(session: nox.Session) -> None:
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "lint"])
 def lint(session: nox.Session) -> None:
-    """Run ruff, black --check, flake8, isort --check."""
+    """Run ruff lint (pycodestyle, pyflakes, isort rules) and ruff format --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
-    session.run("black", "--check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
-    session.run("isort", "--check-only", "--skip", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
-    session.run("flake8", "--exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("ruff", "check", SRC, TOOLS, "tests", "noxfile.py")
+    session.run("ruff", "format", "--check", SRC, TOOLS, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "format"])
 def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
-    """Auto-format with black, isort, and ruff --fix (local only)."""
+    """Auto-fix with ruff (incl. import order) and format with ruff format (local only)."""
     session.install("-e", ".[lint]")
-    session.run("isort", "--skip", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
-    session.run("black", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
-    session.run("ruff", "check", "--fix", "--extend-exclude", GENERATED_VERSION_FILE, SRC, TOOLS, "tests")
+    session.run("ruff", "check", "--fix", SRC, TOOLS, "tests", "noxfile.py")
+    session.run("ruff", "format", SRC, TOOLS, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -196,12 +193,9 @@ def necessary_imports(session: nox.Session) -> None:
         "pyproject.toml",
         "--ignore-unused",
         "vulture",
-        "black",
         "commitizen",
         "complexipy",
         "fawltydeps",
-        "flake8",
-        "isort",
         "mike",
         "mkdocs",
         "mkdocs-material",

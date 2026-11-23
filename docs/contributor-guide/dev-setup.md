@@ -36,7 +36,7 @@ nox                  # default sessions: syntax, tests (3.12/3.13/3.14/3.15), li
 nox -s tests         # unit tests, all Python versions
 nox -s tests-3.12    # unit tests, specific Python version
 nox -s integration   # integration tests (real temp git repos, mocked provider APIs)
-nox -s lint          # ruff + black + flake8 + isort
+nox -s lint          # ruff check + ruff format --check
 nox -s check_types   # mypy
 nox -s docs          # build docs strict (fails on any warning)
 nox -s docs_serve    # live-reload local docs at http://127.0.0.1:8000
@@ -91,7 +91,7 @@ docs/              This site
 ## Code style
 
 - Line length: **110**
-- Formatter: **black** (primary) + **isort** (import order) + **ruff --fix** (auto-fixable lint)
+- Formatter: **ruff format** (black-compatible) + **ruff check --fix** (import order and auto-fixable lint)
 - Type hints required on all public interfaces (enforced by mypy strict)
 - Docstrings: Google style (enforced by mkdocstrings rendering)
 

@@ -32,7 +32,6 @@ jobs:
               - 'noxfile.py'
               - 'mypy.ini'
               - 'ruff.toml'
-              - '.flake8'
               - 'pylintrc'
               - 'vulture_whitelist.py'
               - 'tools/**'

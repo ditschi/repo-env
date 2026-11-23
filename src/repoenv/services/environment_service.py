@@ -212,7 +212,7 @@ def _expand_group_token(token: str, groups: dict[str, str]) -> str:
     if group_name not in groups:
         raise UsageError(
             f"Unknown repo group '@{group_name}'.",
-            hint="Set it with 'renv config groups.<name> <pattern>', " "or run 'renv config' to list groups.",
+            hint="Set it with 'renv config groups.<name> <pattern>', or run 'renv config' to list groups.",
         )
     return groups[group_name]
 
@@ -314,8 +314,7 @@ def _reject_linked_worktree_source(repo_path: Path) -> None:
     raise UsageError(
         f"Source repository '{repo_path}' is a linked worktree and cannot host new worktrees.",
         hint=(
-            "Use the main clone/repository as --source, or omit "
-            "--include-worktrees to skip linked worktrees."
+            "Use the main clone/repository as --source, or omit --include-worktrees to skip linked worktrees."
         ),
     )
 

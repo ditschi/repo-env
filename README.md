@@ -78,4 +78,4 @@ uv python install 3.15
 nox -s tests-3.15 --download-python always
 ```
 
-Quality: line length 110, ruff + black + flake8 + isort + mypy + vulture + fawltydeps.
+Quality: line length 110, ruff (lint + format) + mypy + vulture + fawltydeps.

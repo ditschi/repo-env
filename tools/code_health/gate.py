@@ -16,9 +16,7 @@ DEFAULT_BASES = ("origin/main", "main")
 
 
 def _git(root: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, check=False
-    )  # nosec B603 B607
+    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)  # nosec B603 B607
     if proc.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {proc.stderr.strip()}")
     return proc.stdout

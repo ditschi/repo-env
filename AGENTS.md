@@ -16,7 +16,7 @@ Tooling is managed with **uv** (package manager) and **nox** (task runner). See
   `source .venv/bin/activate`, or via `uv run <tool>`.
 
 ### Common commands
-- Lint: `nox -s lint` (ruff + black --check + isort --check + flake8)
+- Lint: `nox -s lint` (ruff check + ruff format --check)
 - Types: `nox -s check_types` (mypy)
 - Unit tests: `nox -s tests` (parametrized 3.10–3.14) or `.venv/bin/pytest tests/unit/`
 - Integration tests: `.venv/bin/pytest -m integration tests/integration/`

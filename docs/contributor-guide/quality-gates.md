@@ -31,7 +31,7 @@ CI uses **3.12** for integration — the same primary version as lint, types, an
 | `tests` | pytest + pytest-cov + pytest-xdist | 3.12, 3.13, 3.14, 3.15 | Unit tests with coverage |
 | `integration` | pytest | 3.12 | Real temp git repos + mocked provider APIs |
 | `performance` | pytest | 3.12 | CLI cold-start latency budgets (help + bash completion) |
-| `lint` | ruff + black + flake8 + isort | 3.12 | Style + lint |
+| `lint` | ruff check + ruff format --check | 3.12 | Style + lint (pycodestyle, pyflakes, isort rules) |
 | `check_types` | mypy | 3.12 | Static type checking |
 | `necessary_imports` | fawltydeps | 3.12 | Undeclared / unused dependencies |
 | `dead_code` | vulture | 3.12 | Unused code |
@@ -53,7 +53,7 @@ mypy is configured in `mypy.ini`. Key settings:
 
 ## Line length
 
-110 characters. Configured uniformly in `pyproject.toml` (black, isort), `ruff.toml`, and `.flake8`.
+110 characters, configured in `ruff.toml`.
 
 ## Running a single gate
 
