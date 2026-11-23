@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -93,22 +94,31 @@ def test_init_non_interactive(repoenv_home: Path) -> None:
     assert cfg.dest == dest
 
 
-def test_ask_path_uses_directory_completion(monkeypatch) -> None:
-    captured: dict[str, object] = {}
+@dataclass(frozen=True)
+class _FakeQuestion:
+    answer: str | None
 
-    class _DummyQuestion:
-        def unsafe_ask(self) -> str:
-            return "~/clones"
+    def unsafe_ask(self) -> str | None:
+        return self.answer
 
-    def _fake_path(message: str, default: str, only_directories: bool):
-        captured["message"] = message
-        captured["default"] = default
-        captured["only_directories"] = only_directories
-        return _DummyQuestion()
 
+def _patch_questionary_path(monkeypatch: pytest.MonkeyPatch, question: _FakeQuestion) -> dict[str, object]:
+    """Make ``questionary.path`` return ``question``; returns the arguments it was called with."""
     import questionary
 
+    captured: dict[str, object] = {}
+
+    def _fake_path(message: str, default: str, only_directories: bool) -> _FakeQuestion:
+        captured.update(message=message, default=default, only_directories=only_directories)
+        return question
+
     monkeypatch.setattr(questionary, "path", _fake_path)
+    return captured
+
+
+def test_ask_path_uses_directory_completion(monkeypatch) -> None:
+    captured = _patch_questionary_path(monkeypatch, _FakeQuestion("~/clones"))
+
     result = init_module._ask_path("Source directory of clones", Path("/tmp/default"))
 
     assert captured == {
@@ -121,36 +131,60 @@ def test_ask_path_uses_directory_completion(monkeypatch) -> None:
 
 def test_ask_path_uses_default_when_empty_answer(monkeypatch) -> None:
     default = Path("/tmp/default")
+    _patch_questionary_path(monkeypatch, _FakeQuestion(""))
 
-    class _DummyQuestion:
-        def unsafe_ask(self):
-            return ""
-
-    def _fake_path(message: str, default: str, only_directories: bool):
-        return _DummyQuestion()
-
-    import questionary
-
-    monkeypatch.setattr(questionary, "path", _fake_path)
     result = init_module._ask_path("Source directory of clones", default)
 
     assert result == default
 
 
 def test_ask_path_none_answer_raises_keyboard_interrupt(monkeypatch) -> None:
-    class _DummyQuestion:
-        def unsafe_ask(self):
-            return None
-
-    def _fake_path(message: str, default: str, only_directories: bool):
-        return _DummyQuestion()
-
-    import questionary
-
-    monkeypatch.setattr(questionary, "path", _fake_path)
+    _patch_questionary_path(monkeypatch, _FakeQuestion(None))
 
     with pytest.raises(KeyboardInterrupt):
         init_module._ask_path("Source directory of clones", Path("/tmp/default"))
+
+
+def _fake_interactive_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+
+
+def _run_interactive_init() -> None:
+    init_module.init_command(
+        source=None,
+        dest=None,
+        default_branch=None,
+        install_completion=False,
+        yes=False,
+    )
+
+
+def _cancel_prompt(_prompt, _default):
+    raise KeyboardInterrupt()
+
+
+def _record_save_config(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    """Replace ``config_store.save_config``; returns the list of configs it was asked to save."""
+    saved: list[object] = []
+
+    def _fake_save_config(config):
+        saved.append(config)
+        return Path("/tmp/unused")
+
+    monkeypatch.setattr(config_store, "save_config", _fake_save_config)
+    return saved
+
+
+@dataclass
+class _AcceptDefaultPrompt:
+    """Fake prompt that accepts its default and records every default it was offered."""
+
+    asked: list[object] = field(default_factory=list)
+
+    def __call__(self, _prompt: str, default: object) -> object:
+        self.asked.append(default)
+        return default
 
 
 def test_init_interactive_prefills_from_existing_config(repoenv_home: Path, monkeypatch) -> None:
@@ -160,89 +194,39 @@ def test_init_interactive_prefills_from_existing_config(repoenv_home: Path, monk
         config_store.UserConfig(source=existing_source, dest=existing_dest, default_branch="main")
     )
 
-    asked_path_defaults: list[Path] = []
-    asked_text_defaults: list[str] = []
+    ask_path = _AcceptDefaultPrompt()
+    ask_text = _AcceptDefaultPrompt()
 
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    _fake_interactive_terminal(monkeypatch)
+    monkeypatch.setattr(init_module, "_ask_path", ask_path)
+    monkeypatch.setattr(init_module, "_ask_text", ask_text)
 
-    def _fake_ask_path(_prompt: str, default: Path) -> Path:
-        asked_path_defaults.append(default)
-        return default
+    _run_interactive_init()
 
-    def _fake_ask_text(_prompt: str, default: str) -> str:
-        asked_text_defaults.append(default)
-        return default
-
-    monkeypatch.setattr(init_module, "_ask_path", _fake_ask_path)
-    monkeypatch.setattr(init_module, "_ask_text", _fake_ask_text)
-
-    init_module.init_command(
-        source=None,
-        dest=None,
-        default_branch=None,
-        install_completion=False,
-        yes=False,
-    )
-
-    assert asked_path_defaults == [existing_source, existing_dest]
-    assert asked_text_defaults == ["main"]
+    assert ask_path.asked == [existing_source, existing_dest]
+    assert ask_text.asked == ["main"]
 
 
 def test_init_ctrl_c_aborts_without_writing(monkeypatch) -> None:
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(
-        init_module, "_ask_path", lambda _prompt, _default: (_ for _ in ()).throw(KeyboardInterrupt())
-    )
-
-    save_called = False
-
-    def _fake_save_config(_config):
-        nonlocal save_called
-        save_called = True
-        return Path("/tmp/unused")
-
-    monkeypatch.setattr(config_store, "save_config", _fake_save_config)
+    _fake_interactive_terminal(monkeypatch)
+    monkeypatch.setattr(init_module, "_ask_path", _cancel_prompt)
+    saved = _record_save_config(monkeypatch)
 
     with pytest.raises(typer.Exit) as exc:
-        init_module.init_command(
-            source=None,
-            dest=None,
-            default_branch=None,
-            install_completion=False,
-            yes=False,
-        )
+        _run_interactive_init()
 
     assert exc.value.exit_code == 130
-    assert save_called is False
+    assert saved == []
 
 
 def test_init_none_cancel_aborts_without_writing(monkeypatch) -> None:
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    _fake_interactive_terminal(monkeypatch)
     monkeypatch.setattr(init_module, "_ask_path", lambda _prompt, default: default)
-    monkeypatch.setattr(
-        init_module, "_ask_text", lambda _prompt, _default: (_ for _ in ()).throw(KeyboardInterrupt())
-    )
-
-    save_called = False
-
-    def _fake_save_config(_config):
-        nonlocal save_called
-        save_called = True
-        return Path("/tmp/unused")
-
-    monkeypatch.setattr(config_store, "save_config", _fake_save_config)
+    monkeypatch.setattr(init_module, "_ask_text", _cancel_prompt)
+    saved = _record_save_config(monkeypatch)
 
     with pytest.raises(typer.Exit) as exc:
-        init_module.init_command(
-            source=None,
-            dest=None,
-            default_branch=None,
-            install_completion=False,
-            yes=False,
-        )
+        _run_interactive_init()
 
     assert exc.value.exit_code == 130
-    assert save_called is False
+    assert saved == []
