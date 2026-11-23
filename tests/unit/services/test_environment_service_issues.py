@@ -48,15 +48,8 @@ def _assert_linked_worktree_skipped(
 # ---------------------------------------------------------------------------
 
 
-def test_build_create_plan_skips_linked_worktrees_by_default(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    source = tmp_path / "source"
-    source.mkdir()
-    wt = source / "linked-wt"
-    wt.mkdir()
-    (wt / ".git").write_text("gitdir: /main/.git/worktrees/linked-wt\n")
-
+def _discover_main_repo_and_linked_worktree(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Discovery finds ``main-repo`` and ``linked-wt``; only the latter is a linked worktree."""
     monkeypatch.setattr(
         environment_service.git_adapter,
         "discover_repos",
@@ -68,14 +61,31 @@ def test_build_create_plan_skips_linked_worktrees_by_default(
         lambda path: path.name == "linked-wt",
     )
 
-    plan = environment_service.build_create_plan(
+
+def _plan_env(source: Path, dest: Path, *, include_worktrees: bool) -> environment_service.CreatePlan:
+    """Plan an env ``env`` from ``source`` into ``dest``."""
+    return environment_service.build_create_plan(
         environment_service.CreateRequest(
             name="env",
             source=source,
-            dest=tmp_path / "dest",
+            dest=dest,
             default_branch="main",
+            include_worktrees=include_worktrees,
         )
     )
+
+
+def test_build_create_plan_skips_linked_worktrees_by_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    wt = source / "linked-wt"
+    wt.mkdir()
+    (wt / ".git").write_text("gitdir: /main/.git/worktrees/linked-wt\n")
+    _discover_main_repo_and_linked_worktree(monkeypatch)
+
+    plan = _plan_env(source, tmp_path / "dest", include_worktrees=False)
 
     _assert_linked_worktree_skipped(plan)
 
@@ -85,27 +95,9 @@ def test_build_create_plan_includes_linked_worktrees_when_flag_set(
 ) -> None:
     source = tmp_path / "source"
     source.mkdir()
+    _discover_main_repo_and_linked_worktree(monkeypatch)
 
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "discover_repos",
-        lambda _: ["main-repo", "linked-wt"],
-    )
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "is_linked_worktree",
-        lambda path: path.name == "linked-wt",
-    )
-
-    plan = environment_service.build_create_plan(
-        environment_service.CreateRequest(
-            name="env",
-            source=source,
-            dest=tmp_path / "dest",
-            default_branch="main",
-            include_worktrees=True,
-        )
-    )
+    plan = _plan_env(source, tmp_path / "dest", include_worktrees=True)
 
     assert "linked-wt" in plan.repos
     assert plan.skipped_worktrees == []
@@ -210,23 +202,23 @@ def test_build_create_plan_resolves_relative_dest(monkeypatch: pytest.MonkeyPatc
 # ---------------------------------------------------------------------------
 
 
-def test_execute_create_plan_raises_when_dest_exists_with_content(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-    env_path.mkdir(parents=True)
-    (env_path / "stray-file.txt").write_text("leftover", encoding="utf-8")
-
-    plan = environment_service.CreatePlan(
+def _myenv_create_plan(tmp_path: Path, repos: list[str]) -> environment_service.CreatePlan:
+    """Plan for env ``myenv`` at ``tmp_path/envs/myenv`` from ``tmp_path/source``."""
+    return environment_service.CreatePlan(
         name="myenv",
-        env_path=env_path,
-        source=source,
+        env_path=tmp_path / "envs" / "myenv",
+        source=tmp_path / "source",
         base_branch="main",
         new_branch=None,
         alias=None,
-        repos=["repo-a"],
+        repos=repos,
     )
+
+
+def test_execute_create_plan_raises_when_dest_exists_with_content(tmp_path: Path) -> None:
+    plan = _myenv_create_plan(tmp_path, ["repo-a"])
+    plan.env_path.mkdir(parents=True)
+    (plan.env_path / "stray-file.txt").write_text("leftover", encoding="utf-8")
 
     with pytest.raises(UsageError, match="already exists and is not empty"):
         environment_service.execute_create_plan(plan)
@@ -236,20 +228,9 @@ def test_execute_create_plan_does_not_raise_when_dest_has_renv_marker(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A directory that already has a .repoenv.json is a resumed env, not a conflict."""
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-    env_path.mkdir(parents=True)
-    (env_path / ".repoenv.json").write_text("{}", encoding="utf-8")
-
-    plan = environment_service.CreatePlan(
-        name="myenv",
-        env_path=env_path,
-        source=source,
-        base_branch="main",
-        new_branch=None,
-        alias=None,
-        repos=[],  # nothing to do
-    )
+    plan = _myenv_create_plan(tmp_path, [])  # nothing to do
+    plan.env_path.mkdir(parents=True)
+    (plan.env_path / ".repoenv.json").write_text("{}", encoding="utf-8")
 
     _base_monkeypatches(monkeypatch)
     env = environment_service.execute_create_plan(plan)
@@ -271,18 +252,7 @@ def _progress_recorder() -> tuple[list[tuple[str, int, int]], environment_servic
 
 
 def test_execute_create_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-
-    plan = environment_service.CreatePlan(
-        name="myenv",
-        env_path=env_path,
-        source=source,
-        base_branch="main",
-        new_branch=None,
-        alias=None,
-        repos=["alpha", "beta"],
-    )
+    plan = _myenv_create_plan(tmp_path, ["alpha", "beta"])
 
     _base_monkeypatches(monkeypatch)
     calls, options = _progress_recorder()
