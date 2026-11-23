@@ -2,69 +2,53 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
-from repoenv.cli.app import app
 from tests.integration.support import gitfixtures
-from tests.integration.support.gitfixtures import RepoFactory, run_git
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.gitfixtures import run_git
+from tests.integration.support.renv_helpers import Renv, env_meta
+
+_SERVICES = ("svc-alpha", "svc-beta", "svc-gamma")
 
 
-def test_power_user_batch_edit_commit_push_and_pr(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    for name in ("svc-alpha", "svc-beta", "svc-gamma"):
-        repo_factory.make_bare_and_clone(name)
+def _batch_of_services(renv: Renv, branch: str) -> Path:
+    """Create env ``batch`` on ``branch`` with all ``svc-*`` repos; returns its directory."""
+    renv.setup(*_SERVICES)
+    renv.ok("create", "batch", "--branch", branch, "--include", "svc-*")
+    return renv.worktrees / "batch"
+
+
+def _point_origin_at_github_keep_local_push(renv: Renv, worktree: Path, branch: str) -> None:
+    """Push ``branch`` to the local bare remote, then make origin look like GitHub for ``renv pr``."""
+    run_git(["push", "-u", "origin", branch], cwd=worktree)
+    bare = renv.repos.remotes / f"{worktree.name}.git"
+    run_git(["remote", "set-url", "--push", "origin", str(bare)], cwd=worktree)
+    run_git(["remote", "set-url", "origin", f"git@github.com:example/{worktree.name}.git"], cwd=worktree)
+
+
+def _head(worktree: Path) -> str:
+    return run_git(["rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+
+
+def test_power_user_batch_edit_commit_push_and_pr(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     branch = "feature/rollout"
+    batch = _batch_of_services(renv, branch)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    create = runner.invoke(
-        app,
-        ["create", "batch", "--branch", branch, "--include", "svc-*"],
+    write_shared = (
+        "from pathlib import Path; Path('shared.txt').write_text('batch-change\\n', encoding='utf-8')"
     )
-    assert create.exit_code == 0, create.output
-
-    edit = runner.invoke(
-        app,
-        [
-            "run",
-            "batch",
-            "--",
-            "python3",
-            "-c",
-            "from pathlib import Path; Path('shared.txt').write_text('batch-change\\n', encoding='utf-8')",
-        ],
-    )
-    assert edit.exit_code == 0, edit.output
+    renv.ok("run", "batch", "--", "python3", "-c", write_shared)
 
     commit_msg = "chore: apply shared rollout change"
-    commit = runner.invoke(
-        app,
-        ["run", "batch", "--shell", "--", f"git add -A && git commit -m '{commit_msg}'"],
-    )
-    assert commit.exit_code == 0, commit.output
+    renv.ok("run", "batch", "--shell", "--", f"git add -A && git commit -m '{commit_msg}'")
 
-    for name in ("svc-alpha", "svc-beta", "svc-gamma"):
-        wt = worktrees_dir / "batch" / name
-        assert gitfixtures.latest_commit_message(wt) == commit_msg
+    for name in _SERVICES:
+        assert gitfixtures.latest_commit_message(batch / name) == commit_msg
 
-    for name in ("svc-alpha", "svc-beta", "svc-gamma"):
-        wt = worktrees_dir / "batch" / name
-        run_git(["push", "-u", "origin", branch], cwd=wt)
-        run_git(
-            ["remote", "set-url", "--push", "origin", str(repo_factory.remotes / f"{name}.git")],
-            cwd=wt,
-        )
-        run_git(["remote", "set-url", "origin", f"git@github.com:example/{name}.git"], cwd=wt)
+    for name in _SERVICES:
+        _point_origin_at_github_keep_local_push(renv, batch / name, branch)
 
     created: list[tuple[str, str]] = []
 
@@ -82,129 +66,64 @@ def test_power_user_batch_edit_commit_push_and_pr(
     monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", fake_existing_pr_url)
     monkeypatch.setattr("repoenv.adapters.gh_adapter.create_pr", fake_create_pr)
 
-    pr = runner.invoke(
-        app,
-        ["pr", "batch", "--title", "Rollout {repo}", "--body", "env={env}", "--push"],
-    )
-    assert pr.exit_code == 0, pr.output
+    renv.ok("pr", "batch", "--title", "Rollout {repo}", "--body", "env={env}", "--push")
     assert len(created) == 3
     assert created[0][1] == "Rollout svc-alpha"
 
 
-def test_subset_follow_up_only_touches_marked_repos(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    for name in ("svc-alpha", "svc-beta", "svc-gamma"):
-        repo_factory.make_bare_and_clone(name)
+def test_subset_follow_up_only_touches_marked_repos(renv: Renv) -> None:
+    batch = _batch_of_services(renv, "feature/followup")
+    beta_head_before = _head(batch / "svc-beta")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(
-            app,
-            ["create", "batch", "--branch", "feature/followup", "--include", "svc-*"],
-        ).exit_code
-        == 0
+    marked = ("svc-alpha", "svc-gamma")
+    for name in marked:
+        (batch / name / ".needs-followup").write_text("yes\n", encoding="utf-8")
+
+    follow_up = (
+        "if [ -f .needs-followup ]; then "
+        "echo 'follow-up' >> shared.txt && git add shared.txt .needs-followup && "
+        "git commit -m 'chore: follow-up subset'; fi"
     )
+    renv.ok("run", "batch", "--shell", "--", follow_up)
 
-    beta_head_before = run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / "svc-beta").stdout.strip()
-
-    for name in ("svc-alpha", "svc-gamma"):
-        (worktrees_dir / "batch" / name / ".needs-followup").write_text("yes\n", encoding="utf-8")
-
-    follow_up = runner.invoke(
-        app,
-        [
-            "run",
-            "batch",
-            "--shell",
-            "--",
-            (
-                "if [ -f .needs-followup ]; then "
-                "echo 'follow-up' >> shared.txt && git add shared.txt .needs-followup && "
-                "git commit -m 'chore: follow-up subset'; fi"
-            ),
-        ],
-    )
-    assert follow_up.exit_code == 0, follow_up.output
-
-    heads = {
-        name: run_git(["rev-parse", "HEAD"], cwd=worktrees_dir / "batch" / name).stdout.strip()
-        for name in ("svc-alpha", "svc-beta", "svc-gamma")
-    }
-    assert {name for name, head in heads.items() if head != beta_head_before} == {"svc-alpha", "svc-gamma"}
-    marked_messages = {
-        name: gitfixtures.latest_commit_message(worktrees_dir / "batch" / name)
-        for name in ("svc-alpha", "svc-gamma")
-    }
-    assert marked_messages == {"svc-alpha": "chore: follow-up subset", "svc-gamma": "chore: follow-up subset"}
+    heads = {name: _head(batch / name) for name in _SERVICES}
+    assert {name for name, head in heads.items() if head != beta_head_before} == set(marked)
+    marked_messages = {name: gitfixtures.latest_commit_message(batch / name) for name in marked}
+    assert marked_messages == dict.fromkeys(marked, "chore: follow-up subset")
 
 
-def test_same_branch_across_disjoint_envs(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_same_branch_across_disjoint_envs(renv: Renv) -> None:
+    renv.setup("alpha", "beta")
     branch = "feature/shared-name"
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    first = runner.invoke(
-        app,
-        ["create", "env-a", "--branch", branch, "--include", "alpha"],
-    )
-    second = runner.invoke(
-        app,
-        ["create", "env-b", "--branch", branch, "--include", "beta"],
-    )
+    first = renv.invoke("create", "env-a", "--branch", branch, "--include", "alpha")
+    second = renv.invoke("create", "env-b", "--branch", branch, "--include", "beta")
     assert first.exit_code == 0, first.output
     assert second.exit_code == 0, second.output
     branches = (
-        gitfixtures.current_branch(worktrees_dir / "env-a" / "alpha"),
-        gitfixtures.current_branch(worktrees_dir / "env-b" / "beta"),
+        gitfixtures.current_branch(renv.worktrees / "env-a" / "alpha"),
+        gitfixtures.current_branch(renv.worktrees / "env-b" / "beta"),
     )
     assert branches == (branch, branch)
 
 
-def test_mixed_manual_branch_state_then_move_follow_up(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    alpha = repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
-    gitfixtures.checkout_branch_in_source(alpha, "feature/mixed")
+def test_mixed_manual_branch_state_then_move_follow_up(renv: Renv) -> None:
     branch = "feature/mixed"
+    alpha, _ = renv.setup("alpha", "beta")
+    gitfixtures.checkout_branch_in_source(alpha, branch)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
+    renv.ok("create", "mixed", "--branch", branch)
 
-    initial = runner.invoke(app, ["create", "mixed", "--branch", branch])
-    assert initial.exit_code == 0, initial.output
-
-    alpha_wt = worktrees_dir / "mixed" / "alpha"
-    beta_wt = worktrees_dir / "mixed" / "beta"
+    alpha_wt = renv.worktrees / "mixed" / "alpha"
     assert gitfixtures.is_detached(alpha_wt) is True
-    assert gitfixtures.current_branch(beta_wt) == branch
+    assert gitfixtures.current_branch(renv.worktrees / "mixed" / "beta") == branch
 
-    meta = json.loads((worktrees_dir / "mixed" / ".repoenv.json").read_text(encoding="utf-8"))
-    alpha_entry = next(item for item in meta["environment"]["repos"] if item["repo"] == "alpha")
+    repos = env_meta(renv.worktrees / "mixed")["environment"]["repos"]
+    alpha_entry = next(item for item in repos if item["repo"] == "alpha")
     assert alpha_entry["note"] is not None
     assert "detached" in alpha_entry["note"].lower()
 
     run_git(["worktree", "remove", "--force", str(alpha_wt)], cwd=alpha)
-    move_result = runner.invoke(
-        app,
-        [
-            "create",
-            "mixed-move",
-            "--branch",
-            branch,
-            "--include",
-            "alpha",
-            "--on-branch-conflict",
-            "move",
-        ],
-    )
-    assert move_result.exit_code == 0, move_result.output
-    moved_wt = worktrees_dir / "mixed-move" / "alpha"
-    assert gitfixtures.current_branch(moved_wt) == branch
+    renv.ok("create", "mixed-move", "--branch", branch, "--include", "alpha", "--on-branch-conflict", "move")
+    assert gitfixtures.current_branch(renv.worktrees / "mixed-move" / "alpha") == branch
     assert gitfixtures.current_branch(alpha) == "main"

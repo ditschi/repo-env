@@ -6,14 +6,12 @@ import json
 import subprocess
 
 import pytest
-from typer.testing import CliRunner
 
 from repoenv.adapters import config_store, gh_adapter, git_adapter
 from repoenv.adapters.scm import credentials, rest
 from repoenv.adapters.scm.credentials import Credential
-from repoenv.cli.app import app
 from tests.integration.support.gitfixtures import run_git
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.renv_helpers import Renv
 
 
 def _api_request(url, *, method, payload, headers):
@@ -44,61 +42,64 @@ _REMOTES = {
 }
 
 
-def _mixed_provider_env(repo_factory, source_dir, worktrees_dir) -> CliRunner:
+def _mixed_provider_env(renv: Renv) -> None:
     """Create env 'env' on feature/x with one repo per provider; pushes land in local bare repos."""
-    for name in _REMOTES:
-        repo_factory.make_bare_and_clone(name)
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "env", "--branch", "feature/x"])
-    assert result.exit_code == 0, result.output
+    clones = renv.setup(*_REMOTES)
+    renv.ok("create", "env", "--branch", "feature/x")
     config = config_store.load_config()
     config.providers = {
         "bb.example": "bitbucket-server https://bb.example/bitbucket",
         "forge.example": "gitea",
     }
     config_store.save_config(config)
-    for name, remote in _REMOTES.items():
-        source = repo_factory.clone_path(name)
-        bare = str(repo_factory.remotes / f"{name}.git")
+    for source, remote in zip(clones, _REMOTES.values()):
+        bare = str(renv.repos.remotes / f"{source.name}.git")
         run_git(["remote", "set-url", "origin", remote], cwd=source)
         run_git(["remote", "set-url", "--push", "origin", bare], cwd=source)
-    return runner
 
 
-def _branch_pushed(repo_factory, name: str) -> bool:
-    bare = repo_factory.remotes / f"{name}.git"
+def _alpha_env_with_origin(renv: Renv, origin: str, *create_opts: str) -> None:
+    """Create env 'env' holding ``alpha``, whose source clone's origin then points at ``origin``."""
+    (source,) = renv.setup("alpha")
+    renv.ok("create", "env", *create_opts)
+    run_git(["remote", "set-url", "origin", origin], cwd=source)
+
+
+def _branch_pushed(renv: Renv, name: str) -> bool:
+    bare = renv.repos.remotes / f"{name}.git"
     argv = ["--git-dir", str(bare), "show-ref", "--verify", "refs/heads/feature/x"]
     return run_git(argv, cwd=bare, check=False).returncode == 0
 
 
-def _assert_preflight_blocks_unsupported_draft(runner, monkeypatch) -> None:
+def _forbid_push(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("repoenv.adapters.git_adapter.push", lambda *a, **kw: pytest.fail("must not push"))
+
+
+def _assert_preflight_blocks_unsupported_draft(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch.context() as guard:
         guard.setattr(git_adapter, "push", lambda *a, **kw: pytest.fail("preflight must precede every push"))
         guard.setattr(rest, "request", lambda *a, **kw: pytest.fail("preflight must precede every API call"))
-        result = runner.invoke(app, ["pr", "env", "--title", "t", "--draft", "--push"])
+        result = renv.invoke("pr", "env", "--title", "t", "--draft", "--push")
         assert result.exit_code != 0
         assert "does not support: --draft" in str(result.exception)
 
 
-def _assert_existing_pr_policies(runner, monkeypatch) -> None:
+def _assert_existing_pr_policies(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     """Fail/skip existing PRs without pushing or posting a second request."""
     monkeypatch.setattr(
         gh_adapter,
         "_run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "https://github.com/pr/1", ""),
     )
-    for policy, expected in (("skip", 0), ("fail", 1)):
-        result = runner.invoke(app, ["pr", "env", "-i", "github", "--title", "t", "--if-exists", policy])
+    for policy, expected, text in (("skip", 0, "exists"), ("fail", 1, "already exists")):
+        result = renv.invoke("pr", "env", "-i", "github", "--title", "t", "--if-exists", policy)
         assert result.exit_code == expected, result.output
-        assert ("exists" if policy == "skip" else "already exists") in (
-            result.output + str(result.exception or "")
-        )
+        assert text in result.output + str(result.exception or "")
 
 
 @pytest.mark.parametrize("push", [False, True])
-def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch, push):
-    runner = _mixed_provider_env(repo_factory, source_dir, worktrees_dir)
+def test_mixed_providers(renv: Renv, monkeypatch: pytest.MonkeyPatch, push: bool) -> None:
+    _mixed_provider_env(renv)
     monkeypatch.setattr(credentials, "resolve", lambda kind, host: Credential("token"))
     monkeypatch.setattr(gh_adapter, "is_available", lambda: True)
     calls = []
@@ -116,63 +117,56 @@ def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, 
 
     monkeypatch.setattr(rest, "request", request)
     monkeypatch.setattr(gh_adapter, "_run", gh_run)
-    _assert_preflight_blocks_unsupported_draft(runner, monkeypatch)
-    args = ["pr", "env", "--title", "Fix {repo}", "--json"]
-    if push:
-        args.append("--push")
-    result = runner.invoke(app, args)
-    assert result.exit_code == 0, result.output
+    _assert_preflight_blocks_unsupported_draft(renv, monkeypatch)
+    push_opts = ["--push"] if push else []
+    result = renv.ok("pr", "env", "--title", "Fix {repo}", "--json", *push_opts)
     assert (len(json.loads(result.stdout)["created"]), len(calls)) == (6, 12)
-    assert {name: _branch_pushed(repo_factory, name) for name in _REMOTES} == dict.fromkeys(_REMOTES, push)
-    _assert_existing_pr_policies(runner, monkeypatch)
+    assert {name: _branch_pushed(renv, name) for name in _REMOTES} == dict.fromkeys(_REMOTES, push)
+    _assert_existing_pr_policies(renv, monkeypatch)
 
 
-def test_unsupported_options_prevent_push(repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch):
-    source = repo_factory.make_bare_and_clone("alpha")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "env"]).exit_code == 0
-    run_git(["remote", "set-url", "origin", "git@bitbucket.org:o/r.git"], cwd=source)
-    monkeypatch.setattr("repoenv.adapters.git_adapter.push", lambda *a, **kw: pytest.fail("must not push"))
+def test_unsupported_options_prevent_push(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
+    _alpha_env_with_origin(renv, "git@bitbucket.org:o/r.git")
+    _forbid_push(monkeypatch)
     monkeypatch.setattr(rest, "request", lambda *a, **kw: pytest.fail("must not call API"))
     monkeypatch.setattr(gh_adapter, "is_available", lambda: False)
-    result = runner.invoke(app, ["pr", "env", "--title", "t", "--reviewer", "alice", "--push"])
+    result = renv.invoke("pr", "env", "--title", "t", "--reviewer", "alice", "--push")
     assert result.exit_code != 0
     assert "does not support: --reviewer" in str(result.exception)
-    result = runner.invoke(app, ["pr", "env", "--title", "t", "--dry-run"])
-    assert result.exit_code == 0, result.output
+    renv.ok("pr", "env", "--title", "t", "--dry-run")
 
 
-@pytest.mark.parametrize("status", [201, 401])
-def test_api_without_gh_and_lookup_errors(
-    repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch, status
-):
-    source = repo_factory.make_bare_and_clone("alpha")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "env", "--branch", "feature/x"]).exit_code == 0
-    run_git(["remote", "set-url", "origin", "https://gitlab.com/o/r.git"], cwd=source)
+def _gitlab_without_gh(renv: Renv, monkeypatch: pytest.MonkeyPatch, lookup_status: int) -> list[str]:
+    """Env on a GitLab origin with a token, gh forbidden; the MR lookup answers ``lookup_status``.
+
+    Returns the list that records each API call's HTTP method.
+    """
+    _alpha_env_with_origin(renv, "https://gitlab.com/o/r.git", "--branch", "feature/x")
     monkeypatch.setenv("GITLAB_TOKEN", "test-token")
     monkeypatch.setattr(gh_adapter, "is_available", lambda: pytest.fail("non-GitHub must not check gh"))
-    monkeypatch.setattr("repoenv.adapters.git_adapter.push", lambda *a, **kw: pytest.fail("must not push"))
-    calls = []
+    _forbid_push(monkeypatch)
+    calls: list[str] = []
 
     def request(url, *, method, payload, headers):
         calls.append(method)
         assert headers == {"PRIVATE-TOKEN": "test-token"}
         if method == "GET":
-            return rest.HttpResponse(status if status == 401 else 200, {}, b"[]")
+            return rest.HttpResponse(lookup_status, {}, b"[]")
         return rest.HttpResponse(201, {}, b'{"web_url":"https://gitlab.com/pr/1"}')
 
     monkeypatch.setattr(rest, "request", request)
-    args = ["pr", "env", "--title", "t"]
-    if status == 401:
-        args.append("--push")
-    result = runner.invoke(app, args)
-    if status == 201:
-        assert result.exit_code == 0, result.output
-        assert calls == ["GET", "POST"]
-    else:
-        assert result.exit_code != 0
-        assert "HTTP 401" in str(result.exception)
-        assert calls == ["GET"]
+    return calls
+
+
+def test_api_without_gh_creates_merge_request(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _gitlab_without_gh(renv, monkeypatch, lookup_status=200)
+    renv.ok("pr", "env", "--title", "t")
+    assert calls == ["GET", "POST"]
+
+
+def test_api_lookup_error_stops_before_push(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _gitlab_without_gh(renv, monkeypatch, lookup_status=401)
+    result = renv.invoke("pr", "env", "--title", "t", "--push")
+    assert result.exit_code != 0
+    assert "HTTP 401" in str(result.exception)
+    assert calls == ["GET"]

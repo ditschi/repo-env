@@ -11,63 +11,31 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from typer.testing import CliRunner
+import pytest
 
-from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.renv_helpers import Renv
+
+_NOT_FOUND = "No environment named or aliased"
 
 
-def test_run_without_env_autodetects_from_cwd(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-    monkeypatch,
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_run_without_env_autodetects_from_cwd(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
+    renv.setup("alpha", "beta")
+    renv.ok("create", "web", "--include", "alpha,beta")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--include", "alpha,beta"]).exit_code == 0
-
-    monkeypatch.chdir(worktrees_dir / "web")
-    result = runner.invoke(app, ["run", "--", "git", "status"])
-    assert result.exit_code == 0, result.output
-    assert "No environment named or aliased" not in result.output
-    assert "alpha" in result.output
-    assert "beta" in result.output
+    monkeypatch.chdir(renv.worktrees / "web")
+    output = renv.ok("run", "--", "git", "status").output
+    assert _NOT_FOUND not in output
+    assert "alpha" in output
+    assert "beta" in output
 
 
 def test_run_without_env_passes_flag_like_command_tokens(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-    monkeypatch,
+    renv: Renv, web_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--include", "alpha"]).exit_code == 0
-
-    monkeypatch.chdir(worktrees_dir / "web")
-    result = runner.invoke(app, ["run", "--", "git", "branch", "--show-current"])
-    assert result.exit_code == 0, result.output
-    assert "No environment named or aliased" not in result.output
+    monkeypatch.chdir(web_env)
+    assert _NOT_FOUND not in renv.ok("run", "--", "git", "branch", "--show-current").output
 
 
-def test_run_with_explicit_env_before_dashdash_still_works(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--include", "alpha"]).exit_code == 0
-
-    result = runner.invoke(app, ["run", "web", "--", "git", "status"])
-    assert result.exit_code == 0, result.output
-    assert "alpha" in result.output
+@pytest.mark.usefixtures("web_env")
+def test_run_with_explicit_env_before_dashdash_still_works(renv: Renv) -> None:
+    assert "alpha" in renv.ok("run", "web", "--", "git", "status").output
