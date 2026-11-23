@@ -10,6 +10,15 @@ from repoenv.errors import GitError
 from repoenv.services import environment_service
 
 
+def _sha_and_status(env: Environment) -> list[tuple[str, str | None, RepoStatus]]:
+    return [(entry.repo, entry.source_sha, entry.status) for entry in env.repos]
+
+
+def _assert_second_repo_failed_on_default_branch(env: Environment) -> None:
+    assert [entry.status for entry in env.repos] == [RepoStatus.OK, RepoStatus.FAILED]
+    assert "Could not determine the default branch" in (env.repos[1].note or "")
+
+
 def test_build_add_plan_skips_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     env = Environment(name="web", path=Path("/tmp/envs/web"), source=Path("/tmp/src"))
     env.repos.append(
@@ -120,11 +129,10 @@ def test_execute_create_plan_continues_when_rev_parse_fails(
 
     env = environment_service.execute_create_plan(plan)
 
-    assert [entry.repo for entry in env.repos] == ["alpha", "beta"]
-    assert env.repos[0].source_sha == "deadbeef"
-    assert env.repos[0].status == RepoStatus.OK
-    assert env.repos[1].source_sha is None
-    assert env.repos[1].status == RepoStatus.OK
+    assert _sha_and_status(env) == [
+        ("alpha", "deadbeef", RepoStatus.OK),
+        ("beta", None, RepoStatus.OK),
+    ]
 
 
 def test_execute_create_plan_marks_repo_failed_when_default_branch_fails(
@@ -165,10 +173,7 @@ def test_execute_create_plan_marks_repo_failed_when_default_branch_fails(
 
     env = environment_service.execute_create_plan(plan)
 
-    assert env.repos[0].status == RepoStatus.OK
-    assert env.repos[1].status == RepoStatus.FAILED
-    assert env.repos[1].note is not None
-    assert "Could not determine the default branch" in env.repos[1].note
+    _assert_second_repo_failed_on_default_branch(env)
 
 
 def test_execute_add_plan_marks_repo_failed_when_default_branch_fails(
@@ -204,10 +209,7 @@ def test_execute_add_plan_marks_repo_failed_when_default_branch_fails(
 
     result = environment_service.execute_add_plan(env, plan)
 
-    assert result.repos[0].status == RepoStatus.OK
-    assert result.repos[1].status == RepoStatus.FAILED
-    assert result.repos[1].note is not None
-    assert "Could not determine the default branch" in result.repos[1].note
+    _assert_second_repo_failed_on_default_branch(result)
 
 
 def test_execute_add_plan_continues_when_rev_parse_fails(
@@ -244,11 +246,10 @@ def test_execute_add_plan_continues_when_rev_parse_fails(
 
     result = environment_service.execute_add_plan(env, plan)
 
-    assert [entry.repo for entry in result.repos] == ["alpha", "beta"]
-    assert result.repos[0].source_sha == "cafebabe"
-    assert result.repos[0].status == RepoStatus.OK
-    assert result.repos[1].source_sha is None
-    assert result.repos[1].status == RepoStatus.OK
+    assert _sha_and_status(result) == [
+        ("alpha", "cafebabe", RepoStatus.OK),
+        ("beta", None, RepoStatus.OK),
+    ]
 
 
 def test_build_create_plan_excludes_nested_renv_by_default(

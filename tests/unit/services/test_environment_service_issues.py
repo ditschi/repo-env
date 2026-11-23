@@ -34,6 +34,15 @@ def _base_monkeypatches(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _p: False)
 
 
+def _assert_linked_worktree_skipped(
+    plan: environment_service.CreatePlan | environment_service.AddPlan,
+) -> None:
+    """The main repo is planned; the linked worktree is reported as skipped instead."""
+    assert "main-repo" in plan.repos
+    assert "linked-wt" not in plan.repos
+    assert "linked-wt" in plan.skipped_worktrees
+
+
 # ---------------------------------------------------------------------------
 # Linked-worktree filtering
 # ---------------------------------------------------------------------------
@@ -68,9 +77,7 @@ def test_build_create_plan_skips_linked_worktrees_by_default(
         )
     )
 
-    assert "main-repo" in plan.repos
-    assert "linked-wt" not in plan.repos
-    assert "linked-wt" in plan.skipped_worktrees
+    _assert_linked_worktree_skipped(plan)
 
 
 def test_build_create_plan_includes_linked_worktrees_when_flag_set(
@@ -156,9 +163,7 @@ def test_build_add_plan_skips_linked_worktrees_by_default(
 
     plan = environment_service.build_add_plan(env=env, include=None, exclude=None)
 
-    assert "main-repo" in plan.repos
-    assert "linked-wt" not in plan.repos
-    assert "linked-wt" in plan.skipped_worktrees
+    _assert_linked_worktree_skipped(plan)
 
 
 # ---------------------------------------------------------------------------
