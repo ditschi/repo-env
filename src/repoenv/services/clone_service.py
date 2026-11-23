@@ -67,6 +67,25 @@ class ResolvedRepo:
         return f"{self.host}/{self.owner}/{self.repo}"
 
 
+@dataclass(frozen=True)
+class CloneQuery:
+    """What to resolve: ``--url``/``--include``/``--exclude``/``--role``/``--protocol``/``--provider``.
+
+    ``protocol`` ('ssh'/'https') is applied to every resolved repo when
+    given; otherwise each host's provider picks its default (GitHub: gh's
+    ``git_protocol`` when gh is installed; others: ssh). ``provider`` forces
+    the provider kind for every host.
+    """
+
+    urls: list[str]
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
+    role: Role = Role.MEMBER
+    role_explicit: bool = False
+    protocol: str | None = None
+    provider: ProviderKind | None = None
+
+
 @dataclass
 class ResolveResult:
     """Output of resolving ``--url``/``--include``/``--exclude``/``--role``."""
@@ -94,6 +113,25 @@ class CloneOutcome:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class SyncOptions:
+    """How to treat repos that already exist locally: ``--update``/``--reset-default``/``--force``."""
+
+    update: bool = False
+    reset_default: bool = False
+    force: bool = False
+
+
+@dataclass(frozen=True)
+class _Selection:
+    """Expanded ``--include``/``--exclude`` patterns plus the ``--role`` used for wildcard owners."""
+
+    include: list[_Pattern]
+    exclude: list[_Pattern]
+    role: Role
+    role_explicit: bool
+
+
 def _filter_memberships(memberships: list[OrgMembership], role: Role) -> list[OrgMembership]:
     if role is Role.OWNER:
         return [m for m in memberships if m.role == "admin" and m.state == "active"]
@@ -103,7 +141,7 @@ def _filter_memberships(memberships: list[OrgMembership], role: Role) -> list[Or
 
 
 def _resolve_candidate_owners(
-    ctx: _HostContext, *, role: Role, role_explicit: bool
+    ctx: _HostContext, selection: _Selection
 ) -> tuple[list[OrgMembership], list[OrgMembership], bool]:
     """Return ``(selected memberships, all memberships, fell_back_to_any)``.
 
@@ -111,10 +149,11 @@ def _resolve_candidate_owners(
     ``--role`` explicitly, automatically retries with ``any`` rather than
     failing outright -- see the module docstring on ``Role``.
     """
+    role = selection.role
     memberships = ctx.provider().list_memberships()
     selected = _filter_memberships(memberships, role)
     fell_back = False
-    if not selected and not role_explicit and role is not Role.ANY:
+    if not selected and not selection.role_explicit and role is not Role.ANY:
         selected = _filter_memberships(memberships, Role.ANY)
         fell_back = True
     if not selected:
@@ -183,11 +222,8 @@ class _Discovery:
     skipped_owners: list[str] = field(default_factory=list)
 
 
-def _discovery_roots(
-    ctx: _HostContext, patterns: list[_Pattern], *, role: Role, role_explicit: bool
-) -> _Discovery:
-    """Group wildcard patterns by the top-level owner whose repos must be listed."""
-    found = _Discovery()
+def _split_by_root(patterns: list[_Pattern], found: _Discovery) -> list[_Pattern]:
+    """Add patterns with a literal top-level owner to ``found.roots``; return the wildcard-owner rest."""
     wildcard_root: list[_Pattern] = []
     for owner_glob, repo_glob in patterns:
         root = root_owner(owner_glob)
@@ -195,13 +231,20 @@ def _discovery_roots(
             wildcard_root.append((owner_glob, repo_glob))
         else:
             found.roots.setdefault(root, []).append((owner_glob, repo_glob))
+    return wildcard_root
+
+
+def _discovery_roots(ctx: _HostContext, patterns: list[_Pattern], selection: _Selection) -> _Discovery:
+    """Group wildcard patterns by the top-level owner whose repos must be listed."""
+    found = _Discovery()
+    wildcard_root = _split_by_root(patterns, found)
     if not wildcard_root:
         return found
 
-    selected, memberships, fell_back = _resolve_candidate_owners(ctx, role=role, role_explicit=role_explicit)
+    selected, memberships, fell_back = _resolve_candidate_owners(ctx, selection)
     if fell_back:
         found.warnings.append(
-            f"No organizations on {ctx.host} matched --role {role.value}; "
+            f"No organizations on {ctx.host} matched --role {selection.role.value}; "
             "automatically retried with --role any."
         )
     selected_logins = {m.login for m in selected}
@@ -240,17 +283,10 @@ def _discover(
 
 
 def _resolve_host_spec(
-    spec: UrlSpec,
-    ctx: _HostContext,
-    *,
-    include_patterns: list[_Pattern],
-    exclude_patterns: list[_Pattern],
-    role: Role,
-    role_explicit: bool,
-    protocol: str,
+    spec: UrlSpec, ctx: _HostContext, selection: _Selection, protocol: str
 ) -> tuple[dict[tuple[str, str], str], list[str]]:
     """Resolve one host-only/host+owner ``--url`` entry to ``{(owner, repo): clone_url}``."""
-    patterns = include_patterns
+    patterns = selection.include
     if spec.owner:
         patterns = _scope_to_owner(spec.owner, patterns, nested=ctx.kind in NESTED_OWNER_KINDS)
 
@@ -266,37 +302,22 @@ def _resolve_host_spec(
 
     warnings: list[str] = []
     if to_discover:
-        discovery = _discovery_roots(ctx, to_discover, role=role, role_explicit=role_explicit)
-        discovered, warnings = _discover(ctx, discovery, role=role, protocol=protocol)
+        discovery = _discovery_roots(ctx, to_discover, selection)
+        discovered, warnings = _discover(ctx, discovery, role=selection.role, protocol=protocol)
         found.update(discovered)
 
-    found = {key: url for key, url in found.items() if not match_owner_repo(*key, exclude_patterns)}
+    found = {key: url for key, url in found.items() if not match_owner_repo(*key, selection.exclude)}
     return found, warnings
 
 
 def _resolve_url(
-    raw_url: str,
-    ctx: _HostContext,
-    *,
-    include_patterns: list[_Pattern],
-    exclude_patterns: list[_Pattern],
-    role: Role,
-    role_explicit: bool,
-    protocol: str,
+    raw_url: str, ctx: _HostContext, selection: _Selection, protocol: str
 ) -> tuple[dict[tuple[str, str], str], list[str]]:
     spec = parse_url(raw_url, ctx.kind)
     if spec.owner is None or spec.repo is None:
-        return _resolve_host_spec(
-            spec,
-            ctx,
-            include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns,
-            role=role,
-            role_explicit=role_explicit,
-            protocol=protocol,
-        )
-    selected = match_owner_repo(spec.owner, spec.repo, include_patterns) and not match_owner_repo(
-        spec.owner, spec.repo, exclude_patterns
+        return _resolve_host_spec(spec, ctx, selection, protocol)
+    selected = match_owner_repo(spec.owner, spec.repo, selection.include) and not match_owner_repo(
+        spec.owner, spec.repo, selection.exclude
     )
     if not selected:
         return {}, []
@@ -308,33 +329,26 @@ def _resolve_url(
 
 
 def resolve_clone_targets(
-    *,
-    urls: list[str],
-    include: list[str],
-    exclude: list[str],
-    role: Role = Role.MEMBER,
-    role_explicit: bool = False,
-    protocol: str | None = None,
-    provider: ProviderKind | None = None,
-    provider_settings: dict[str, str] | None = None,
+    query: CloneQuery, *, provider_settings: dict[str, str] | None = None
 ) -> ResolveResult:
-    """Resolve ``--url``/``--include``/``--exclude``/``--role`` into clone targets.
+    """Resolve ``query`` (see :class:`CloneQuery`) into clone targets.
 
-    ``protocol`` ('ssh'/'https') is applied to every resolved repo when
-    given; otherwise each host's provider picks its default (GitHub: gh's
-    ``git_protocol`` when gh is installed; others: ssh). ``provider`` forces
-    the provider kind for every host; ``provider_settings`` is the
-    ``providers.<host>`` config mapping (``"<kind> [<base-url>]"``).
+    ``provider_settings`` is the ``providers.<host>`` config mapping
+    (``"<kind> [<base-url>]"``).
     """
-    url_values = split_csv(urls)
+    url_values = split_csv(query.urls)
     if not url_values:
         raise UsageError(
             "At least one --url is required.",
             hint="e.g. --url https://github.com --include 'myorg/*'.",
         )
 
-    include_patterns = expand_owner_repo_patterns(include) if include else [("*", "*")]
-    exclude_patterns = expand_owner_repo_patterns(exclude)
+    selection = _Selection(
+        include=expand_owner_repo_patterns(query.include) if query.include else [("*", "*")],
+        exclude=expand_owner_repo_patterns(query.exclude),
+        role=query.role,
+        role_explicit=query.role_explicit,
+    )
 
     warnings: list[str] = []
     resolved: dict[tuple[str, str, str], ResolvedRepo] = {}
@@ -343,18 +357,10 @@ def resolve_clone_targets(
     for raw_url in url_values:
         host = url_host(raw_url)
         if host not in contexts:
-            kind, base_url = detect.detect(host, override=provider, settings=provider_settings or {})
+            kind, base_url = detect.detect(host, override=query.provider, settings=provider_settings or {})
             contexts[host] = _HostContext(host, kind, base_url)
         ctx = contexts[host]
-        found, url_warnings = _resolve_url(
-            raw_url,
-            ctx,
-            include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns,
-            role=role,
-            role_explicit=role_explicit,
-            protocol=ctx.protocol(protocol),
-        )
+        found, url_warnings = _resolve_url(raw_url, ctx, selection, ctx.protocol(query.protocol))
         warnings.extend(url_warnings)
         for (owner, repo), clone_url in found.items():
             resolved.setdefault(
@@ -365,14 +371,8 @@ def resolve_clone_targets(
     return ResolveResult(repos=repos, warnings=warnings)
 
 
-def _sync_existing_repo(
-    repo: ResolvedRepo,
-    dest: Path,
-    *,
-    update: bool,
-    reset_default: bool,
-    force: bool,
-) -> CloneOutcome:
+def _sync_existing_repo(repo: ResolvedRepo, dest: Path, sync: SyncOptions) -> CloneOutcome:
+    force = sync.force
     git_adapter.fetch(dest, "origin")
 
     if not git_adapter.is_clean(dest) and not force:
@@ -380,12 +380,12 @@ def _sync_existing_repo(
 
     details: list[str] = []
 
-    if reset_default:
+    if sync.reset_default:
         default = git_adapter.default_branch(dest, "origin")
         git_adapter.checkout_tracking(dest, default, remote="origin", force=force)
         details.append(f"checked out '{default}'")
 
-    if update:
+    if sync.update:
         branch = git_adapter.current_branch(dest)
         if branch is None:
             return CloneOutcome(
@@ -403,14 +403,7 @@ def _sync_existing_repo(
     return CloneOutcome(repo, Action.UPDATED, "; ".join(details))
 
 
-def clone_or_update(
-    repo: ResolvedRepo,
-    *,
-    source: Path,
-    update: bool,
-    reset_default: bool,
-    force: bool,
-) -> CloneOutcome:
+def clone_or_update(repo: ResolvedRepo, *, source: Path, sync: SyncOptions) -> CloneOutcome:
     """Clone ``repo`` if missing under ``source``, else apply update/reset-default/force."""
     dest = source / repo.relative_path
 
@@ -421,30 +414,24 @@ def clone_or_update(
             return CloneOutcome(repo, Action.FAILED, str(exc))
         return CloneOutcome(repo, Action.CLONED, str(dest))
 
-    if not (update or reset_default):
+    if not (sync.update or sync.reset_default):
         return CloneOutcome(
             repo, Action.UNCHANGED, "already present; pass --update/--reset-default to sync it"
         )
 
     try:
-        return _sync_existing_repo(repo, dest, update=update, reset_default=reset_default, force=force)
+        return _sync_existing_repo(repo, dest, sync)
     except GitError as exc:
         return CloneOutcome(repo, Action.FAILED, str(exc))
 
 
 def execute_clone_plan(
-    repos: list[ResolvedRepo],
-    *,
-    source: Path,
-    update: bool,
-    reset_default: bool,
-    force: bool,
-    jobs: int = 1,
+    repos: list[ResolvedRepo], *, source: Path, sync: SyncOptions, jobs: int = 1
 ) -> list[CloneOutcome]:
     """Clone/update every repo in ``repos``, in parallel when ``jobs > 1``."""
 
     def _task(repo: ResolvedRepo) -> CloneOutcome:
-        return clone_or_update(repo, source=source, update=update, reset_default=reset_default, force=force)
+        return clone_or_update(repo, source=source, sync=sync)
 
     if jobs <= 1:
         return [_task(repo) for repo in repos]
