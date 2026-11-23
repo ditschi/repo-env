@@ -250,18 +250,17 @@ class PullRequests:
         options = request.options
         self.validate_options(options)
         if self.provider.kind is ProviderKind.GITHUB:
-            return gh_adapter.create_pr(
-                self.worktree,
+            pull_request = gh_adapter.GhPullRequest(
                 title=request.title,
                 body=request.body,
-                base=request.base,
                 head=request.head,
+                base=request.base,
                 draft=options.draft,
                 reviewers=options.reviewers,
                 labels=options.labels,
                 assignees=options.assignees,
-                repository=self._github_repo,
             )
+            return gh_adapter.create_pr(self.worktree, pull_request, repository=self._github_repo)
         data, _ = self._request(payload=self._payload(request))
         if not isinstance(data, dict):
             raise GitError(f"{self.provider.label} PR API returned an invalid creation result.")

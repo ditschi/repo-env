@@ -67,9 +67,9 @@ def test_power_user_batch_edit_commit_push_and_pr(
 
     created: list[tuple[str, str]] = []
 
-    def fake_create_pr(worktree, *, title, repository, **_options):
+    def fake_create_pr(worktree, pull_request, *, repository):
         assert repository == f"github.com/example/{worktree.name}"
-        created.append((worktree.name, title))
+        created.append((worktree.name, pull_request.title))
         return f"https://example.test/{worktree.name}/pull/1"
 
     def fake_existing_pr_url(worktree, *, head, repository):

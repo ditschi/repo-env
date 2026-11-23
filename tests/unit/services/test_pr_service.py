@@ -34,8 +34,8 @@ def test_create_prs_renders_template(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     captured: dict[str, str] = {}
 
-    def fake_create(worktree, *, title, repository, **kwargs):
-        captured["title"] = title
+    def fake_create(worktree, pull_request, *, repository):
+        captured["title"] = pull_request.title
         assert repository == "github.com/o/r"
         return "https://example/pr/1"
 
