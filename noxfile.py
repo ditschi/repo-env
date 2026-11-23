@@ -75,7 +75,7 @@ nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 @nox.session(python=PYTHON_VERSIONS, tags=["unit", "tests"])
 def tests(session: nox.Session) -> None:
     """Run unit tests with coverage and xdist (all supported Python versions)."""
-    session.install("-e", ".[test,all]")
+    session.install("-e", ".[test,all,code-quality]")
     session.run(
         "pytest",
         f"--cov={PACKAGE}",
