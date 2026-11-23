@@ -567,12 +567,17 @@ def execute_add_plan(
     return env
 
 
+def _created_branches(env: Environment) -> dict[str, str]:
+    """Task branches ``renv`` created in ``env``, keyed by repo name."""
+    return {entry.repo: entry.branch for entry in env.repos if entry.branch_created}
+
+
 def _carry_over_branches(
     left: Environment, right: Environment, merged: Iterable[str]
 ) -> tuple[dict[str, str], list[str]]:
     """Return ``(branch_overrides, branch_conflicts)`` for the merged repos."""
-    left_branches = {entry.repo: entry.branch for entry in left.repos if entry.branch_created}
-    right_branches = {entry.repo: entry.branch for entry in right.repos if entry.branch_created}
+    left_branches = _created_branches(left)
+    right_branches = _created_branches(right)
 
     branch_overrides: dict[str, str] = {}
     branch_conflicts: list[str] = []
@@ -582,7 +587,7 @@ def _carry_over_branches(
         chosen = left_branch or right_branch
         if chosen is not None:
             branch_overrides[repo] = chosen
-        if left_branch is not None and right_branch is not None and left_branch != right_branch:
+        if len({left_branch, right_branch} - {None}) == 2:  # both sides set, and they differ
             branch_conflicts.append(
                 f"{repo}: '{left_branch}' (from {left.name}) vs '{right_branch}' "
                 f"(from {right.name}); using '{left_branch}'"
