@@ -54,10 +54,10 @@ def test_create_dry_run_shows_activate_hint(repoenv_home: Path, monkeypatch) -> 
     dest.mkdir()
     config_store.save_config(config_store.UserConfig(source=source, dest=dest))
 
-    def fake_build_create_plan(**kwargs):
+    def fake_build_create_plan(request):
         class _Plan:
-            name = kwargs["name"]
-            env_path = dest / kwargs["name"]
+            name = request.name
+            env_path = dest / request.name
             repos = ["r1"]
             skipped_worktrees: list[str] = []
 

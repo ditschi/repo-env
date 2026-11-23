@@ -140,15 +140,17 @@ def create_command(
     exclude = environment_service.expand_repo_groups(exclude, config.groups)
 
     plan = environment_service.build_create_plan(
-        name=name,
-        source=resolved_source,
-        dest=resolved_dest,
-        include=include or None,
-        exclude=exclude or None,
-        branch=branch,
-        alias=alias,
-        default_branch=default_branch or config.default_branch,
-        include_worktrees=include_worktrees,
+        environment_service.CreateRequest(
+            name=name,
+            source=resolved_source,
+            dest=resolved_dest,
+            include=include or None,
+            exclude=exclude or None,
+            branch=branch,
+            alias=alias,
+            default_branch=default_branch or config.default_branch,
+            include_worktrees=include_worktrees,
+        )
     )
 
     console.print_info(f"Environment '{name}' -> {plan.env_path}")
@@ -171,9 +173,11 @@ def create_command(
     with state_store.registry_transaction() as registry:
         env = environment_service.execute_create_plan(
             plan,
-            preserve=preserve,
-            on_branch_conflict=on_branch_conflict,
-            on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
+            options=environment_service.ExecuteOptions(
+                preserve=preserve,
+                on_branch_conflict=on_branch_conflict,
+                on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
+            ),
         )
         registry.add(env)
         if activate:

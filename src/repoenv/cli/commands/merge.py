@@ -66,9 +66,7 @@ def merge_command(
             left=left_env,
             right=right_env,
             op=op,
-            dest_name=name,
-            dest_root=dest_root,
-            alias=alias,
+            target=environment_service.MergeTarget(name=name, dest_root=dest_root, alias=alias),
         )
         console.print_info(
             f"Merge {left_env.name} {op.value} {right_env.name} -> {name} ({len(plan.repos)} repos)"
@@ -80,7 +78,9 @@ def merge_command(
             console.print_info("Dry run: no changes made.")
             return
 
-        merged = environment_service.execute_create_plan(plan, on_branch_conflict=on_branch_conflict)
+        merged = environment_service.execute_create_plan(
+            plan, options=environment_service.ExecuteOptions(on_branch_conflict=on_branch_conflict)
+        )
         registry.add(merged)
         state_store.write_env_metadata(merged)
     command_name = ctx.info_name or "merge"

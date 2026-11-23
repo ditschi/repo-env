@@ -82,9 +82,11 @@ def add_command(
                 environment,
                 plan,
                 branch=effective_branch,
-                preserve=preserve,
-                on_branch_conflict=on_branch_conflict,
-                on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
+                options=environment_service.ExecuteOptions(
+                    preserve=preserve,
+                    on_branch_conflict=on_branch_conflict,
+                    on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
+                ),
             )
             registry.add(environment)
             if activate:

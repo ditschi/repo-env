@@ -40,9 +40,7 @@ def test_build_merge_plan_union(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
         left=left,
         right=right,
         op=SetOp.UNION,
-        dest_name="merged",
-        dest_root=Path("/tmp/envs"),
-        alias=None,
+        target=environment_service.MergeTarget(name="merged", dest_root=Path("/tmp/envs")),
     )
     assert plan.name == "merged"
     assert plan.repos == ["alpha", "beta"]
@@ -270,14 +268,13 @@ def test_build_create_plan_excludes_nested_renv_by_default(
     )
 
     plan = environment_service.build_create_plan(
-        name="new",
-        source=source,
-        dest=dest,
-        include=["*"],
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
+        environment_service.CreateRequest(
+            name="new",
+            source=source,
+            dest=dest,
+            include=["*"],
+            default_branch="main",
+        )
     )
 
     assert plan.repos == ["alpha"]
@@ -294,14 +291,13 @@ def test_build_create_plan_keeps_repos_when_source_is_renv_root(
     monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _source: ["alpha", "beta"])
 
     plan = environment_service.build_create_plan(
-        name="copy",
-        source=source,
-        dest=dest,
-        include=["*"],
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
+        environment_service.CreateRequest(
+            name="copy",
+            source=source,
+            dest=dest,
+            include=["*"],
+            default_branch="main",
+        )
     )
 
     assert plan.repos == ["alpha", "beta"]
@@ -326,15 +322,14 @@ def test_build_create_plan_include_worktrees_overrides_default_exclusion(
     monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
 
     plan = environment_service.build_create_plan(
-        name="new",
-        source=source,
-        dest=dest,
-        include=["*"],
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
-        include_worktrees=True,
+        environment_service.CreateRequest(
+            name="new",
+            source=source,
+            dest=dest,
+            include=["*"],
+            default_branch="main",
+            include_worktrees=True,
+        )
     )
 
     assert plan.repos == ["alpha", "nested-renv/alpha"]
