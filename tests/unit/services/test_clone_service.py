@@ -9,7 +9,7 @@ from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider
 from repoenv.domain.scm import ProviderKind
 from repoenv.errors import GitError, NothingMatchedError, UsageError
 from repoenv.services import clone_service
-from repoenv.services.clone_service import Action, CloneQuery, ResolvedRepo, Role, SyncOptions
+from repoenv.services.clone_service import Action, CloneQuery, ResolvedRepo, ResolveResult, Role, SyncOptions
 
 
 class FakeProvider(ScmProvider):
@@ -71,8 +71,16 @@ def _use(monkeypatch: pytest.MonkeyPatch, provider: FakeProvider | None) -> list
     return kinds
 
 
-def _resolve(provider_settings: dict[str, str] | None = None, **query):
+def _resolve(provider_settings: dict[str, str] | None = None, **query) -> ResolveResult:
     return clone_service.resolve_clone_targets(CloneQuery(**query), provider_settings=provider_settings)
+
+
+def _resolve_ssh_via(
+    monkeypatch: pytest.MonkeyPatch, provider: FakeProvider, url: str, include: str
+) -> ResolveResult:
+    """Resolve ``include`` below ``url`` over ssh, with ``provider`` answering all API calls."""
+    _use(monkeypatch, provider)
+    return _resolve(urls=[url], include=[include], protocol="ssh")
 
 
 def test_resolve_fully_qualified_url_needs_no_api_calls(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -140,9 +148,7 @@ def test_resolve_literal_owner_wildcard_repo_lists_owner_repos(monkeypatch: pyte
         "github.com",
         repos={"myself": [_repo("myself", n) for n in ("test-alpha", "test-beta", "other")]},
     )
-    _use(monkeypatch, provider)
-
-    result = _resolve(urls=["https://github.com"], include=["myself/test-*"], protocol="ssh")
+    result = _resolve_ssh_via(monkeypatch, provider, "https://github.com", "myself/test-*")
 
     assert sorted(r.repo for r in result.repos) == ["test-alpha", "test-beta"]
     assert provider.list_calls == [("myself", None)]
@@ -183,9 +189,7 @@ def test_resolve_wildcard_owner_uses_org_memberships_by_default_role_member(
             for o in ("acme-core", "acme-labs", "other-corp")
         },
     )
-    _use(monkeypatch, provider)
-
-    result = _resolve(urls=["https://github.com"], include=["acme-*/*"], protocol="ssh")
+    result = _resolve_ssh_via(monkeypatch, provider, "https://github.com", "acme-*/*")
 
     assert sorted({r.owner for r in result.repos}) == ["acme-core", "acme-labs"]
     assert result.warnings == []
@@ -215,9 +219,7 @@ def test_resolve_wildcard_owner_warns(
     provider = FakeProvider(
         "github.com", memberships=memberships, repos={"acme-core": [_repo("acme-core", "r")]}
     )
-    _use(monkeypatch, provider)
-
-    result = _resolve(urls=["https://github.com"], include=["acme-*/*"], protocol="ssh")
+    result = _resolve_ssh_via(monkeypatch, provider, "https://github.com", "acme-*/*")
 
     assert {r.owner for r in result.repos} == {"acme-core"}
     assert any(all(part in w for part in warning) for w in result.warnings)
@@ -271,9 +273,7 @@ def test_resolve_url_with_owner_segment_restricts_to_that_owner(monkeypatch: pyt
     provider = FakeProvider(
         "github.com", repos={"my-org": [_repo("my-org", "repo-a"), _repo("my-org", "repo-b")]}
     )
-    _use(monkeypatch, provider)
-
-    result = _resolve(urls=["https://github.com/my-org"], include=["*/*"], protocol="ssh")
+    result = _resolve_ssh_via(monkeypatch, provider, "https://github.com/my-org", "*/*")
 
     assert {r.owner for r in result.repos} == {"my-org"}
     assert sorted(r.repo for r in result.repos) == ["repo-a", "repo-b"]
@@ -351,9 +351,7 @@ def test_resolve_name_hint_only_for_a_single_repo_glob(monkeypatch: pytest.Monke
         repos={"grp": [_repo("grp", "radar-a"), _repo("grp", "tool-b")]},
     )
     provider.supports_name_hint = True
-    _use(monkeypatch, provider)
-
-    result = _resolve(urls=["https://gitlab.com"], include=["grp/radar-*,grp/tool-*"], protocol="ssh")
+    result = _resolve_ssh_via(monkeypatch, provider, "https://gitlab.com", "grp/radar-*,grp/tool-*")
 
     assert sorted(r.repo for r in result.repos) == ["radar-a", "tool-b"]
     assert provider.list_calls == [("grp", None)]
@@ -361,9 +359,7 @@ def test_resolve_name_hint_only_for_a_single_repo_glob(monkeypatch: pytest.Monke
 
 def test_resolve_no_name_hint_when_provider_cannot_filter(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = FakeProvider("github.com", repos={"acme": [_repo("acme", "radar-a")]})
-    _use(monkeypatch, provider)
-
-    _resolve(urls=["https://github.com"], include=["acme/radar-*"], protocol="ssh")
+    _resolve_ssh_via(monkeypatch, provider, "https://github.com", "acme/radar-*")
 
     assert provider.list_calls == [("acme", None)]
 
@@ -478,7 +474,7 @@ def test_clone_or_update_existing_repo_without_flags_is_unchanged(
 
 
 @pytest.mark.parametrize(
-    ("git_stubs", "expected_action", "expected_detail"),
+    ("git_stubs", "expected"),
     [
         pytest.param(
             {
@@ -486,14 +482,12 @@ def test_clone_or_update_existing_repo_without_flags_is_unchanged(
                 "current_branch": lambda path: "main",
                 "fast_forward": lambda p, r: True,
             },
-            Action.UPDATED,
-            "origin/main",
+            (Action.UPDATED, "origin/main"),
             id="fast-forwards-when-clean",
         ),
         pytest.param(
             {"is_clean": lambda path: False},
-            Action.SKIPPED,
-            "local changes",
+            (Action.SKIPPED, "local changes"),
             id="skips-when-dirty-without-force",
         ),
         pytest.param(
@@ -502,14 +496,12 @@ def test_clone_or_update_existing_repo_without_flags_is_unchanged(
                 "current_branch": lambda path: "main",
                 "fast_forward": lambda p, r: False,
             },
-            Action.SKIPPED,
-            "diverged",
+            (Action.SKIPPED, "diverged"),
             id="skips-when-diverged-without-force",
         ),
         pytest.param(
             {"is_clean": lambda path: True, "current_branch": lambda path: None},
-            Action.SKIPPED,
-            "detached",
+            (Action.SKIPPED, "detached"),
             id="skips-detached-head",
         ),
     ],
@@ -518,9 +510,9 @@ def test_clone_or_update_update_without_force(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     git_stubs: dict,
-    expected_action: Action,
-    expected_detail: str,
+    expected: tuple[Action, str],
 ) -> None:
+    expected_action, expected_detail = expected
     _existing_repo(monkeypatch, **git_stubs)
 
     outcome = clone_service.clone_or_update(_resolved_repo(), source=tmp_path, sync=SyncOptions(update=True))
