@@ -52,7 +52,7 @@ max = 0
 weight = 1.5
 cap = 1.0
 
-[smells.many-arguments]        # source: ruff PLR0913; CodeScene: >= 5 arguments
+[smells.many-arguments]        # source: ruff PLR0913; >= 5 flagged (looser than CodeScene: 4 arguments)
 max = 4
 weight = 0.3
 cap = 3.0
@@ -62,7 +62,7 @@ max = 4
 weight = 0.3
 cap = 3.0
 
-[smells.code-duplication]      # source: pylint R0801; assumption: >= 6 similar lines (matches `nox -s duplicates`)
+[smells.code-duplication]      # source: pylint symilar; >= 6 identical lines (CodeScene: 10 lines at 75 % similarity)
 max = 5
 weight = 0.4
 cap = 3.0
@@ -83,7 +83,7 @@ max = 1
 weight = 0.4
 cap = 3.0
 
-[smells.complex-conditional]   # source: AST; CodeScene: a condition with >= 4 and/or operators
+[smells.complex-conditional]   # source: AST; >= 4 operators flagged (looser than CodeScene: 2 branches)
 max = 3
 weight = 0.3
 cap = 2.0

@@ -61,13 +61,13 @@ which is versioned and reviewed like code.
 | complex-method | function | ruff `C901` (mccabe) | CC ≤ 9 | CodeScene |
 | large-method | function | AST | ≤ 70 code lines | assumption |
 | brain-method | function | derived | complex **and** large | assumption |
-| many-arguments | function | ruff `PLR0913` | ≤ 4 arguments | CodeScene (≥ 5 flagged) |
+| many-arguments | function | ruff `PLR0913` | ≤ 4 arguments | looser than CodeScene (4) |
 | primitive-obsession | function | AST | ≤ 4 `str/int/float/bool/bytes` params | assumption |
 | code-duplication | function | pylint `symilar` (engine of R0801) | ≤ 5 similar lines | assumption (matches `nox -s duplicates`) |
 | cognitive-complexity | implementation | complexipy | ≤ 15 | assumption (SonarSource default) |
 | nested-complexity | implementation | ruff `PLR1702` | depth ≤ 3 | CodeScene (≥ 4 flagged) |
 | bumpy-road | implementation | AST | ≤ 1 bump (block nested ≥ 2 deep) | assumption |
-| complex-conditional | implementation | AST | ≤ 3 `and`/`or` per condition | CodeScene (≥ 4 flagged) |
+| complex-conditional | implementation | AST | ≤ 3 `and`/`or` per condition | looser than CodeScene (2 branches) |
 | large-file | module | tokenize | ≤ 600 code lines | assumption |
 | many-functions | module | AST | ≤ 40 functions | assumption |
 | low-cohesion | module | AST, LCOM4 per class (≥ 4 methods) | LCOM4 ≤ 2 | assumption |
@@ -170,7 +170,14 @@ Nicht abgebildet:
 - **Formel:** Jede Datei startet bei 10.0, jeder Smell zieht `weight × min(cap, value / max)` ab, das Minimum ist 1.0.
 - **Repo-Score:** LOC-gewichteter Mittelwert; die schlechteste Datei wird zusätzlich ausgewiesen.
 - **Konfiguration:** alle Werte in `code-health.toml` (versioniert, `version = 1`); die Tabelle oben unter „Score“ nennt die Defaults.
-- **CodeScene-Werte:** CC > 9, Verschachtelung ≥ 4, ≥ 4 Operatoren je Bedingung, ≥ 5 Argumente.
+- **Wie CodeScene:** CC > 9, Verschachtelung ≥ 4, Funktion > 70 Zeilen, Bumpy Road ab 2 Bumps der Tiefe 2, Datei > 600 Zeilen, Assertion-Blöcke ab 4.
+- **Lockerer als die CodeScene-Standardwerte für Python** (nachträglich vom Owner bestätigt, Checker bewusst nicht mehr angepasst):
+  - Argumente: hier ab 5 markiert, CodeScene ab 4.
+  - Complex Conditional: hier ab 4 `and`/`or`, CodeScene ab 2 Verzweigungen.
+  - Primitive Obsession: hier ≥ 5 primitive Parameter (absolut), CodeScene 30 % Anteil.
+  - Duplikate: hier ≥ 6 identische Zeilen, CodeScene 10 Zeilen bei 75 % Ähnlichkeit.
+  - Duplizierte Assertion-Blöcke: hier ab 3 Assertions, CodeScene 4.
+- **Gegenprobe mit CodeScene-Schwellen** (Argumente max 3, Conditional max 1, Duplikate ab 10 Zeilen; Prozent- und Ähnlichkeitsregeln nicht nachgebildet): Repo **9.44** statt 9.97, 22 Dateien unter 9.5. Schlechteste Datei: `tests/integration/support/fake_scm.py` mit 5.40. Treffer: 43 × `many-arguments` (4 Argumente), 24 × `complex-conditional` (2–3 Operatoren).
 - **Annahmen:**
   - Large Method > 70 Zeilen, kognitive Komplexität > 15, ≥ 2 Bumps.
   - Datei > 600 Codezeilen, > 40 Funktionen, LCOM4 ≥ 3.
