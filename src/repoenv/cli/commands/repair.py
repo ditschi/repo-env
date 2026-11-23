@@ -54,8 +54,9 @@ def repair_command(
 
         repaired, failed = lifecycle_service.repair_environment(
             environment,
-            preserve=preserve,
-            on_branch_conflict=on_branch_conflict,
+            options=environment_service.ExecuteOptions(
+                preserve=preserve, on_branch_conflict=on_branch_conflict
+            ),
             include=include or None,
             exclude=exclude or None,
         )

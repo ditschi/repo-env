@@ -64,7 +64,7 @@ def test_repair_environment_success(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     )
     monkeypatch.setattr(
         "repoenv.services.environment_service._create_or_attach_worktree",
-        lambda **_kwargs: None,
+        lambda _request: None,
     )
     monkeypatch.setattr(
         "repoenv.services.environment_service._resolve_source_sha",
@@ -72,10 +72,8 @@ def test_repair_environment_success(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     )
 
     repaired, failed = lifecycle_service.repair_environment(env)
-    assert repaired == ["r0"]
-    assert failed == []
-    assert env.repos[0].status == RepoStatus.OK
-    assert env.repos[0].source_sha == "abc123"
+    assert (repaired, failed) == (["r0"], [])
+    assert (env.repos[0].status, env.repos[0].source_sha) == (RepoStatus.OK, "abc123")
 
 
 def test_repair_environment_stray_dir_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

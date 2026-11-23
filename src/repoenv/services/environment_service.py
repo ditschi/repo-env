@@ -12,15 +12,11 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
 
 from repoenv.adapters import git_adapter, paths
 from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import SetOp, resolve_selection, set_combine
 from repoenv.errors import NothingMatchedError, UsageError
-
-if TYPE_CHECKING:
-    from typing_extensions import Unpack
 
 _RENV_MARKER_FILENAMES = (paths.ENV_META_FILENAME, paths.ENV_MARKER_FILENAME)
 _REMOTE = "origin"
@@ -172,20 +168,6 @@ class WorktreeRequest:
     def start_point(self) -> str:
         """The ref a new worktree starts from."""
         return "HEAD" if self.preserve else f"{self.remote}/{self.base}"
-
-
-class _WorktreeKwargs(TypedDict):
-    """Keyword form of :class:`WorktreeRequest` (see :func:`_create_or_attach_worktree`)."""
-
-    repo_path: Path
-    worktree_path: Path
-    remote: str
-    base: str
-    target_branch: str
-    create_branch: bool
-    preserve: bool
-    on_branch_conflict: BranchConflictStrategy
-    move_context: str
 
 
 @dataclass(frozen=True)
@@ -379,7 +361,7 @@ def _resolve_branch_conflict(request: WorktreeRequest, in_use: Path) -> str:
     return f"branch '{request.target_branch}' in use at {in_use}; created detached worktree"
 
 
-def _attach_worktree(request: WorktreeRequest) -> str | None:
+def _create_or_attach_worktree(request: WorktreeRequest) -> str | None:
     """Ensure a worktree exists; return an optional note for the RepoEntry."""
     _reject_linked_worktree_source(request.repo_path)
     git_adapter.prune_worktrees(request.repo_path)
@@ -404,11 +386,6 @@ def _attach_worktree(request: WorktreeRequest) -> str | None:
     return None
 
 
-def _create_or_attach_worktree(**kwargs: Unpack[_WorktreeKwargs]) -> str | None:
-    """Keyword entry point for :func:`_attach_worktree` (used by ``renv repair``)."""
-    return _attach_worktree(WorktreeRequest(**kwargs))
-
-
 def _materialize_repo(job: _RepoJob, options: ExecuteOptions) -> RepoEntry:
     """Create the worktree for one repo and return its entry (FAILED on error)."""
     repo_path = job.source / job.repo_name
@@ -424,7 +401,7 @@ def _materialize_repo(job: _RepoJob, options: ExecuteOptions) -> RepoEntry:
             target_branch = resolved_base
         if not already_exists:
             _ensure_worktree_path_is_clean(worktree_path)
-            note = _attach_worktree(
+            note = _create_or_attach_worktree(
                 WorktreeRequest(
                     repo_path=repo_path,
                     worktree_path=worktree_path,
