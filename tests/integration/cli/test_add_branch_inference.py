@@ -12,6 +12,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
+from tests.integration.support import gitfixtures
 from tests.integration.support.gitfixtures import RepoFactory
 from tests.integration.support.renv_helpers import init_renv
 
@@ -31,7 +32,7 @@ def test_add_without_branch_reuses_environment_task_branch(
     add = runner.invoke(app, ["add", "task", "--include", "beta"])
     assert add.exit_code == 0, add.output
 
-    assert RepoFactory.current_branch(worktrees_dir / "task" / "beta") == branch
+    assert gitfixtures.current_branch(worktrees_dir / "task" / "beta") == branch
 
 
 def test_add_explicit_branch_still_overrides_inference(
@@ -48,4 +49,4 @@ def test_add_explicit_branch_still_overrides_inference(
     add = runner.invoke(app, ["add", "task", "--include", "beta", "--branch", "feature/b"])
     assert add.exit_code == 0, add.output
 
-    assert RepoFactory.current_branch(worktrees_dir / "task" / "beta") == "feature/b"
+    assert gitfixtures.current_branch(worktrees_dir / "task" / "beta") == "feature/b"

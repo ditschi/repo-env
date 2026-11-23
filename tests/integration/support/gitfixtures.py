@@ -138,16 +138,3 @@ class RepoFactory:
     def clone_path(self, name: str) -> Path:
         """Return the source clone path for ``name``."""
         return self.source / name
-
-    # Stateless git helpers, kept reachable through the factory fixture for test convenience.
-    write_file = staticmethod(write_file)
-    commit_all = staticmethod(commit_all)
-    create_local_branch = staticmethod(create_local_branch)
-    checkout_branch = staticmethod(checkout_branch)
-    checkout_branch_in_source = staticmethod(checkout_branch_in_source)
-    create_foreign_worktree = staticmethod(create_foreign_worktree)
-    simulate_orphaned_worktree = staticmethod(simulate_orphaned_worktree)
-    leave_stray_directory = staticmethod(leave_stray_directory)
-    current_branch = staticmethod(current_branch)
-    is_detached = staticmethod(is_detached)
-    latest_commit_message = staticmethod(latest_commit_message)

@@ -9,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
+from tests.integration.support import gitfixtures
 from tests.integration.support.gitfixtures import RepoFactory, run_git
 from tests.integration.support.renv_helpers import init_renv
 
@@ -54,7 +55,7 @@ def test_power_user_batch_edit_commit_push_and_pr(
 
     for name in ("svc-alpha", "svc-beta", "svc-gamma"):
         wt = worktrees_dir / "batch" / name
-        assert RepoFactory.latest_commit_message(wt) == commit_msg
+        assert gitfixtures.latest_commit_message(wt) == commit_msg
 
     for name in ("svc-alpha", "svc-beta", "svc-gamma"):
         wt = worktrees_dir / "batch" / name
@@ -133,7 +134,7 @@ def test_subset_follow_up_only_touches_marked_repos(
     }
     assert {name for name, head in heads.items() if head != beta_head_before} == {"svc-alpha", "svc-gamma"}
     marked_messages = {
-        name: RepoFactory.latest_commit_message(worktrees_dir / "batch" / name)
+        name: gitfixtures.latest_commit_message(worktrees_dir / "batch" / name)
         for name in ("svc-alpha", "svc-gamma")
     }
     assert marked_messages == {"svc-alpha": "chore: follow-up subset", "svc-gamma": "chore: follow-up subset"}
@@ -159,8 +160,8 @@ def test_same_branch_across_disjoint_envs(
     assert first.exit_code == 0, first.output
     assert second.exit_code == 0, second.output
     branches = (
-        RepoFactory.current_branch(worktrees_dir / "env-a" / "alpha"),
-        RepoFactory.current_branch(worktrees_dir / "env-b" / "beta"),
+        gitfixtures.current_branch(worktrees_dir / "env-a" / "alpha"),
+        gitfixtures.current_branch(worktrees_dir / "env-b" / "beta"),
     )
     assert branches == (branch, branch)
 
@@ -170,7 +171,7 @@ def test_mixed_manual_branch_state_then_move_follow_up(
 ) -> None:
     alpha = repo_factory.make_bare_and_clone("alpha")
     repo_factory.make_bare_and_clone("beta")
-    RepoFactory.checkout_branch_in_source(alpha, "feature/mixed")
+    gitfixtures.checkout_branch_in_source(alpha, "feature/mixed")
     branch = "feature/mixed"
 
     runner = CliRunner()
@@ -181,8 +182,8 @@ def test_mixed_manual_branch_state_then_move_follow_up(
 
     alpha_wt = worktrees_dir / "mixed" / "alpha"
     beta_wt = worktrees_dir / "mixed" / "beta"
-    assert RepoFactory.is_detached(alpha_wt) is True
-    assert RepoFactory.current_branch(beta_wt) == branch
+    assert gitfixtures.is_detached(alpha_wt) is True
+    assert gitfixtures.current_branch(beta_wt) == branch
 
     meta = json.loads((worktrees_dir / "mixed" / ".repoenv.json").read_text(encoding="utf-8"))
     alpha_entry = next(item for item in meta["environment"]["repos"] if item["repo"] == "alpha")
@@ -205,5 +206,5 @@ def test_mixed_manual_branch_state_then_move_follow_up(
     )
     assert move_result.exit_code == 0, move_result.output
     moved_wt = worktrees_dir / "mixed-move" / "alpha"
-    assert RepoFactory.current_branch(moved_wt) == branch
-    assert RepoFactory.current_branch(alpha) == "main"
+    assert gitfixtures.current_branch(moved_wt) == branch
+    assert gitfixtures.current_branch(alpha) == "main"

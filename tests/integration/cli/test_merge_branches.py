@@ -14,6 +14,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
+from tests.integration.support import gitfixtures
 from tests.integration.support.gitfixtures import RepoFactory
 from tests.integration.support.renv_helpers import init_renv
 
@@ -36,8 +37,8 @@ def test_merge_union_preserves_each_sides_branch(
     merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
     assert merge.exit_code == 0, merge.output
 
-    assert RepoFactory.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
-    assert RepoFactory.current_branch(worktrees_dir / "merged" / "beta") == "feature/b"
+    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
+    assert gitfixtures.current_branch(worktrees_dir / "merged" / "beta") == "feature/b"
 
 
 def test_merge_intersect_conflicting_branch_prefers_left_and_reports(
@@ -62,7 +63,7 @@ def test_merge_intersect_conflicting_branch_prefers_left_and_reports(
         text in merge.output for text in ("branch conflict", "feature/left", "feature/right")
     ), merge.output
 
-    assert RepoFactory.current_branch(worktrees_dir / "merged" / "alpha") == "feature/left"
+    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/left"
 
 
 def test_merge_moves_branch_out_of_the_source_environment(
@@ -85,8 +86,8 @@ def test_merge_moves_branch_out_of_the_source_environment(
     merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
     assert merge.exit_code == 0, merge.output
 
-    assert RepoFactory.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
-    assert RepoFactory.is_detached(worktrees_dir / "left" / "alpha") is True
+    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
+    assert gitfixtures.is_detached(worktrees_dir / "left" / "alpha") is True
 
 
 def test_merge_recreate_marker_records_on_branch_conflict(
@@ -129,7 +130,7 @@ def test_merge_does_not_carry_over_plain_detached_checkout(
     assert merge.exit_code == 0, merge.output
     assert "branch conflict" not in merge.output
     merged = worktrees_dir / "merged"
-    assert (RepoFactory.is_detached(merged / "alpha"), RepoFactory.current_branch(merged / "beta")) == (
+    assert (gitfixtures.is_detached(merged / "alpha"), gitfixtures.current_branch(merged / "beta")) == (
         True,
         "feature/b",
     )

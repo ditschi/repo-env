@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from repoenv.adapters import state_store
 from repoenv.cli.app import app
 from repoenv.domain.models import RepoStatus
+from tests.integration.support import gitfixtures
 from tests.integration.support.gitfixtures import RepoFactory
 from tests.integration.support.renv_helpers import init_renv
 
@@ -36,7 +37,7 @@ def test_repair_restores_deleted_worktree(
     repair = runner.invoke(app, ["repair", "feat"])
     assert repair.exit_code == 0, repair.output
     assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
-    assert RepoFactory.current_branch(worktrees_dir / "feat" / "alpha") == "feature/repair"
+    assert gitfixtures.current_branch(worktrees_dir / "feat" / "alpha") == "feature/repair"
 
 
 def test_repair_partial_failure_retry(
@@ -45,7 +46,7 @@ def test_repair_partial_failure_retry(
     ok_clone = repo_factory.make_bare_and_clone("alpha")
     fail_clone = repo_factory.make_bare_and_clone("beta")
     _ = ok_clone
-    RepoFactory.checkout_branch_in_source(fail_clone, "feature/shared")
+    gitfixtures.checkout_branch_in_source(fail_clone, "feature/shared")
 
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
@@ -71,7 +72,7 @@ def test_repair_orphaned_worktree_metadata(
 ) -> None:
     clone = repo_factory.make_bare_and_clone("alpha")
     orphan_path = worktrees_dir / "feat" / "alpha"
-    RepoFactory.simulate_orphaned_worktree(clone, orphan_path, branch="feature/orphan")
+    gitfixtures.simulate_orphaned_worktree(clone, orphan_path, branch="feature/orphan")
 
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
@@ -98,7 +99,7 @@ def test_repair_stray_directory_clear_error(
     )
 
     shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    RepoFactory.leave_stray_directory(worktrees_dir / "feat" / "alpha")
+    gitfixtures.leave_stray_directory(worktrees_dir / "feat" / "alpha")
 
     repair = runner.invoke(app, ["repair", "feat"])
     _assert_partial_failure(repair)
@@ -228,7 +229,7 @@ def test_repair_after_partial_failure_updates_registry_status(
     ok_clone = repo_factory.make_bare_and_clone("alpha")
     fail_clone = repo_factory.make_bare_and_clone("beta")
     _ = ok_clone
-    RepoFactory.checkout_branch_in_source(fail_clone, "feature/shared")
+    gitfixtures.checkout_branch_in_source(fail_clone, "feature/shared")
 
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
