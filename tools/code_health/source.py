@@ -50,7 +50,12 @@ def parse_suppressions(source: str) -> tuple[dict[int, tuple[frozenset[str], str
     """Return ``{line: (kinds, reason)}`` plus warnings for suppressions without a reason."""
     found: dict[int, tuple[frozenset[str], str]] = {}
     warnings: list[str] = []
-    for number, text in enumerate(source.splitlines(), start=1):
+    comments = (
+        (tok.start[0], tok.string)
+        for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+        if tok.type == tokenize.COMMENT
+    )
+    for number, text in comments:
         match = SUPPRESSION_RE.search(text)
         if not match:
             continue

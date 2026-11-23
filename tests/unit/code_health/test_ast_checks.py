@@ -154,3 +154,8 @@ def test_suppression_requires_reason() -> None:
     )
     found, warnings = parse_suppressions(source)
     assert (list(found), len(warnings)) == ([1], 1)
+
+
+def test_suppression_inside_string_literal_is_not_a_comment() -> None:
+    source = 'text = "# code-health: ignore[large-method]"\n'
+    assert parse_suppressions(source) == ({}, [])
