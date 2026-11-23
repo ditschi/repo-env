@@ -112,3 +112,139 @@ suppressing them.** Suppressed smells stay visible in the report.
 Run `nox -s code-health -- --changed --json` before every commit. The JSON lists each changed file
 with `score`, `smells[]` (`kind`, `line`, `value`, `max`, `deduction`) and `gate.violations`.
 Refactor until `gate.passed` is `true`.
+
+## Steckbrief Code Health
+
+### 1. Messumfang: was zählt, was nicht, mit Begründung
+
+- **Gemessen:** alle Python-Dateien unter `src/`, `tests/` und `tools/` sowie `noxfile.py` (155 Dateien, rund 11 600 Codezeilen). Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode. Der Checker bewertet sich selbst mit.
+- **Ausgenommen:**
+  - `src/repoenv/_version.py`: wird von hatch-vcs generiert.
+  - `tests/*/resources/*` und `tests/fixtures/*`: Testdaten, kein Code.
+  - Markdown, YAML und Shell. Das Repo ist ein reines Python-CLI, die übrigen Dateien sind Konfiguration oder Doku.
+- **LOC** zählt nur Codezeilen, also ohne Leerzeilen, Kommentare und Docstrings. Kommentare sollen den Score nicht verschlechtern.
+
+### 2. Tools und Versionen, je Sprache
+
+Nur Python, alle Tools frei bzw. OSS:
+
+| Tool | Version | Rolle | Neu? |
+|---|---|---|---|
+| ruff | 0.15.20 | C901 (mccabe), PLR0913 (Argumente), PLR1702 (Verschachtelung) | vorhanden |
+| pylint `symilar` | 4.0.6 | Duplikate (gleiche Engine wie R0801 in `nox -s duplicates`) | vorhanden |
+| complexipy | 9.0.0 (MIT) | kognitive Komplexität | **neu**, kein vorhandener Linter liefert sie |
+| Python `ast`/`tokenize` | stdlib | eigene Checks (siehe 3) | — |
+| tomli | ≥ 2.0 | TOML nur auf Python 3.10 | neu, winzig |
+
+- **flake8:** Sein mccabe-Plugin würde dieselbe Kennzahl wie ruff C901 messen, deshalb wird es nicht zusätzlich eingesetzt.
+- **vulture:** Toter Code ist kein CodeScene-Kriterium. vulture bleibt als eigenes Gate (`dead_code`).
+- **lizard, radon/xenon, jscpd:** Nicht übernommen. Sie hätten ruff/pylint nur dupliziert, jscpd bräuchte außerdem Node.
+
+### 3. Abgebildete Smells, mit Zuordnung zu den CodeScene-Kriterien; nicht abgebildete mit Grund
+
+| CodeScene-Kriterium | Smell hier | Quelle |
+|---|---|---|
+| Complex Method | `complex-method` | ruff C901 |
+| Large Method | `large-method` | AST (Codezeilen) |
+| Brain Method | `brain-method` | abgeleitet: complex + large |
+| Primitive Obsession / viele Argumente | `primitive-obsession`, `many-arguments` | AST / ruff PLR0913 |
+| DRY Violations | `code-duplication` | pylint symilar |
+| Nested Complexity | `nested-complexity` | ruff PLR1702 |
+| Bumpy Road | `bumpy-road` | AST |
+| Complex Conditional | `complex-conditional` | AST (alle Bedingungen, nicht nur `if` wie ruff PLR0916) |
+| (kognitive Komplexität, Zusatz) | `cognitive-complexity` | complexipy |
+| Lines of Code | `large-file` | tokenize |
+| Brain/God Class | `brain-class` | abgeleitet |
+| Low Cohesion | `low-cohesion` (LCOM4 je Klasse) | AST |
+| (viele Funktionen, Zusatz) | `many-functions` | AST |
+| Large Assertion Blocks | `large-assertion-block` | AST |
+| Duplicated Assertion Blocks | `duplicated-assertion-block` | AST |
+
+Nicht abgebildet:
+- **Developer Congestion** und **Complex Code by Former Contributors:** Das sind Git-Verhaltensmetriken, keine Codeeigenschaften. Bei einem Ein-Personen-Repo sagen sie nichts aus.
+- **LCOM4 für Module aus freien Funktionen:** CLI-Module mit unabhängigen Commands wären dort immer „inkohäsiv“.
+- **Duplikate in Tests:** werden nicht gemessen, sie sind über die Assertion-Block-Smells abgedeckt (Annahme).
+
+### 4. Schwellen, Gewichte und Score-Formel
+
+- **Formel:** Jede Datei startet bei 10.0, jeder Smell zieht `weight × min(cap, value / max)` ab, das Minimum ist 1.0.
+- **Repo-Score:** LOC-gewichteter Mittelwert; die schlechteste Datei wird zusätzlich ausgewiesen.
+- **Konfiguration:** alle Werte in `code-health.toml` (versioniert, `version = 1`); die Tabelle oben unter „Score“ nennt die Defaults.
+- **CodeScene-Werte:** CC > 9, Verschachtelung ≥ 4, ≥ 4 Operatoren je Bedingung, ≥ 5 Argumente.
+- **Annahmen:**
+  - Large Method > 70 Zeilen, kognitive Komplexität > 15, ≥ 2 Bumps.
+  - Datei > 600 Codezeilen, > 40 Funktionen, LCOM4 ≥ 3.
+  - ≥ 4 Assertions am Stück, Duplikat-Blöcke ab 3 Assertions, Code-Duplikate ab 6 Zeilen.
+  - Gewichte zwischen 0.2 (Assertion-Block) und 1.5 (Brain Method/Class).
+- **Ausgenommen von Argument-Zählungen** (vom Framework erzwungene Signaturen):
+  - `typer.Option`/`typer.Argument`-Parameter;
+  - pytest-injizierte Parameter von `test_*`-Funktionen und Fixtures.
+
+### 5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit
+
+- **Befehl:** `nox -s code-health [-- --changed [BASE]] [--json] [--update-baseline]`. Ohne nox: `python -m tools.code_health`.
+- **Ausgabe:** Tabelle mit Score, LOC und Datei; darunter die Smells mit Zeile, Messwert, Schwelle und Abzug.
+- **`--json`:** liefert `repo_score`, `worst_file`, `files[].smells[]` und `gate.violations`.
+- **`--changed`:** prüft nur die Dateien, die sich gegenüber BASE geändert haben. BASE ist standardmäßig die merge-base mit `origin/main`, sonst `main` oder `HEAD`. Der Basis-Stand wird per `git archive` exportiert und parallel bewertet.
+- **Laufzeit:** Vollscan ca. 5 s, `--changed` ca. 5–7 s. Den größten Anteil hat pylint symilar mit rund 4,5 s; ruff, complexipy und die AST-Checks brauchen zusammen unter 1 s.
+- **Exit-Codes:** 0 bestanden, 1 Gate verletzt, 2 Tool-Fehler.
+
+### 6. Gate: Hook, CI, Ratchet und Baseline, Suppressions
+
+- **Pre-commit:** der Hook `code-health` (`--changed HEAD`).
+- **CI:** im PR-Job „Quality gates“ als `--changed <PR-Base-SHA>`, mit `fetch-depth: 0`.
+- **Regeln:**
+  - Geänderte Dateien müssen ≥ 9.5 haben.
+  - Keine Datei darf schlechter werden als in der Basis.
+  - Der Repo-Score darf nicht sinken.
+  - Ein Vollscan prüft gegen `code-health-baseline.json`.
+- **Ratchet:** Die Baseline hielt anfangs 33 Dateien unter 9.5 fest. Seit dem Refactoring ist sie **leer**, es ist also keine Datei mehr unter 9.5 zugelassen.
+- **Suppressions:** nur inline als `# code-health: ignore[<smell>] -- <Begründung ≥ 10 Zeichen>`. Ohne Begründung werden sie ignoriert und erzeugen eine Warnung. Unterdrückte Smells bleiben im Report sichtbar. Aktuell gibt es **0** Suppressions.
+
+### 7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
+
+- **Vorher** (`main`, 138 Dateien): Repo **8.93**, 33 Dateien unter 9.5.
+  - Schlechteste: `services/environment_service.py` 1.00, `services/clone_service.py` 6.35, `cli/commands/add.py` 6.92, `cli/commands/create.py` 7.26.
+- **Nachher** (155 Dateien inkl. Checker und neuer Tests): Repo **9.97**, **0** Dateien unter 9.5.
+  - Schlechteste: `tests/integration/git/test_create_command_git_flow.py` mit 9.60.
+- **Verbleibende Smells** (15 Dateien, alle ≥ 9.6):
+  - je einmal `many-arguments` mit 5 Argumenten in `git_adapter.add_worktree`, `scm/rest.request`, `repo_url.build_clone_url` und einem Test-Helper;
+  - einmal `cognitive-complexity` 16 in `rm_command`;
+  - 9 große Assertion-Blöcke in Integrationstests.
+- **Hotspots:** Die größten haben jetzt alle 10.0 (environment_service, clone_service, pr_service, create/add/merge, resolve, didyoumean, config).
+- **Tests:** Alle Unit- und Integrationstests sind grün, das Verhalten ist unverändert.
+
+### 8. Skills: geprüfte und übernommene Skills
+
+- **Geprüft:** Die SKILL.md-Dateien von 16 skills.sh-Treffern wurden gelesen.
+- **Shortlist:**
+  - `l-mb/python-refactoring-skills@py-complexity` (empfohlen, ohne dessen Setup-Schritt, der Claude-Settings ändert)
+  - `wondelai/skills@refactoring-patterns` (empfohlen)
+  - `l-mb/…@py-refactor`
+  - `l-mb/…@py-code-health`
+  - `github/awesome-copilot@refactor-method-complexity-reduce`
+  - `kucherenko/jscpd@dry-refactoring`
+  - `fastapi/typer@typer`
+- **Ausgeschieden:** `*@codehealth-mcp`, weil es ein kostenpflichtiges Token braucht.
+- **Übernommen:** bisher keine. Installiert wird erst nach Freigabe durch den Owner.
+
+### 9. Erfahrungen
+
+- **Gut:**
+  - Die vorhandenen Linter sind über `--config`-Overrides wiederverwendet. Es gibt keine zweite Konfiguration und keine doppelte Messung.
+  - Der Basisvergleich per `git archive` macht „nicht schlechter werden“ ohne Baseline-Merge-Konflikte prüfbar.
+  - `--json` mit Zeilennummern und Abzug pro Smell eignet sich gut für Agents: Vier parallele Agents haben die Hotspots in getrennten Datei-Gruppen ohne Rückfragen auf 10 gebracht.
+- **Schwierig:**
+  - complexipy (Rust-Extension) ist nicht thread-safe; es gab Segfaults, bis die Aufrufe serialisiert wurden.
+  - pylint symilar ist der Laufzeit-Engpass.
+  - Agents neigen zum Metrik-Gaming. Beispiele: `**kwargs: Unpack[TypedDict]` statt Parameterobjekt, oder `staticmethod`-Aliase gegen LCOM4. Beides wurde im Review zurückgebaut. Ein Review bleibt also nötig.
+  - Unsere additive Formel ist strenger als CodeScene: Eine Datei mit vielen Smells fällt bis auf 1.0.
+- **Übertragbar:**
+  - Formel „Start 10, gewichtete Abzüge, LOC-gewichteter Mittelwert“;
+  - Gate-Logik aus Basisvergleich und Ratchet;
+  - Suppressions nur mit Begründung;
+  - AST-Checks für Bumpy Road, Assertion-Blöcke und LCOM4 bei anderen Python-Repos.
+- **Projektspezifisch:**
+  - Die Typer-Ausnahme, weil CLI-Optionen als Funktionsparameter deklariert werden.
+  - Die pytest-Fixture-Ausnahme.
+  - Duplikat-Messung nur in `src/` und `tools/`.

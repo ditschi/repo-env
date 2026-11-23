@@ -155,7 +155,7 @@ def check_syntax(session: nox.Session) -> None:
 @nox.session(python=DEFAULT_PYTHON)
 def check_types(session: nox.Session) -> None:
     """Static type checking with mypy."""
-    session.install("-e", ".[type-check,all]")
+    session.install("-e", ".[type-check,all,code-quality]")
     session.run("mypy", "--package", PACKAGE)
     session.run("mypy", TOOLS)
 
