@@ -34,17 +34,19 @@ def _api_request(url, *, method, payload, headers):
     return rest.HttpResponse(200, {}, json.dumps(data).encode())
 
 
-@pytest.mark.parametrize("push", [False, True])
-def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch, push):
-    remotes = {
-        "github": "git@github.com:o/github.git",
-        "gitlab": "https://gitlab.com/group/sub/gitlab.git",
-        "cloud": "git@bitbucket.org:o/cloud.git",
-        "server": "https://bb.example/bitbucket/scm/PROJ/server.git",
-        "azure": "git@ssh.dev.azure.com:v3/org/project/azure",
-        "forgejo": "git@forge.example:o/forgejo.git",
-    }
-    for name in remotes:
+_REMOTES = {
+    "github": "git@github.com:o/github.git",
+    "gitlab": "https://gitlab.com/group/sub/gitlab.git",
+    "cloud": "git@bitbucket.org:o/cloud.git",
+    "server": "https://bb.example/bitbucket/scm/PROJ/server.git",
+    "azure": "git@ssh.dev.azure.com:v3/org/project/azure",
+    "forgejo": "git@forge.example:o/forgejo.git",
+}
+
+
+def _mixed_provider_env(repo_factory, source_dir, worktrees_dir) -> CliRunner:
+    """Create env 'env' on feature/x with one repo per provider; pushes land in local bare repos."""
+    for name in _REMOTES:
         repo_factory.make_bare_and_clone(name)
     runner = CliRunner()
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
@@ -56,11 +58,47 @@ def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, 
         "forge.example": "gitea",
     }
     config_store.save_config(config)
-    for name, remote in remotes.items():
+    for name, remote in _REMOTES.items():
         source = repo_factory.clone_path(name)
         bare = str(repo_factory.remotes / f"{name}.git")
         run_git(["remote", "set-url", "origin", remote], cwd=source)
         run_git(["remote", "set-url", "--push", "origin", bare], cwd=source)
+    return runner
+
+
+def _branch_pushed(repo_factory, name: str) -> bool:
+    bare = repo_factory.remotes / f"{name}.git"
+    argv = ["--git-dir", str(bare), "show-ref", "--verify", "refs/heads/feature/x"]
+    return run_git(argv, cwd=bare, check=False).returncode == 0
+
+
+def _assert_preflight_blocks_unsupported_draft(runner, monkeypatch) -> None:
+    with monkeypatch.context() as guard:
+        guard.setattr(git_adapter, "push", lambda *a, **kw: pytest.fail("preflight must precede every push"))
+        guard.setattr(rest, "request", lambda *a, **kw: pytest.fail("preflight must precede every API call"))
+        result = runner.invoke(app, ["pr", "env", "--title", "t", "--draft", "--push"])
+        assert result.exit_code != 0
+        assert "does not support: --draft" in str(result.exception)
+
+
+def _assert_existing_pr_policies(runner, monkeypatch) -> None:
+    """Fail/skip existing PRs without pushing or posting a second request."""
+    monkeypatch.setattr(
+        gh_adapter,
+        "_run",
+        lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "https://github.com/pr/1", ""),
+    )
+    for policy, expected in (("skip", 0), ("fail", 1)):
+        result = runner.invoke(app, ["pr", "env", "-i", "github", "--title", "t", "--if-exists", policy])
+        assert result.exit_code == expected, result.output
+        assert ("exists" if policy == "skip" else "already exists") in (
+            result.output + str(result.exception or "")
+        )
+
+
+@pytest.mark.parametrize("push", [False, True])
+def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch, push):
+    runner = _mixed_provider_env(repo_factory, source_dir, worktrees_dir)
     monkeypatch.setattr(credentials, "resolve", lambda kind, host: Credential("token"))
     monkeypatch.setattr(gh_adapter, "is_available", lambda: True)
     calls = []
@@ -78,48 +116,15 @@ def test_mixed_providers(repo_factory, repoenv_home, source_dir, worktrees_dir, 
 
     monkeypatch.setattr(rest, "request", request)
     monkeypatch.setattr(gh_adapter, "_run", gh_run)
-    with monkeypatch.context() as guard:
-        guard.setattr(git_adapter, "push", lambda *a, **kw: pytest.fail("preflight must precede every push"))
-        guard.setattr(rest, "request", lambda *a, **kw: pytest.fail("preflight must precede every API call"))
-        result = runner.invoke(app, ["pr", "env", "--title", "t", "--draft", "--push"])
-        assert result.exit_code != 0
-        assert "does not support: --draft" in str(result.exception)
+    _assert_preflight_blocks_unsupported_draft(runner, monkeypatch)
     args = ["pr", "env", "--title", "Fix {repo}", "--json"]
     if push:
         args.append("--push")
     result = runner.invoke(app, args)
     assert result.exit_code == 0, result.output
-    assert len(json.loads(result.stdout)["created"]) == 6
-    assert len(calls) == 12
-    for name in remotes:
-        exists = (
-            run_git(
-                [
-                    "--git-dir",
-                    str(repo_factory.remotes / f"{name}.git"),
-                    "show-ref",
-                    "--verify",
-                    "refs/heads/feature/x",
-                ],
-                cwd=repo_factory.remotes / f"{name}.git",
-                check=False,
-            ).returncode
-            == 0
-        )
-        assert exists is push
-
-    # Fail/skip existing PRs without pushing or posting a second request.
-    monkeypatch.setattr(
-        gh_adapter,
-        "_run",
-        lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, "https://github.com/pr/1", ""),
-    )
-    for policy, expected in (("skip", 0), ("fail", 1)):
-        result = runner.invoke(app, ["pr", "env", "-i", "github", "--title", "t", "--if-exists", policy])
-        assert result.exit_code == expected, result.output
-        assert ("exists" if policy == "skip" else "already exists") in (
-            result.output + str(result.exception or "")
-        )
+    assert (len(json.loads(result.stdout)["created"]), len(calls)) == (6, 12)
+    assert {name: _branch_pushed(repo_factory, name) for name in _REMOTES} == dict.fromkeys(_REMOTES, push)
+    _assert_existing_pr_policies(runner, monkeypatch)
 
 
 def test_unsupported_options_prevent_push(repo_factory, repoenv_home, source_dir, worktrees_dir, monkeypatch):
