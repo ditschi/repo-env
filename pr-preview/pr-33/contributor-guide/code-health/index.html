@@ -1285,7 +1285,7 @@ which is versioned and reviewed like code.</p>
 <td>function</td>
 <td>ruff <code>PLR0913</code></td>
 <td>≤ 4 arguments</td>
-<td>CodeScene (≥ 5 flagged)</td>
+<td>looser than CodeScene (4)</td>
 </tr>
 <tr>
 <td>primitive-obsession</td>
@@ -1327,7 +1327,7 @@ which is versioned and reviewed like code.</p>
 <td>implementation</td>
 <td>AST</td>
 <td>≤ 3 <code>and</code>/<code>or</code> per condition</td>
-<td>CodeScene (≥ 4 flagged)</td>
+<td>looser than CodeScene (2 branches)</td>
 </tr>
 <tr>
 <td>large-file</td>
@@ -1559,7 +1559,14 @@ Refactor until <code>gate.passed</code> is <code>true</code>.</p>
 <li><strong>Formel:</strong> Jede Datei startet bei 10.0, jeder Smell zieht <code>weight × min(cap, value / max)</code> ab, das Minimum ist 1.0.</li>
 <li><strong>Repo-Score:</strong> LOC-gewichteter Mittelwert; die schlechteste Datei wird zusätzlich ausgewiesen.</li>
 <li><strong>Konfiguration:</strong> alle Werte in <code>code-health.toml</code> (versioniert, <code>version = 1</code>); die Tabelle oben unter „Score“ nennt die Defaults.</li>
-<li><strong>CodeScene-Werte:</strong> CC &gt; 9, Verschachtelung ≥ 4, ≥ 4 Operatoren je Bedingung, ≥ 5 Argumente.</li>
+<li><strong>Wie CodeScene:</strong> CC &gt; 9, Verschachtelung ≥ 4, Funktion &gt; 70 Zeilen, Bumpy Road ab 2 Bumps der Tiefe 2, Datei &gt; 600 Zeilen, Assertion-Blöcke ab 4.</li>
+<li><strong>Lockerer als die CodeScene-Standardwerte für Python</strong> (nachträglich vom Owner bestätigt, Checker bewusst nicht mehr angepasst):</li>
+<li>Argumente: hier ab 5 markiert, CodeScene ab 4.</li>
+<li>Complex Conditional: hier ab 4 <code>and</code>/<code>or</code>, CodeScene ab 2 Verzweigungen.</li>
+<li>Primitive Obsession: hier ≥ 5 primitive Parameter (absolut), CodeScene 30 % Anteil.</li>
+<li>Duplikate: hier ≥ 6 identische Zeilen, CodeScene 10 Zeilen bei 75 % Ähnlichkeit.</li>
+<li>Duplizierte Assertion-Blöcke: hier ab 3 Assertions, CodeScene 4.</li>
+<li><strong>Gegenprobe mit CodeScene-Schwellen</strong> (Argumente max 3, Conditional max 1, Duplikate ab 10 Zeilen; Prozent- und Ähnlichkeitsregeln nicht nachgebildet): Repo <strong>9.44</strong> statt 9.97, 22 Dateien unter 9.5. Schlechteste Datei: <code>tests/integration/support/fake_scm.py</code> mit 5.40. Treffer: 43 × <code>many-arguments</code> (4 Argumente), 24 × <code>complex-conditional</code> (2–3 Operatoren).</li>
 <li><strong>Annahmen:</strong></li>
 <li>Large Method &gt; 70 Zeilen, kognitive Komplexität &gt; 15, ≥ 2 Bumps.</li>
 <li>Datei &gt; 600 Codezeilen, &gt; 40 Funktionen, LCOM4 ≥ 3.</li>
