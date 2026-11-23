@@ -72,12 +72,11 @@ def test_git_credential_fill_is_non_interactive(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(subprocess, "run", _run)
 
     assert credentials.resolve(ProviderKind.GITEA, "git.corp") == Credential("s3cret", "bob")
-    assert seen["input"] == "protocol=https\nhost=git.corp\n\n"
     env = seen["env"]
     assert isinstance(env, dict)
-    assert env["GIT_TERMINAL_PROMPT"] == "0"
-    assert env["GIT_ASKPASS"] == "" and env["SSH_ASKPASS"] == ""
-    assert "credential.interactive=false" in seen["argv"]
+    prompts = (env["GIT_TERMINAL_PROMPT"], env["GIT_ASKPASS"], env["SSH_ASKPASS"])
+    actual = (seen["input"], prompts, "credential.interactive=false" in seen["argv"])
+    assert actual == ("protocol=https\nhost=git.corp\n\n", ("0", "", ""), True)
 
 
 def test_gh_cli_token_used_for_github_when_installed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,12 +109,18 @@ def test_secret_is_not_in_repr() -> None:
     assert "s3cret" not in repr(Credential("s3cret", "bob"))
 
 
-def test_auth_headers() -> None:
-    assert rest.auth_headers(None) == {}
-    assert rest.auth_headers(Credential("t")) == {"Authorization": "Bearer t"}
-    assert rest.auth_headers(Credential("t"), token_scheme="token") == {"Authorization": "token t"}
-    assert rest.auth_headers(Credential("pw", "u")) == {"Authorization": "Basic dTpwdw=="}
-    assert rest.auth_headers(Credential("pat"), token_scheme="Basic") == {"Authorization": "Basic OnBhdA=="}
+@pytest.mark.parametrize(
+    ("credential", "scheme", "expected"),
+    [
+        (None, "Bearer", {}),
+        (Credential("t"), "Bearer", {"Authorization": "Bearer t"}),
+        (Credential("t"), "token", {"Authorization": "token t"}),
+        (Credential("pw", "u"), "Bearer", {"Authorization": "Basic dTpwdw=="}),
+        (Credential("pat"), "Basic", {"Authorization": "Basic OnBhdA=="}),
+    ],
+)
+def test_auth_headers(credential: Credential | None, scheme: str, expected: dict[str, str]) -> None:
+    assert rest.auth_headers(credential, token_scheme=scheme) == expected
 
 
 def _fake_get(responses: dict[str, rest.HttpResponse]):
@@ -171,24 +176,29 @@ def test_probe_treats_unreachable_host_as_unknown(monkeypatch: pytest.MonkeyPatc
     assert detect.probe("offline.corp.example") is None
 
 
-def test_detect_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(detect, "probe", lambda host: ProviderKind.GITEA)
-    settings = {"Git.Corp": "gitlab https://git.corp/gl"}
+_GITLAB_SETTING = {"Git.Corp": "gitlab https://git.corp/gl"}
 
-    assert detect.detect("git.corp", override=None, settings=settings) == (
-        ProviderKind.GITLAB,
-        "https://git.corp/gl",
-    )
-    assert detect.detect("git.corp", override=ProviderKind.GITHUB, settings=settings) == (
-        ProviderKind.GITHUB,
-        "https://git.corp/gl",
-    )
-    assert detect.detect("other.corp", override=ProviderKind.GITHUB, settings={}) == (
-        ProviderKind.GITHUB,
-        None,
-    )
-    assert detect.detect("gitlab.com", override=None, settings={}) == (ProviderKind.GITLAB, None)
-    assert detect.detect("other.corp", override=None, settings={}) == (ProviderKind.GITEA, None)
+
+@pytest.mark.parametrize(
+    ("host", "override", "settings", "expected"),
+    [
+        ("git.corp", None, _GITLAB_SETTING, (ProviderKind.GITLAB, "https://git.corp/gl")),
+        ("git.corp", ProviderKind.GITHUB, _GITLAB_SETTING, (ProviderKind.GITHUB, "https://git.corp/gl")),
+        ("other.corp", ProviderKind.GITHUB, {}, (ProviderKind.GITHUB, None)),
+        ("gitlab.com", None, {}, (ProviderKind.GITLAB, None)),
+        ("other.corp", None, {}, (ProviderKind.GITEA, None)),
+    ],
+)
+def test_detect_precedence(
+    monkeypatch: pytest.MonkeyPatch,
+    host: str,
+    override: ProviderKind | None,
+    settings: dict[str, str],
+    expected: tuple[ProviderKind, str | None],
+) -> None:
+    monkeypatch.setattr(detect, "probe", lambda host: ProviderKind.GITEA)
+
+    assert detect.detect(host, override=override, settings=settings) == expected
 
 
 def test_detect_falls_back_to_hostname_hint_when_probes_fail(monkeypatch: pytest.MonkeyPatch) -> None:
