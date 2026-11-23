@@ -12,7 +12,9 @@ from repoenv.cli.commands import clone as clone_module
 from repoenv.services.clone_service import Action, ResolvedRepo
 
 
-def test_clone_dry_run_with_fully_qualified_url(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture
+def source(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A configured source directory (``renv init`` equivalent)."""
     source = repoenv_home / "src"
     source.mkdir()
     monkeypatch.setattr(
@@ -20,7 +22,10 @@ def test_clone_dry_run_with_fully_qualified_url(repoenv_home: Path, monkeypatch:
         "load_config",
         lambda: clone_module.config_store.UserConfig(source=source),
     )
+    return source
 
+
+def test_clone_dry_run_with_fully_qualified_url(source: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         app,
@@ -28,55 +33,26 @@ def test_clone_dry_run_with_fully_qualified_url(repoenv_home: Path, monkeypatch:
     )
 
     assert result.exit_code == 0, result.output
-    assert "github.com/owner/repo" in result.stderr
-    assert "Dry run" in result.stderr
+    assert [text for text in ("github.com/owner/repo", "Dry run") if text not in result.stderr] == []
     assert not (source / "github.com" / "owner" / "repo").exists()
 
 
-def test_clone_requires_url(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    source = repoenv_home / "src"
-    source.mkdir()
-    monkeypatch.setattr(
-        clone_module.config_store,
-        "load_config",
-        lambda: clone_module.config_store.UserConfig(source=source),
-    )
-
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["clone", "--dry-run"], "At least one --url is required"),
+        (["clone", "-u", "https://github.com", "-i", "no-slash", "--dry-run"], "Invalid owner/repo pattern"),
+    ],
+)
+def test_clone_rejects_invalid_arguments(source: Path, args: list[str], message: str) -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["clone", "--dry-run"])
+    result = runner.invoke(app, args)
 
     assert result.exit_code != 0
-    assert "At least one --url is required" in str(result.exception)
+    assert message in str(result.exception)
 
 
-def test_clone_rejects_invalid_include_pattern(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    source = repoenv_home / "src"
-    source.mkdir()
-    monkeypatch.setattr(
-        clone_module.config_store,
-        "load_config",
-        lambda: clone_module.config_store.UserConfig(source=source),
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(
-        app,
-        ["clone", "-u", "https://github.com", "-i", "no-slash", "--dry-run"],
-    )
-
-    assert result.exit_code != 0
-    assert "Invalid owner/repo pattern" in str(result.exception)
-
-
-def test_clone_executes_plan(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    source = repoenv_home / "src"
-    source.mkdir()
-    monkeypatch.setattr(
-        clone_module.config_store,
-        "load_config",
-        lambda: clone_module.config_store.UserConfig(source=source),
-    )
-
+def test_clone_executes_plan(source: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = ResolvedRepo(
         host="github.com",
         owner="owner",
@@ -84,14 +60,13 @@ def test_clone_executes_plan(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch
         clone_url="git@github.com:owner/repo.git",
     )
 
-    def _fake_resolve(**kwargs):
+    def _fake_resolve(query, **kwargs):
         return clone_module.clone_service.ResolveResult(repos=[repo], warnings=[])
 
     captured: dict[str, object] = {}
 
-    def _fake_execute(repos, *, source, update, reset_default, force, jobs):
-        captured["source"] = source
-        captured["repos"] = repos
+    def _fake_execute(repos, *, source, sync, jobs):
+        captured.update(source=source, repos=repos)
         return [clone_module.clone_service.CloneOutcome(repo, Action.CLONED)]
 
     monkeypatch.setattr(clone_module.clone_service, "resolve_clone_targets", _fake_resolve)
@@ -101,6 +76,5 @@ def test_clone_executes_plan(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch
     result = runner.invoke(app, ["clone", "-u", "https://github.com/owner/repo"])
 
     assert result.exit_code == 0, result.output
-    assert captured["source"] == source
-    assert captured["repos"] == [repo]
+    assert captured == {"source": source, "repos": [repo]}
     assert "cloned" in result.stderr
