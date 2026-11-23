@@ -13,7 +13,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory, run_git
+from tests.integration.support.gitfixtures import RepoFactory, existing_repos, run_git
 from tests.integration.support.renv_helpers import init_renv
 
 # ---------------------------------------------------------------------------
@@ -56,7 +56,6 @@ def test_create_skips_linked_worktrees_in_source(
     # Only the main repo should have a worktree, not the linked one.
     assert (worktrees_dir / "myenv" / "main-repo" / ".git").exists()
     assert not (worktrees_dir / "myenv" / "linked-wt").exists()
-    assert "Skipped" in result.output or "skipped" in result.output.lower() or True  # info msg
 
 
 def test_create_includes_linked_worktrees_with_flag(
@@ -193,9 +192,10 @@ def test_create_double_star_glob_include(
     init_renv(runner, source=source_dir, worktrees=worktrees_dir)
     result = runner.invoke(app, ["create", "myenv", "--include", "**/demo-*"])
     assert result.exit_code == 0, result.output
-    assert (worktrees_dir / "myenv" / "demo-api").exists()
-    assert (worktrees_dir / "myenv" / "demo-ui").exists()
-    assert not (worktrees_dir / "myenv" / "other-svc").exists()
+    assert existing_repos(worktrees_dir / "myenv", ("demo-api", "demo-ui", "other-svc")) == {
+        "demo-api",
+        "demo-ui",
+    }
 
 
 # ---------------------------------------------------------------------------

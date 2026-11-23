@@ -44,9 +44,10 @@ def test_ls_warns_for_stale_environment_path(repoenv_home: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["ls"])
     assert result.exit_code == 0
-    assert "stale" in result.output
-    assert "stale environment" in result.output
-    assert "renv ls --reconcile" in result.output
+    missing = [
+        text for text in ("stale", "stale environment", "renv ls --reconcile") if text not in result.output
+    ]
+    assert not missing, result.output
 
 
 def test_ls_reconcile_removes_stale_entries(repoenv_home: Path) -> None:
@@ -110,9 +111,11 @@ def test_ask_path_uses_directory_completion(monkeypatch) -> None:
     monkeypatch.setattr(questionary, "path", _fake_path)
     result = init_module._ask_path("Source directory of clones", Path("/tmp/default"))
 
-    assert captured["message"] == "Source directory of clones:"
-    assert captured["default"] == str(Path("/tmp/default"))
-    assert captured["only_directories"] is True
+    assert captured == {
+        "message": "Source directory of clones:",
+        "default": str(Path("/tmp/default")),
+        "only_directories": True,
+    }
     assert result == Path("~/clones").expanduser()
 
 

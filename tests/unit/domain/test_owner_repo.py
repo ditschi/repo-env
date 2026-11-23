@@ -49,19 +49,26 @@ def test_expand_owner_repo_patterns_supports_csv_and_repeatable() -> None:
     assert result == [("owner", "repo1"), ("owner", "repo2"), ("prefix-*", "*")]
 
 
-def test_has_wildcard() -> None:
-    assert has_wildcard("prefix-*") is True
-    assert has_wildcard("owner?") is True
-    assert has_wildcard("[abc]") is True
-    assert has_wildcard("literal-owner") is False
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("prefix-*", True), ("owner?", True), ("[abc]", True), ("literal-owner", False)],
+)
+def test_has_wildcard(value: str, expected: bool) -> None:
+    assert has_wildcard(value) is expected
 
 
-def test_match_owner_repo() -> None:
+@pytest.mark.parametrize(
+    ("owner", "repo", "expected"),
+    [
+        ("myself", "test-alpha", True),
+        ("owner", "repo2", True),
+        ("owner", "repo1", False),
+        ("someone-else", "test-alpha", False),
+    ],
+)
+def test_match_owner_repo(owner: str, repo: str, expected: bool) -> None:
     patterns = expand_owner_repo_patterns(["myself/test-*", "owner/repo2"])
-    assert match_owner_repo("myself", "test-alpha", patterns) is True
-    assert match_owner_repo("owner", "repo2", patterns) is True
-    assert match_owner_repo("owner", "repo1", patterns) is False
-    assert match_owner_repo("someone-else", "test-alpha", patterns) is False
+    assert match_owner_repo(owner, repo, patterns) is expected
 
 
 def test_match_owner_repo_wildcard_owner_does_not_leak_across_slash() -> None:

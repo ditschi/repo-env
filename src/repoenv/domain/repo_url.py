@@ -162,18 +162,24 @@ def build_clone_url(
         raise UsageError(f"Unknown protocol '{protocol}'.", hint="Use 'ssh' or 'https'.")
 
     if kind is ProviderKind.AZURE_DEVOPS:
-        org_project = "/".join(quote(part) for part in owner.split("/", 1))
-        if protocol == "https":
-            return f"https://{host}/{org_project}/_git/{quote(repo)}"
-        if host == _AZURE_HOST:
-            return f"git@{_AZURE_SSH_HOST}:v3/{org_project}/{quote(repo)}"
-        return f"ssh://{host}:22/{org_project}/_git/{quote(repo)}"
-
+        return _azure_clone_url(host, owner, repo, https=protocol == "https")
     if kind is ProviderKind.BITBUCKET_SERVER:
-        if protocol == "https":
-            return f"https://{host}/scm/{owner}/{repo}.git"
-        return f"ssh://git@{host}:7999/{owner}/{repo}.git"
-
+        return _bitbucket_server_clone_url(host, owner, repo, https=protocol == "https")
     if protocol == "ssh":
         return f"git@{host}:{owner}/{repo}.git"
     return f"https://{host}/{owner}/{repo}.git"
+
+
+def _azure_clone_url(host: str, owner: str, repo: str, *, https: bool) -> str:
+    org_project = "/".join(quote(part) for part in owner.split("/", 1))
+    if https:
+        return f"https://{host}/{org_project}/_git/{quote(repo)}"
+    if host == _AZURE_HOST:
+        return f"git@{_AZURE_SSH_HOST}:v3/{org_project}/{quote(repo)}"
+    return f"ssh://{host}:22/{org_project}/_git/{quote(repo)}"
+
+
+def _bitbucket_server_clone_url(host: str, owner: str, repo: str, *, https: bool) -> str:
+    if https:
+        return f"https://{host}/scm/{owner}/{repo}.git"
+    return f"ssh://git@{host}:7999/{owner}/{repo}.git"
