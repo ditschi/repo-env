@@ -1232,13 +1232,18 @@ required.</p>
 <ol>
 <li>Every changed file must score <strong>≥ 9.5</strong> (<code>score.target</code>).</li>
 <li>A changed file must <strong>not get worse</strong> than in the base commit. The base tree is exported with
-   <code>git archive</code> and scored the same way.</li>
-<li>The <strong>repo score must not drop</strong>.</li>
-<li><strong>Ratchet baseline</strong> (<code>code-health-baseline.json</code>): files that already scored below 9.5 when the
+   <code>git archive</code> and scored the same way. Renamed files are compared with their old path.</li>
+<li>The <strong>repo score must not drop</strong> below <code>min(target, base repo score)</code>. Once the repo is at the
+   target, adding or deleting healthy files (≥ 9.5) may move the mean slightly without failing.</li>
+</ol>
+<p>Changed files include untracked files, except under pre-commit (<code>PRE_COMMIT</code> is set there): only the
+staged state is committed, so unrelated scratch files must not block it. A missing or failing
+analyzer is a tool error (exit 2), never "no findings". Unknown smell names in a suppression produce
+a warning.
+4. <strong>Ratchet baseline</strong> (<code>code-health-baseline.json</code>): files that already scored below 9.5 when the
    gate was introduced are grandfathered at their recorded score. Rule 2 still applies to them, so
    any change must keep or improve them. After improving such a file, run <code>--update-baseline</code> and
-   commit the tighter values. A baseline score may only go up.</li>
-</ol>
+   commit the tighter values. A baseline score may only go up.</p>
 <p>A full run (without <code>--changed</code>) checks every file against target or baseline. It has no base
 comparison.</p>
 <h2 id="score">Score<a class="headerlink" href="#score" title="Permanent link">&para;</a></h2>
@@ -1592,7 +1597,7 @@ Refactor until <code>gate.passed</code> is <code>true</code>.</p>
 <li><strong>Regeln:</strong></li>
 <li>Geänderte Dateien müssen ≥ 9.5 haben.</li>
 <li>Keine Datei darf schlechter werden als in der Basis.</li>
-<li>Der Repo-Score darf nicht sinken.</li>
+<li>Der Repo-Score darf nicht unter <code>min(Ziel, Basis-Score)</code> sinken.</li>
 <li>Ein Vollscan prüft gegen <code>code-health-baseline.json</code>.</li>
 <li><strong>Ratchet:</strong> Die Baseline hielt anfangs 33 Dateien unter 9.5 fest. Seit dem Refactoring ist sie <strong>leer</strong>, es ist also keine Datei mehr unter 9.5 zugelassen.</li>
 <li><strong>Suppressions:</strong> nur inline als <code># code-health: ignore[&lt;smell&gt;] -- &lt;Begründung ≥ 10 Zeichen&gt;</code>. Ohne Begründung werden sie ignoriert und erzeugen eine Warnung. Unterdrückte Smells bleiben im Report sichtbar. Aktuell gibt es <strong>0</strong> Suppressions.</li>
