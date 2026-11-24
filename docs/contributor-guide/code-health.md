@@ -72,8 +72,8 @@ reason of at least 10 characters.
 # aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
 ```
 
-Current suppressions: `src/repoenv/cli/commands/add.py` and `merge.py` (primitive_obsession, typer
-CLI boundary).
+Current suppressions (primitive_obsession): `src/repoenv/cli/commands/add.py` and `merge.py` (typer CLI
+boundary), `tests/integration/support/fake_scm.py` (fake HTTP server with raw JSON bodies).
 
 ### One source per smell
 
@@ -257,25 +257,25 @@ The own checker's gate (`gate.passed`) still runs in pre-commit and CI until it 
 
 | Komponente | `main` (ai-health strict) | Branch |
 |---|---|---|
-| Repo | 6.87 | **7.82** |
-| `src` | 7.32 | **8.60** |
-| `tests` | 6.31 | **7.03** |
+| Repo | 6.87 | **9.32** |
+| `src` | 7.32 | **8.66** |
+| `tests` | 6.31 | **9.92** |
 
-- **Gate:** `delta` gegen `main` meldet IMPROVED, also keine Datei verschlechtert.
-- **Eigener Checker:** von 8.93 auf 9.97, 0 Dateien unter 9.5.
-- **Schlechteste Dateien (ai-health strict):**
-  - `tests/integration/git/test_repair.py` 2.37 und `test_worktree_conflicts.py` 2.58 (Duplikate);
-  - `tests/integration/cli/test_merge_branches.py` 3.64;
-  - `tests/integration/support/fake_scm.py` 4.13.
-- **Verbleibende Funde** (62 Dateien):
-  - Duplikate 81×, vor allem in Tests;
-  - Excess Arguments 31×, auch durch pytest-Fixtures, die ai-health als Parameter zählt;
-  - Primitive Obsession 22×;
-  - Complex Method 20×;
-  - Complex Conditional 17×;
+- **Gate:** `delta` gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.
+- **Welle 1 (Tests):** fertig. 3 Testdateien haben noch Funde, alle übrigen stehen bei 10.
+- **Eigener Checker:** von 8.93 auf 9.97. Er ist jetzt nur noch informativ, weil er bei Test-Assertions ai-health widerspricht.
+- **Schlechteste Dateien (ai-health strict),** alle in `src`:
+  - `cli/commands/pr.py` 6.08, `add.py` 6.46, `repair.py` 6.63, `create.py` 6.74;
+  - `domain/repo_url.py` 6.78.
+- **Verbleibende Funde,** fast alle in `src` (30 Dateien):
+  - Primitive Obsession 18×;
+  - Complex Method 15×;
+  - Complex Conditional 11×;
+  - Excess Arguments 10×;
+  - Duplikate 5×;
   - Cognitive Complexity 1×.
-- **Davon in `src`:** Primitive Obsession 17×, Complex Method 16×, Complex Conditional 12×, Excess Arguments 10×, Duplikate 3×, Cognitive Complexity 1×.
-- Die Refactorings in Richtung 10 brauchen die Freigabe des Owners.
+- **Suppressions:** 3, nämlich `primitive_obsession` in `add.py`, `merge.py` (typer-CLI-Grenze) und `tests/integration/support/fake_scm.py` (Fake-HTTP-Server mit rohem JSON).
+- Welle 2 (`src`) braucht die Freigabe des Owners.
 
 ### 8. Skills: geprüfte und übernommene Skills
 
