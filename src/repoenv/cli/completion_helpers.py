@@ -64,18 +64,21 @@ def complete_repo_name(ctx: typer.Context, incomplete: str) -> List[str]:
     instead of repo paths.
     """
     prefix, _, partial = incomplete.rpartition(",")
-
-    if partial.startswith("@"):
-        groups = config_store.load_config().groups
-        group_partial = partial[1:]
-        matches = sorted(f"@{name}" for name in groups if name.startswith(group_partial))
-    else:
-        source = _source_for_completion(ctx)
-        if source is None or not source.exists():
-            return []
-        candidates = git_adapter.discover_repos(source)
-        matches = sorted({c for c in candidates if c.startswith(partial)})
-
+    matches = _group_matches(partial[1:]) if partial.startswith("@") else _repo_matches(ctx, partial)
     if prefix:
         return [f"{prefix},{m}" for m in matches]
     return matches
+
+
+def _group_matches(partial: str) -> List[str]:
+    """Configured repo groups (as ``@name``) starting with ``partial``."""
+    groups = config_store.load_config().groups
+    return sorted(f"@{name}" for name in groups if name.startswith(partial))
+
+
+def _repo_matches(ctx: typer.Context, partial: str) -> List[str]:
+    """Repo paths under the effective source directory starting with ``partial``."""
+    source = _source_for_completion(ctx)
+    if source is None or not source.exists():
+        return []
+    return sorted({c for c in git_adapter.discover_repos(source) if c.startswith(partial)})

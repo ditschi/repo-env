@@ -41,7 +41,9 @@ class RepoEnvGroup(TyperGroup):
 
     def _suggest_command(self, ctx: Any, args: List[str], exc: Exception) -> str | None:
         """Return the closest command for an unknown-command error, or None to re-raise."""
-        if exc.__class__.__name__ != "UsageError" or "No such command" not in str(exc) or not args:
+        if not args or exc.__class__.__name__ != "UsageError":
+            return None
+        if "No such command" not in str(exc):
             return None
         matches = difflib.get_close_matches(args[0], list(self.list_commands(ctx)), n=1, cutoff=0.4)
         return matches[0] if matches else None
