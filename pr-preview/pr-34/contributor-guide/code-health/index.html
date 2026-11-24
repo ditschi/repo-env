@@ -910,95 +910,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#own-checker-cross-check-temporary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Own checker (cross-check, temporary)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Own checker (cross-check, temporary)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gate_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gate
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#score" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Score
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Score">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#reused-linters-no-duplicated-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reused linters, no duplicated checks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#conventions-assumptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Conventions (assumptions)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#suppressions_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suppressions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#working-with-agents-own-checker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Working with agents (own checker)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#steckbrief-code-health" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1103,6 +1014,17 @@
     <span class="md-ellipsis">
       
         9. Erfahrungen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verbliebene-eigene-logik-und-warum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verbliebene eigene Logik (und warum)
       
     </span>
   </a>
@@ -1298,8 +1220,8 @@ required.</p>
 </table>
 <p><strong>Goal: 10, meaning no findings.</strong> 9.5 is only the minimum on the way there.</p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w">                                  </span><span class="c1"># report (scan) + gate (delta vs merge-base with origin/main)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w">                         </span><span class="c1"># working tree (incl. untracked) vs HEAD</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w">                                  </span><span class="c1"># delta: working tree (incl. untracked) vs HEAD</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--base<span class="w"> </span>origin/main<span class="w">      </span><span class="c1"># all changes of a branch</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--format<span class="w"> </span>json<span class="w">           </span><span class="c1"># machine-readable, for agents</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>src<span class="w"> </span>--format<span class="w"> </span>markdown<span class="w">    </span><span class="c1"># report for one component</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>.<span class="w"> </span>--report<span class="w">               </span><span class="c1"># full report in AI-HEALTH.md</span>
@@ -1358,12 +1280,6 @@ listed use the ai-health defaults of the pinned release.</p>
 <td>0.1</td>
 <td>any degradation fails the gate</td>
 </tr>
-<tr>
-<td><code>scan.exclude</code></td>
-<td><code>tools/code_health/*</code></td>
-<td>–</td>
-<td>the temporary own checker (below) is not scored</td>
-</tr>
 </tbody>
 </table>
 <h2 id="gate">Gate<a class="headerlink" href="#gate" title="Permanent link">&para;</a></h2>
@@ -1420,201 +1336,12 @@ smell and can go once the ai-health gate is established.</p>
 <p>Run <code>nox -s code-health -- delta --format json</code> (or the ai-health MCP server) before every commit.
 Fix findings instead of suppressing them. The output lists every new or worsened smell with
 <code>path:line</code> and a fix hint.</p>
-<h2 id="own-checker-cross-check-temporary">Own checker (cross-check, temporary)<a class="headerlink" href="#own-checker-cross-check-temporary" title="Permanent link">&para;</a></h2>
-<p><code>tools/code_health</code> (<code>nox -s code-health-own</code>, config <code>code-health.toml</code>) was built first, from
-ruff, complexipy, pylint symilar and AST checks. It stays as an <strong>informational</strong> cross-check (CI step
-with <code>continue-on-error</code>, pre-commit hook only in the <code>manual</code> stage) until it is removed: where the
-two tools disagree (e.g. bundled test assertions vs. duplicated setup), ai-health decides. Its thresholds are looser than the CodeScene defaults
-(see the Steckbrief, section 4).</p>
-<h3 id="gate_1">Gate<a class="headerlink" href="#gate_1" title="Permanent link">&para;</a></h3>
-<p>The own checker runs informationally: in the PR quality job (<code>--changed &lt;PR base&gt;</code>, <code>continue-on-error</code>)
-and as a pre-commit hook in the <code>manual</code> stage (<code>pre-commit run --hook-stage manual code-health-own</code>).</p>
-<ol>
-<li>Every changed file must score <strong>≥ 9.5</strong> (<code>score.target</code>).</li>
-<li>A changed file must <strong>not get worse</strong> than in the base commit. The base tree is exported with
-   <code>git archive</code> and scored the same way. Renamed files are compared with their old path.</li>
-<li>The <strong>repo score must not drop</strong> below <code>min(target, base repo score)</code>. Once the repo is at the
-   target, adding or deleting healthy files (≥ 9.5) may move the mean slightly without failing.</li>
-</ol>
-<p>Changed files include untracked files, except under pre-commit (<code>PRE_COMMIT</code> is set there). A
-missing or failing analyzer is a tool error (exit 2). Unknown smell names in a suppression produce
-a warning.
-4. <strong>Ratchet baseline</strong> (<code>code-health-baseline.json</code>): files that already scored below 9.5 when the
-   gate was introduced are grandfathered at their recorded score. Rule 2 still applies to them, so
-   any change must keep or improve them. After improving such a file, run <code>--update-baseline</code> and
-   commit the tighter values. A baseline score may only go up.</p>
-<p>A full run (without <code>--changed</code>) checks every file against target or baseline. It has no base
-comparison.</p>
-<h3 id="score">Score<a class="headerlink" href="#score" title="Permanent link">&para;</a></h3>
-<p>Every file starts at <code>10.0</code>. Each smell subtracts <code>weight × min(cap, value / max)</code>, where <code>value</code> is
-the measured metric and <code>max</code> the largest allowed value. A smell is reported when
-<code>value &gt; max</code>. The minimum file score is <code>1.0</code>. The repo score is the <strong>LOC-weighted mean</strong>
-(code lines without blank lines, comments or docstrings). The worst file is reported separately.</p>
-<p>Thresholds and weights live in <a href="https://github.com/ditschi/repo-env/blob/main/code-health.toml"><code>code-health.toml</code></a>,
-which is versioned and reviewed like code.</p>
-<table>
-<thead>
-<tr>
-<th>Smell</th>
-<th>Level</th>
-<th>Source</th>
-<th>Default (<code>max</code>)</th>
-<th>Origin</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>complex-method</td>
-<td>function</td>
-<td>ruff <code>C901</code> (mccabe)</td>
-<td>CC ≤ 9</td>
-<td>CodeScene</td>
-</tr>
-<tr>
-<td>large-method</td>
-<td>function</td>
-<td>AST</td>
-<td>≤ 70 code lines</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>brain-method</td>
-<td>function</td>
-<td>derived</td>
-<td>complex <strong>and</strong> large</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>many-arguments</td>
-<td>function</td>
-<td>ruff <code>PLR0913</code></td>
-<td>≤ 4 arguments</td>
-<td>looser than CodeScene (4)</td>
-</tr>
-<tr>
-<td>primitive-obsession</td>
-<td>function</td>
-<td>AST</td>
-<td>≤ 4 <code>str/int/float/bool/bytes</code> params</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>code-duplication</td>
-<td>function</td>
-<td>pylint <code>symilar</code> (engine of R0801)</td>
-<td>≤ 5 similar lines</td>
-<td>assumption (matches <code>nox -s duplicates</code>)</td>
-</tr>
-<tr>
-<td>cognitive-complexity</td>
-<td>implementation</td>
-<td>complexipy</td>
-<td>≤ 15</td>
-<td>assumption (SonarSource default)</td>
-</tr>
-<tr>
-<td>nested-complexity</td>
-<td>implementation</td>
-<td>ruff <code>PLR1702</code></td>
-<td>depth ≤ 3</td>
-<td>CodeScene (≥ 4 flagged)</td>
-</tr>
-<tr>
-<td>bumpy-road</td>
-<td>implementation</td>
-<td>AST</td>
-<td>≤ 1 bump (block nested ≥ 2 deep)</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>complex-conditional</td>
-<td>implementation</td>
-<td>AST</td>
-<td>≤ 3 <code>and</code>/<code>or</code> per condition</td>
-<td>looser than CodeScene (2 branches)</td>
-</tr>
-<tr>
-<td>large-file</td>
-<td>module</td>
-<td>tokenize</td>
-<td>≤ 600 code lines</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>many-functions</td>
-<td>module</td>
-<td>AST</td>
-<td>≤ 40 functions</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>low-cohesion</td>
-<td>module</td>
-<td>AST, LCOM4 per class (≥ 4 methods)</td>
-<td>LCOM4 ≤ 2</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>brain-class</td>
-<td>module</td>
-<td>derived</td>
-<td>brain method + (≥ 15 methods or &gt; 300 lines)</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>large-assertion-block</td>
-<td>tests</td>
-<td>AST</td>
-<td>≤ 3 consecutive assertions</td>
-<td>assumption</td>
-</tr>
-<tr>
-<td>duplicated-assertion-block</td>
-<td>tests</td>
-<td>AST</td>
-<td>identical block of ≥ 3 assertions repeated</td>
-<td>assumption</td>
-</tr>
-</tbody>
-</table>
-<h4 id="reused-linters-no-duplicated-checks">Reused linters, no duplicated checks<a class="headerlink" href="#reused-linters-no-duplicated-checks" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>ruff</strong> supplies cyclomatic complexity (C901), argument count (PLR0913) and nesting depth
-  (PLR1702). The checker calls ruff with its own thresholds through <code>--config</code> overrides, so
-  <code>ruff.toml</code> stays unchanged.</li>
-<li><strong>pylint</strong>'s similarity engine (<code>symilar</code>, the engine behind R0801) supplies duplicated code. The
-  existing <code>nox -s duplicates</code> gate stays as it is.</li>
-<li><strong>complexipy</strong> (MIT) adds cognitive complexity, which no existing linter provides.</li>
-<li><strong>Own AST checks</strong> cover what no free tool provides in CodeScene's form: bumpy road, complex
-  conditionals in any condition (not only <code>if</code>), LCOM4, primitive obsession, assertion blocks and
-  large methods measured in code lines.</li>
-</ul>
-<h4 id="conventions-assumptions">Conventions (assumptions)<a class="headerlink" href="#conventions-assumptions" title="Permanent link">&para;</a></h4>
-<ul>
-<li>Parameters declared as CLI options (<code>typer.Option</code>/<code>typer.Argument</code>, see <code>[cli]</code>) and
-  pytest-injected fixture parameters of <code>test_*</code> functions and fixtures are not counted as
-  arguments. The framework forces that signature.</li>
-<li>Duplicate detection runs on <code>src/</code> and <code>tools/</code>. Duplication in tests is covered by the
-  assertion-block smells.</li>
-</ul>
-<h3 id="suppressions_1">Suppressions<a class="headerlink" href="#suppressions_1" title="Permanent link">&para;</a></h3>
-<p>Use suppressions only as an inline comment with a reason of at least 10 characters. Put it on the
-line of the smell, the line above it, or the <code>def</code> line of the enclosing function:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>  <span class="c1"># code-health: ignore[complex-method] -- mirrors the grammar table 1:1, see RFC 3986</span>
-</span></code></pre></div>
-<p>The checker ignores a suppression without a reason and prints a warning. <strong>Fix smells instead of
-suppressing them.</strong> Suppressed smells stay visible in the report.</p>
-<h3 id="working-with-agents-own-checker">Working with agents (own checker)<a class="headerlink" href="#working-with-agents-own-checker" title="Permanent link">&para;</a></h3>
-<p>Optional cross-check: <code>nox -s code-health-own -- --changed --json</code>. The JSON lists each changed file
-with <code>score</code>, <code>smells[]</code> (<code>kind</code>, <code>line</code>, <code>value</code>, <code>max</code>, <code>deduction</code>) and <code>gate.violations</code>.
-Its <code>gate.passed</code> is informational only; it no longer blocks commits or CI.</p>
 <h2 id="steckbrief-code-health">Steckbrief Code Health<a class="headerlink" href="#steckbrief-code-health" title="Permanent link">&para;</a></h2>
 <h3 id="1-messumfang-was-zahlt-was-nicht-mit-begrundung">1. Messumfang: was zählt, was nicht, mit Begründung<a class="headerlink" href="#1-messumfang-was-zahlt-was-nicht-mit-begrundung" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>ai-health bewertet</strong> alle von ihm unterstützten Dateien im Repo: Python unter <code>src/</code>, <code>tests/</code> und <code>noxfile.py</code>, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.</li>
 <li><strong>Ausgenommen sind:</strong></li>
-<li>die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner;</li>
-<li><code>tools/code_health/*</code>: Der eigene Checker ist eine befristete Gegenprobe und wird entfernt, sobald das ai-health-Gate in der CI grün läuft.</li>
+<li>nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.</li>
 <li><strong>Komponenten</strong> für den Score-Vergleich: das ganze Repo (<code>.</code>), <code>src</code> und <code>tests</code>.</li>
 </ul>
 <h3 id="2-tools-und-versionen-je-sprache">2. Tools und Versionen, je Sprache<a class="headerlink" href="#2-tools-und-versionen-je-sprache" title="Permanent link">&para;</a></h3>
@@ -1642,11 +1369,6 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <td>4.0.x</td>
 <td>nur R0801 (Duplikate, auslaufend) und R0401 (zyklische Importe), kein Score-Gate</td>
 </tr>
-<tr>
-<td>eigener Checker (<code>tools/code_health</code>)</td>
-<td>–</td>
-<td>Gegenprobe: ruff C901/PLR0913/PLR1702, complexipy 9.0, pylint symilar, AST</td>
-</tr>
 </tbody>
 </table>
 <ul>
@@ -1657,7 +1379,7 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <ul>
 <li><strong>Von ai-health abgebildet:</strong> Brain Method, Large Method, Complex Method, Cognitive Complexity, Deep Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion (LCOM4), Primitive Obsession, Code Duplication.</li>
 <li><strong>Nicht abgebildet:</strong></li>
-<li><strong>Large/Duplicated Assertion Blocks:</strong> Nur der eigene Checker misst sie, weil ai-health sie nicht kennt. Duplizierte Tests fängt aber die Duplikat-Erkennung von ai-health.</li>
+<li><strong>Large/Duplicated Assertion Blocks:</strong> ai-health kennt sie nicht; duplizierte Tests fängt aber seine Duplikat-Erkennung. Bewusst kein eigener Check (keine zusätzliche Logik).</li>
 <li><strong>Developer Congestion und Complex Code by Former Contributors:</strong> Das sind Git-Verhaltensmetriken; in einem Ein-Personen-Repo sagen sie nichts aus.</li>
 <li><strong>Brain Class:</strong> ai-health hat dafür keinen eigenen Smell. Low Cohesion und Large File decken den Großteil ab.</li>
 </ul>
@@ -1671,13 +1393,10 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <li>Daraus folgt der Score über eine Abklingkurve: <code>decay</code> 8 macht sie steiler.</li>
 <li>Der Projekt-Score ist der LOC-gewichtete Mittelwert.</li>
 <li>Details stehen in <code>scoring.py</code> des gepinnten Releases.</li>
-<li><strong>Eigener Checker:</strong></li>
-<li>Start bei 10, Abzug <code>weight × min(cap, value/max)</code>, Minimum 1, LOC-gewichtet (Konfiguration: <code>code-health.toml</code>).</li>
-<li>Er ist an mehreren Stellen lockerer als CodeScene: Argumente ab 5 statt 4, Bedingungen ab 4 statt 2 Operatoren, Primitive Obsession absolut statt 30 %, Duplikate ab 6 identischen Zeilen statt 10 Zeilen bei 75 % Ähnlichkeit.</li>
 </ul>
 <h3 id="5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit">5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit<a class="headerlink" href="#5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Befehl:</strong> <code>nox -s code-health</code>. Ohne Argumente erzeugt es den Bericht (<code>scan</code>) und prüft <code>delta</code> gegen die Merge-Base. Argumente reicht es an <code>aihealth</code> weiter.</li>
+<li><strong>Befehl:</strong> <code>nox -s code-health</code>. Die Session installiert die gepinnte Version und reicht Argumente an <code>aihealth</code> durch (Default <code>delta</code>); einzige Zutat ist <code>--config</code> für <code>scan</code>/<code>delta</code>.</li>
 <li><strong>Komponenten-Vergleich:</strong> <code>nox -s code-health-components</code>.</li>
 <li><strong>Ausgabe:</strong> Text, Markdown oder JSON (<code>--format</code>); <code>scan . --report</code> erzeugt einen vollständigen Bericht.</li>
 <li><strong>Nur geänderte Dateien:</strong> <code>delta</code> (Working Tree gegen HEAD), <code>delta --staged</code> (pre-commit) oder <code>delta --base &lt;ref&gt; --head HEAD</code> (CI).</li>
@@ -1693,7 +1412,7 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <li><code>delta</code> gegen die Merge-Base;</li>
 <li>Komponenten-Score von Merge-Base und Head; kein Score von <code>.</code>, <code>src</code> oder <code>tests</code> darf sinken;</li>
 <li><code>scan</code> als Bericht in der Job-Summary.</li>
-<li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche. Die eigene Baseline-Datei (<code>code-health-baseline.json</code>) ist leer.</li>
+<li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche.</li>
 <li><strong>Suppressions:</strong></li>
 <li>nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>;</li>
 <li>aktuell 3, alle <code>primitive_obsession</code>: <code>cli/commands/add.py</code> und <code>merge.py</code> (typer-CLI-Grenze) sowie <code>tests/integration/support/fake_scm.py</code> (Fake-HTTP-Server mit rohem JSON).</li>
@@ -1728,7 +1447,7 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <ul>
 <li><strong>Gate:</strong> <code>delta</code> gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.</li>
 <li><strong>Welle 1 (Tests):</strong> fertig. 3 Testdateien haben noch Funde, alle übrigen stehen bei 10.</li>
-<li><strong>Eigener Checker:</strong> von 8.93 auf 9.97. Er ist jetzt nur noch informativ, weil er bei Test-Assertions ai-health widerspricht.</li>
+<li><strong>Eigener Checker:</strong> wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).</li>
 <li><strong>Schlechteste Dateien (ai-health strict),</strong> alle in <code>src</code>:</li>
 <li><code>cli/commands/pr.py</code> 6.08, <code>add.py</code> 6.46, <code>repair.py</code> 6.63, <code>create.py</code> 6.74;</li>
 <li><code>domain/repo_url.py</code> 6.78.</li>
@@ -1760,13 +1479,14 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <li>Die Fix-Hinweise mit <code>path:line</code> helfen Agents direkt.</li>
 <li>Der Einbau über eine uv-Dependency-Group hält die Version an einer Stelle und läuft offline aus dem Cache.</li>
 <li><strong>Schwierig:</strong></li>
+<li><strong>Eigener Checker:</strong> Er war Aufwand, der mit ai-health überflüssig wurde, und widersprach ai-health bei Test-Assertions. Er ist wieder entfernt; besser gleich ein vorhandenes Werkzeug wählen.</li>
 <li><strong>Werkzeug-Abhängigkeit:</strong> Refactorings, die für den eigenen Checker gemacht wurden, waren unter ai-health teils schlechter. Beispiele: zusammengefasste Assertions erzeugten neue Duplikate, und ausgelagerte Helfer trieben die Primitive-Obsession-Quote über die Mindestzahl von 10 Parametern. Man sollte sich deshalb früh auf ein Werkzeug festlegen.</li>
 <li><strong>Stille Fallstricke:</strong> Ohne <code>--config</code> fällt <code>scan &lt;unterordner&gt;</code> still auf die Defaults zurück, und eine Suppression ohne <code>--</code> greift still nicht.</li>
 <li><strong>pytest-Fixtures:</strong> ai-health zählt sie als Argumente. Abhilfe ist <code>@pytest.mark.usefixtures</code> für Fixtures, die nur Seiteneffekte haben.</li>
 <li><strong>Metrik-Gaming durch Agents:</strong> Agents umgehen Metriken gern, etwa mit <code>**kwargs</code> oder Alias-Tricks. Ein Review bleibt nötig.</li>
 <li><strong>Übertragbar:</strong></li>
 <li>Pin auf einen Commit;</li>
-<li>nox-Session mit festem <code>--config</code>;</li>
+<li>dünne nox-Session, die nur durchreicht und <code>--config</code> setzt;</li>
 <li><code>delta</code> gegen die Merge-Base in der CI;</li>
 <li>Komponenten-Vergleich;</li>
 <li>pygrep-Hook für Suppressions;</li>
@@ -1774,6 +1494,13 @@ Its <code>gate.passed</code> is informational only; it no longer blocks commits 
 <li><strong>Projektspezifisch:</strong></li>
 <li>Suppressions für typer-CLI-Module;</li>
 <li>pfadgefilterte PR-Jobs: <code>.aihealth.toml</code> steht im Filter.</li>
+</ul>
+<h3 id="verbliebene-eigene-logik-und-warum">Verbliebene eigene Logik (und warum)<a class="headerlink" href="#verbliebene-eigene-logik-und-warum" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>nox -s code-health</code>:</strong> installiert die gepinnte Gruppe und reicht an <code>aihealth</code> durch. Einzige Zutat: <code>--config</code> für <code>scan</code>/<code>delta</code>, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.</li>
+<li><strong><code>nox -s code-health-components</code></strong> (rund 25 Zeilen): ai-health vergleicht Dateien (<code>delta</code>), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei <code>scan --format json</code>.</li>
+<li><strong>CI:</strong> <code>git merge-base</code> in der Shell, damit ein Branch, der hinter <code>main</code> liegt, keine fremden Änderungen angerechnet bekommt.</li>
+<li><strong>pre-commit:</strong> ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.</li>
 </ul>
 
 
