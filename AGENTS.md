@@ -62,5 +62,3 @@ findings; 9.5 is only the minimum.
   improves the code; otherwise leave the finding, or add a file-wide suppression with a real reason.
 - A formatter change alters physical line counts and therefore scores: format in its own commit
   first, then refactor affected files in the same PR until no file and no component is below `main`.
-- The own checker (`nox -s code-health-own`, `tools/code_health`) is an informational cross-check
-  only; where it disagrees with ai-health, ai-health decides.

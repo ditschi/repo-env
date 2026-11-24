@@ -1,5 +1,0 @@
-{
-  "comment": "Ratchet baseline for `nox -s code-health` (regenerate with --update-baseline); scores may only go up.",
-  "repo_score": 9.97,
-  "files": {}
-}

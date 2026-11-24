@@ -6,7 +6,7 @@ All gates run via `nox`. They also run in CI on every PR and push to `main`.
 
 | Job | Workflow(s) | Nox session(s) | Python |
 |-----|-------------|----------------|--------|
-| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports`, `code-health`, `code-health-components`; `code-health-own` informational | 3.12 |
+| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports`, `code-health`, `code-health-components` | 3.12 |
 | Unit tests | PR, main | `tests` | 3.12, 3.13, 3.14, 3.15 (matrix) |
 | Integration tests | PR, main | `integration` | 3.12 |
 | Performance budgets | PR | `performance` | 3.12 |
@@ -39,7 +39,6 @@ CI uses **3.12** for integration — the same primary version as lint, types, an
 | `cyclic_imports` | pylint R0401 | 3.12 | Circular import detection |
 | `code-health` | ai-health (profile strict, `.aihealth.toml`) | 3.12 | Code health report + `delta` gate vs merge-base ([details](code-health.md)) |
 | `code-health-components` | ai-health | 3.12 | Component scores (repo, src, tests) must not drop vs merge-base |
-| `code-health-own` | own checker (`tools/code_health`) | 3.10 | Informational cross-check, not in default sessions, non-blocking in CI |
 | `docs` | mkdocs build --strict | 3.12 | Docs build with zero warnings |
 
 ## Coverage

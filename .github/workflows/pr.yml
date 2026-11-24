@@ -36,9 +36,6 @@ jobs:
               - 'ruff.toml'
               - 'pylintrc'
               - 'vulture_whitelist.py'
-              - 'tools/**'
-              - 'code-health.toml'
-              - 'code-health-baseline.json'
               - '.aihealth.toml'
               - '.github/workflows/pr.yml'
             docs:
@@ -117,10 +114,6 @@ jobs:
         run: nox -s code-health -- delta --base "$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)" --head HEAD
       - name: Code health component scores (merge-base vs head)
         run: nox -s code-health-components -- origin/${{ github.event.pull_request.base.ref }}
-      - name: Code health cross-check (own checker, informational)
-        # ai-health is the single source of truth for smells; the own checker only reports.
-        continue-on-error: true
-        run: nox -s code-health-own -- --changed ${{ github.event.pull_request.base.sha }}
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
