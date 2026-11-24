@@ -1430,13 +1430,17 @@ runs green in CI, then it can be removed. Its thresholds are looser than the Cod
 <ol>
 <li>Every changed file must score <strong>≥ 9.5</strong> (<code>score.target</code>).</li>
 <li>A changed file must <strong>not get worse</strong> than in the base commit. The base tree is exported with
-   <code>git archive</code> and scored the same way.</li>
-<li>The <strong>repo score must not drop</strong>.</li>
-<li><strong>Ratchet baseline</strong> (<code>code-health-baseline.json</code>): files that already scored below 9.5 when the
+   <code>git archive</code> and scored the same way. Renamed files are compared with their old path.</li>
+<li>The <strong>repo score must not drop</strong> below <code>min(target, base repo score)</code>. Once the repo is at the
+   target, adding or deleting healthy files (≥ 9.5) may move the mean slightly without failing.</li>
+</ol>
+<p>Changed files include untracked files, except under pre-commit (<code>PRE_COMMIT</code> is set there). A
+missing or failing analyzer is a tool error (exit 2). Unknown smell names in a suppression produce
+a warning.
+4. <strong>Ratchet baseline</strong> (<code>code-health-baseline.json</code>): files that already scored below 9.5 when the
    gate was introduced are grandfathered at their recorded score. Rule 2 still applies to them, so
    any change must keep or improve them. After improving such a file, run <code>--update-baseline</code> and
-   commit the tighter values. A baseline score may only go up.</li>
-</ol>
+   commit the tighter values. A baseline score may only go up.</p>
 <p>A full run (without <code>--changed</code>) checks every file against target or baseline. It has no base
 comparison.</p>
 <h3 id="score">Score<a class="headerlink" href="#score" title="Permanent link">&para;</a></h3>
