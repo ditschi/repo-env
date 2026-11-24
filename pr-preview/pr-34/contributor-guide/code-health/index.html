@@ -1226,10 +1226,11 @@ required.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>src<span class="w"> </span>--format<span class="w"> </span>markdown<span class="w">    </span><span class="c1"># report for one component</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>.<span class="w"> </span>--report<span class="w">               </span><span class="c1"># full report in AI-HEALTH.md</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-tests<span class="w">                            </span><span class="c1"># the same for tests/ (tests/.aihealth.toml), default `delta tests`</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w">                       </span><span class="c1"># component scores (repo/src/tests): merge-base vs HEAD</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w">                       </span><span class="c1"># component scores (repo/src/tests): merge-base vs working tree</span>
 </span></code></pre></div>
-<p>The nox session always passes <code>--config &lt;repo&gt;/.aihealth.toml</code>. Without it, <code>aihealth scan &lt;dir&gt;</code>
-would silently fall back to the defaults. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
+<p>The nox sessions pass the matching <code>--config</code> to <code>scan</code> and <code>delta</code>: without it, <code>aihealth scan &lt;dir&gt;</code>
+would read <code>&lt;dir&gt;/.aihealth.toml</code> and silently fall back to the defaults, and tests use their own
+config. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
 Its version is pinned to a commit in exactly one place: the <code>code-health</code> dependency group in
 <code>pyproject.toml</code>, locked in <code>uv.lock</code>.</p>
 <h2 id="profile-strict-aihealthtoml-testsaihealthtoml">Profile "strict" (<code>.aihealth.toml</code>, <code>tests/.aihealth.toml</code>)<a class="headerlink" href="#profile-strict-aihealthtoml-testsaihealthtoml" title="Permanent link">&para;</a></h2>
@@ -1355,7 +1356,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <h2 id="steckbrief-code-health">Steckbrief Code Health<a class="headerlink" href="#steckbrief-code-health" title="Permanent link">&para;</a></h2>
 <h3 id="1-messumfang-was-zahlt-was-nicht-mit-begrundung">1. Messumfang: was zählt, was nicht, mit Begründung<a class="headerlink" href="#1-messumfang-was-zahlt-was-nicht-mit-begrundung" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>ai-health bewertet</strong> alle von ihm unterstützten Dateien im Repo: Python unter <code>src/</code>, <code>tests/</code> und <code>noxfile.py</code>, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.</li>
+<li><strong>ai-health bewertet</strong> alle von ihm unterstützten Dateien im Repo: Python unter <code>src/</code> und <code>tests/</code>, dazu <code>noxfile.py</code>, <code>vulture_whitelist.py</code> und <code>docs/assets/casts/*.py</code> (Shell-Skripte gibt es derzeit keine). Stand: 70 Dateien mit 5 104 Codezeilen ohne Tests, 72 Testdateien mit 4 655 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.</li>
 <li><strong>Ausgenommen sind:</strong></li>
 <li>nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.</li>
 <li><strong>Zwei Konfigurationen:</strong> Produktivcode mit <code>.aihealth.toml</code> (ohne <code>tests/</code>), Tests mit <code>tests/.aihealth.toml</code> (gleiches Profil, Primitive Obsession aus, Q18.1).</li>
@@ -1429,7 +1430,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li>pygrep-Hook für die Begründung bei Suppressions.</li>
 <li><strong>CI (PR-Quality-Job):</strong></li>
 <li><code>delta</code> gegen die Merge-Base;</li>
-<li>Komponenten-Score von Merge-Base und Head; kein Score von <code>.</code>, <code>src</code> oder <code>tests</code> darf sinken;</li>
+<li>Komponenten-Score von Merge-Base und Arbeitsstand (in der CI identisch mit dem PR-Head); kein Score von <code>.</code>, <code>src</code> oder <code>tests</code> darf sinken;</li>
 <li><code>scan</code> als Bericht in der Job-Summary.</li>
 <li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche.</li>
 <li><strong>Suppressions:</strong></li>
@@ -1518,8 +1519,8 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <h3 id="verbliebene-eigene-logik-und-warum">Verbliebene eigene Logik (und warum)<a class="headerlink" href="#verbliebene-eigene-logik-und-warum" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>nox -s code-health</code> / <code>code-health-tests</code>:</strong> dieselbe Funktion mit der jeweiligen Config; installiert die gepinnte Gruppe und reicht an <code>aihealth</code> durch. Einzige Zutat: <code>--config</code> für <code>scan</code>/<code>delta</code>, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.</li>
-<li><strong><code>nox -s code-health-components</code></strong> (rund 25 Zeilen): ai-health vergleicht Dateien (<code>delta</code>), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei <code>scan --format json</code>.</li>
-<li><strong>CI:</strong> <code>git merge-base</code> in der Shell, damit ein Branch, der hinter <code>main</code> liegt, keine fremden Änderungen angerechnet bekommt.</li>
+<li><strong><code>nox -s code-health-components</code></strong> (rund 35 Zeilen): ai-health vergleicht Dateien (<code>delta</code>), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei <code>scan --format json</code>.</li>
+<li><strong>CI:</strong> <code>git merge-base</code> in der Shell. Im <code>pull_request</code>-Checkout (Merge-Commit) entspricht das der Basis-Spitze; der Ausdruck bleibt aber auch bei anderen Checkouts und lokal korrekt (ein Branch hinter <code>main</code> bekommt keine fremden Änderungen angerechnet).</li>
 <li><strong>pre-commit:</strong> ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.</li>
 </ul>
 

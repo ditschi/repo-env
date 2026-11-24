@@ -1109,7 +1109,7 @@
 <tr>
 <td>Quality gates</td>
 <td>PR, main</td>
-<td><code>check_syntax</code>, <code>lint</code>, <code>check_types</code>, <code>necessary_imports</code>, <code>dead_code</code>, <code>duplicates</code>, <code>cyclic_imports</code>, <code>code-health</code>, <code>code-health-tests</code>, <code>code-health-components</code></td>
+<td><code>check_syntax</code>, <code>lint</code>, <code>check_types</code>, <code>necessary_imports</code>, <code>dead_code</code>, <code>duplicates</code>, <code>cyclic_imports</code>, code-health gate (PR only, see below)</td>
 <td>3.12</td>
 </tr>
 <tr>
@@ -1222,7 +1222,7 @@
 </tr>
 <tr>
 <td><code>code-health</code></td>
-<td>ai-health (profile strict, <code>.aihealth.toml</code>)</td>
+<td>ai-health (profile strict, <code>.aihealth.toml</code>; PR CI steps, local default)</td>
 <td>3.12</td>
 <td>Code health report + <code>delta</code> gate vs merge-base (<a href="../code-health/">details</a>)</td>
 </tr>
