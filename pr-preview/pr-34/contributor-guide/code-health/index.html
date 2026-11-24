@@ -849,10 +849,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#profile-strict-aihealthtoml" class="md-nav__link">
+  <a href="#profile-strict-aihealthtoml-testsaihealthtoml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Profile "strict" (.aihealth.toml)
+        Profile "strict" (.aihealth.toml, tests/.aihealth.toml)
       
     </span>
   </a>
@@ -1225,15 +1225,19 @@ required.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--format<span class="w"> </span>json<span class="w">           </span><span class="c1"># machine-readable, for agents</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>src<span class="w"> </span>--format<span class="w"> </span>markdown<span class="w">    </span><span class="c1"># report for one component</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>.<span class="w"> </span>--report<span class="w">               </span><span class="c1"># full report in AI-HEALTH.md</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w">                       </span><span class="c1"># component scores (repo/src/tests): merge-base vs HEAD</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-tests<span class="w">                            </span><span class="c1"># the same for tests/ (tests/.aihealth.toml), default `delta tests`</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w">                       </span><span class="c1"># component scores (repo/src/tests): merge-base vs HEAD</span>
 </span></code></pre></div>
 <p>The nox session always passes <code>--config &lt;repo&gt;/.aihealth.toml</code>. Without it, <code>aihealth scan &lt;dir&gt;</code>
 would silently fall back to the defaults. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
 Its version is pinned to a commit in exactly one place: the <code>code-health</code> dependency group in
 <code>pyproject.toml</code>, locked in <code>uv.lock</code>.</p>
-<h2 id="profile-strict-aihealthtoml">Profile "strict" (<code>.aihealth.toml</code>)<a class="headerlink" href="#profile-strict-aihealthtoml" title="Permanent link">&para;</a></h2>
-<p><code>.aihealth.toml</code> is the single place to tune the profile (confirmed by the owner, Q15). All keys not
-listed use the ai-health defaults of the pinned release.</p>
+<h2 id="profile-strict-aihealthtoml-testsaihealthtoml">Profile "strict" (<code>.aihealth.toml</code>, <code>tests/.aihealth.toml</code>)<a class="headerlink" href="#profile-strict-aihealthtoml-testsaihealthtoml" title="Permanent link">&para;</a></h2>
+<p>Production code uses <code>.aihealth.toml</code> (profile confirmed by the owner, Q15); it excludes <code>tests/</code>.
+Test code uses <code>tests/.aihealth.toml</code>: the same profile, but <strong>Primitive Obsession is off</strong>
+(<code>weights.primitive_obsession = 0</code>, owner decision Q18.1). ai-health has no config inheritance, so
+the shared values must be kept in sync in both files. All keys not listed use the ai-health
+defaults of the pinned release.</p>
 <table>
 <thead>
 <tr>
@@ -1280,6 +1284,18 @@ listed use the ai-health defaults of the pinned release.</p>
 <td>0.1</td>
 <td>any degradation fails the gate</td>
 </tr>
+<tr>
+<td><code>scan.exclude</code> (<code>.aihealth.toml</code>)</td>
+<td><code>tests/*</code></td>
+<td>–</td>
+<td>tests are scored with <code>tests/.aihealth.toml</code></td>
+</tr>
+<tr>
+<td><code>weights.primitive_obsession</code> (<code>tests/.aihealth.toml</code>)</td>
+<td>0</td>
+<td>0.75</td>
+<td>Primitive Obsession off in tests</td>
+</tr>
 </tbody>
 </table>
 <h2 id="gate">Gate<a class="headerlink" href="#gate" title="Permanent link">&para;</a></h2>
@@ -1293,13 +1309,13 @@ listed use the ai-health defaults of the pinned release.</p>
 </thead>
 <tbody>
 <tr>
-<td>pre-commit <code>code-health</code></td>
-<td><code>aihealth delta --config .aihealth.toml --staged</code></td>
+<td>pre-commit <code>code-health</code>, <code>code-health-tests</code></td>
+<td><code>aihealth delta --config .aihealth.toml --staged</code>, <code>… --config tests/.aihealth.toml --staged tests</code></td>
 <td>a staged file got worse, or a new file has a finding</td>
 </tr>
 <tr>
 <td>PR CI, quality job</td>
-<td><code>delta --base "$(git merge-base origin/&lt;base&gt; HEAD)" --head HEAD</code></td>
+<td><code>delta --base "$(git merge-base origin/&lt;base&gt; HEAD)" --head HEAD</code> (once per config)</td>
 <td>same, for the whole PR</td>
 </tr>
 <tr>
@@ -1309,7 +1325,7 @@ listed use the ai-health defaults of the pinned release.</p>
 </tr>
 <tr>
 <td>PR CI, job summary</td>
-<td><code>scan . --format markdown</code></td>
+<td><code>scan . …</code> and <code>scan tests …</code></td>
 <td>report only</td>
 </tr>
 </tbody>
@@ -1325,7 +1341,7 @@ reason of at least 10 characters.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters</span>
 </span></code></pre></div>
 <p>Current suppressions (primitive_obsession): <code>src/repoenv/cli/commands/add.py</code> and <code>merge.py</code> (typer CLI
-boundary), <code>tests/integration/support/fake_scm.py</code> (fake HTTP server with raw JSON bodies).</p>
+boundary).</p>
 <h3 id="one-source-per-smell">One source per smell<a class="headerlink" href="#one-source-per-smell" title="Permanent link">&para;</a></h3>
 <p>Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
 pylint has its design checks (too-many-*, too-many-lines) disabled and no <code>fail-under</code> score gate.
@@ -1342,7 +1358,8 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li><strong>ai-health bewertet</strong> alle von ihm unterstützten Dateien im Repo: Python unter <code>src/</code>, <code>tests/</code> und <code>noxfile.py</code>, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.</li>
 <li><strong>Ausgenommen sind:</strong></li>
 <li>nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.</li>
-<li><strong>Komponenten</strong> für den Score-Vergleich: das ganze Repo (<code>.</code>), <code>src</code> und <code>tests</code>.</li>
+<li><strong>Zwei Konfigurationen:</strong> Produktivcode mit <code>.aihealth.toml</code> (ohne <code>tests/</code>), Tests mit <code>tests/.aihealth.toml</code> (gleiches Profil, Primitive Obsession aus, Q18.1).</li>
+<li><strong>Komponenten</strong> für den Score-Vergleich: <code>.</code> (alles außer <code>tests/</code>), <code>src</code> und <code>tests</code>.</li>
 </ul>
 <h3 id="2-tools-und-versionen-je-sprache">2. Tools und Versionen, je Sprache<a class="headerlink" href="#2-tools-und-versionen-je-sprache" title="Permanent link">&para;</a></h3>
 <table>
@@ -1387,6 +1404,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <ul>
 <li><strong>ai-health, Profil strict</strong> (vom Owner bestätigt):</li>
 <li>eigene Werte: large_file 600, primitive_obsession 0.3, decay 8, symbol_cap 4, density_loc 100000, delta.tolerance 0;</li>
+<li>in Tests (<code>tests/.aihealth.toml</code>) zusätzlich <code>weights.primitive_obsession = 0</code> (Q18.1); ohne Config-Vererbung stehen die gemeinsamen Werte in beiden Dateien;</li>
 <li>ai-health-Defaults für den Rest: Methode &gt; 70 Zeilen, CC &gt; 9, kognitive Komplexität &gt; 15, Verschachtelung ≥ 4, Bumpy Road ≥ 2 Bumps, Argumente &gt; 4, Complex Conditional ≥ 2 Operatoren, LCOM4 ≥ 3, Duplikate ab 6 Zeilen bzw. 50 Tokens.</li>
 <li><strong>Formel ai-health:</strong></li>
 <li>Je Smell wird <code>weight × severity</code> aufsummiert, mit einem Deckel je Symbol (<code>symbol_cap</code>).</li>
@@ -1397,6 +1415,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <h3 id="5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit">5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit<a class="headerlink" href="#5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Befehl:</strong> <code>nox -s code-health</code>. Die Session installiert die gepinnte Version und reicht Argumente an <code>aihealth</code> durch (Default <code>delta</code>); einzige Zutat ist <code>--config</code> für <code>scan</code>/<code>delta</code>.</li>
+<li><strong>Tests:</strong> <code>nox -s code-health-tests</code> (gleiche Session mit <code>tests/.aihealth.toml</code>, Default <code>delta tests</code>).</li>
 <li><strong>Komponenten-Vergleich:</strong> <code>nox -s code-health-components</code>.</li>
 <li><strong>Ausgabe:</strong> Text, Markdown oder JSON (<code>--format</code>); <code>scan . --report</code> erzeugt einen vollständigen Bericht.</li>
 <li><strong>Nur geänderte Dateien:</strong> <code>delta</code> (Working Tree gegen HEAD), <code>delta --staged</code> (pre-commit) oder <code>delta --base &lt;ref&gt; --head HEAD</code> (CI).</li>
@@ -1406,7 +1425,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <h3 id="6-gate-hook-ci-ratchet-und-baseline-suppressions">6. Gate: Hook, CI, Ratchet und Baseline, Suppressions<a class="headerlink" href="#6-gate-hook-ci-ratchet-und-baseline-suppressions" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>pre-commit:</strong></li>
-<li><code>aihealth delta --staged</code> (Toleranz 0; neue Dateien dürfen keinen Fund haben);</li>
+<li><code>aihealth delta --staged</code>, je einmal pro Config (Toleranz 0; neue Dateien dürfen keinen Fund haben);</li>
 <li>pygrep-Hook für die Begründung bei Suppressions.</li>
 <li><strong>CI (PR-Quality-Job):</strong></li>
 <li><code>delta</code> gegen die Merge-Base;</li>
@@ -1415,7 +1434,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche.</li>
 <li><strong>Suppressions:</strong></li>
 <li>nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>;</li>
-<li>aktuell 3, alle <code>primitive_obsession</code>: <code>cli/commands/add.py</code> und <code>merge.py</code> (typer-CLI-Grenze) sowie <code>tests/integration/support/fake_scm.py</code> (Fake-HTTP-Server mit rohem JSON).</li>
+<li>aktuell 2, beide <code>primitive_obsession</code> an der typer-CLI-Grenze: <code>cli/commands/add.py</code> und <code>merge.py</code>.</li>
 </ul>
 <h3 id="7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells">7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells<a class="headerlink" href="#7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells" title="Permanent link">&para;</a></h3>
 <table>
@@ -1428,9 +1447,9 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 </thead>
 <tbody>
 <tr>
-<td>Repo</td>
-<td>6.87</td>
-<td><strong>9.32</strong></td>
+<td>Repo, ohne Tests (<code>.aihealth.toml</code>)</td>
+<td>7.47</td>
+<td><strong>8.75</strong></td>
 </tr>
 <tr>
 <td><code>src</code></td>
@@ -1438,15 +1457,16 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <td><strong>8.66</strong></td>
 </tr>
 <tr>
-<td><code>tests</code></td>
-<td>6.31</td>
-<td><strong>9.92</strong></td>
+<td><code>tests</code> (<code>tests/.aihealth.toml</code>)</td>
+<td>6.47</td>
+<td><strong>9.95</strong></td>
 </tr>
 </tbody>
 </table>
+<p>Werte mit der aufgeteilten Konfiguration (Tests ohne Primitive Obsession); mit nur einer Config für alles lag das Repo bei 6.87 → 9.32.</p>
 <ul>
 <li><strong>Gate:</strong> <code>delta</code> gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.</li>
-<li><strong>Welle 1 (Tests):</strong> fertig. 3 Testdateien haben noch Funde, alle übrigen stehen bei 10.</li>
+<li><strong>Welle 1 (Tests):</strong> fertig. 2 Testdateien haben noch Funde, alle übrigen stehen bei 10.</li>
 <li><strong>Eigener Checker:</strong> wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).</li>
 <li><strong>Schlechteste Dateien (ai-health strict),</strong> alle in <code>src</code>:</li>
 <li><code>cli/commands/pr.py</code> 6.08, <code>add.py</code> 6.46, <code>repair.py</code> 6.63, <code>create.py</code> 6.74;</li>
@@ -1458,7 +1478,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li>Excess Arguments 10×;</li>
 <li>Duplikate 5×;</li>
 <li>Cognitive Complexity 1×.</li>
-<li><strong>Suppressions:</strong> 3, nämlich <code>primitive_obsession</code> in <code>add.py</code>, <code>merge.py</code> (typer-CLI-Grenze) und <code>tests/integration/support/fake_scm.py</code> (Fake-HTTP-Server mit rohem JSON).</li>
+<li><strong>Suppressions:</strong> 2, <code>primitive_obsession</code> in <code>add.py</code> und <code>merge.py</code> (typer-CLI-Grenze).</li>
 <li>Welle 2 (<code>src</code>) braucht die Freigabe des Owners.</li>
 </ul>
 <h3 id="8-skills-geprufte-und-ubernommene-skills">8. Skills: geprüfte und übernommene Skills<a class="headerlink" href="#8-skills-geprufte-und-ubernommene-skills" title="Permanent link">&para;</a></h3>
@@ -1493,11 +1513,11 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li>eine Quelle je Smell, also die Strukturregeln der Linter aus.</li>
 <li><strong>Projektspezifisch:</strong></li>
 <li>Suppressions für typer-CLI-Module;</li>
-<li>pfadgefilterte PR-Jobs: <code>.aihealth.toml</code> steht im Filter.</li>
+<li>pfadgefilterte PR-Jobs: beide <code>.aihealth.toml</code> stehen im Filter.</li>
 </ul>
 <h3 id="verbliebene-eigene-logik-und-warum">Verbliebene eigene Logik (und warum)<a class="headerlink" href="#verbliebene-eigene-logik-und-warum" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>nox -s code-health</code>:</strong> installiert die gepinnte Gruppe und reicht an <code>aihealth</code> durch. Einzige Zutat: <code>--config</code> für <code>scan</code>/<code>delta</code>, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.</li>
+<li><strong><code>nox -s code-health</code> / <code>code-health-tests</code>:</strong> dieselbe Funktion mit der jeweiligen Config; installiert die gepinnte Gruppe und reicht an <code>aihealth</code> durch. Einzige Zutat: <code>--config</code> für <code>scan</code>/<code>delta</code>, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.</li>
 <li><strong><code>nox -s code-health-components</code></strong> (rund 25 Zeilen): ai-health vergleicht Dateien (<code>delta</code>), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei <code>scan --format json</code>.</li>
 <li><strong>CI:</strong> <code>git merge-base</code> in der Shell, damit ein Branch, der hinter <code>main</code> liegt, keine fremden Änderungen angerechnet bekommt.</li>
 <li><strong>pre-commit:</strong> ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.</li>
