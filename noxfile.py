@@ -21,9 +21,11 @@ CI_PYTHON = "3.12"  # primary CI version for single-version sessions (integratio
 PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
-AIHEALTH_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".aihealth.toml")
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+AIHEALTH_CONFIG = os.path.join(_ROOT, ".aihealth.toml")  # production code (excludes tests/)
+AIHEALTH_TESTS_CONFIG = os.path.join(_ROOT, "tests", ".aihealth.toml")  # tests: Primitive Obsession off
 # Components whose ai-health project score must not drop between merge-base and HEAD.
-AIHEALTH_COMPONENTS = (".", "src", "tests")
+AIHEALTH_COMPONENTS = {".": AIHEALTH_CONFIG, "src": AIHEALTH_CONFIG, "tests": AIHEALTH_TESTS_CONFIG}
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
@@ -73,6 +75,7 @@ _CI_DEFAULT = [
     "duplicates",
     "cyclic_imports",
     "code-health",
+    "code-health-tests",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -240,20 +243,30 @@ def cyclic_imports(session: nox.Session) -> None:
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
 
 
+def _run_aihealth(session: nox.Session, config: str, default: list[str]) -> None:
+    _install_aihealth(session)
+    command, *rest = session.posargs or default
+    # scan/delta read <path>/.aihealth.toml and silently fall back to defaults without --config;
+    # the other subcommands reject the option.
+    options = ("--config", config) if command in ("scan", "delta") else ()
+    session.run("aihealth", command, *options, *rest)
+
+
 @nox.session(name="code-health", python=CI_PYTHON, tags=["quality"])
 def code_health(session: nox.Session) -> None:
-    """Run ai-health (profile in .aihealth.toml); arguments go straight to ``aihealth``.
+    """Run ai-health on production code (``.aihealth.toml``); arguments go straight to ``aihealth``.
 
     Default: ``delta`` (working tree vs HEAD). Examples: ``nox -s code-health -- scan .``,
     ``nox -s code-health -- delta --base origin/main --format json``.
     See docs/contributor-guide/code-health.md.
     """
-    _install_aihealth(session)
-    command, *rest = session.posargs or ["delta"]
-    # scan/delta read <path>/.aihealth.toml and silently fall back to defaults without --config;
-    # the other subcommands reject the option.
-    options = ("--config", AIHEALTH_CONFIG) if command in ("scan", "delta") else ()
-    session.run("aihealth", command, *options, *rest)
+    _run_aihealth(session, AIHEALTH_CONFIG, ["delta"])
+
+
+@nox.session(name="code-health-tests", python=CI_PYTHON, tags=["quality"])
+def code_health_tests(session: nox.Session) -> None:
+    """Run ai-health on tests/ (``tests/.aihealth.toml``); default: ``delta tests``."""
+    _run_aihealth(session, AIHEALTH_TESTS_CONFIG, ["delta", "tests"])
 
 
 def _install_aihealth(session: nox.Session) -> None:
@@ -270,10 +283,8 @@ def _install_aihealth(session: nox.Session) -> None:
 
 def _component_scores(session: nox.Session) -> dict[str, float]:
     scores = {}
-    for component in AIHEALTH_COMPONENTS:
-        out = session.run(
-            "aihealth", "scan", component, "--config", AIHEALTH_CONFIG, "--format", "json", silent=True
-        )
+    for component, config in AIHEALTH_COMPONENTS.items():
+        out = session.run("aihealth", "scan", component, "--config", config, "--format", "json", silent=True)
         scores[component] = json.loads(str(out))["score"]
     return scores
 

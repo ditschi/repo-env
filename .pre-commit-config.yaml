@@ -89,6 +89,11 @@ repos:
         entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --config .aihealth.toml --staged
         language: system
         pass_filenames: false
+      - id: code-health-tests
+        name: code-health tests (ai-health delta of staged test changes, Primitive Obsession off)
+        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --config tests/.aihealth.toml --staged tests
+        language: system
+        pass_filenames: false
       - id: aihealth-suppression-reason
         name: "ai-health suppressions need a reason (# aihealth: disable=<smell> -- <why>)"
         language: pygrep

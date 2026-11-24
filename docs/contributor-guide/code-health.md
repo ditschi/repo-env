@@ -25,6 +25,7 @@ nox -s code-health -- delta --base origin/main      # all changes of a branch
 nox -s code-health -- delta --format json           # machine-readable, for agents
 nox -s code-health -- scan src --format markdown    # report for one component
 nox -s code-health -- scan . --report               # full report in AI-HEALTH.md
+nox -s code-health-tests                            # the same for tests/ (tests/.aihealth.toml), default `delta tests`
 nox -s code-health-components                       # component scores (repo/src/tests): merge-base vs HEAD
 ```
 
@@ -33,10 +34,13 @@ would silently fall back to the defaults. ai-health needs Python ≥ 3.11, so th
 Its version is pinned to a commit in exactly one place: the `code-health` dependency group in
 `pyproject.toml`, locked in `uv.lock`.
 
-## Profile "strict" (`.aihealth.toml`)
+## Profile "strict" (`.aihealth.toml`, `tests/.aihealth.toml`)
 
-`.aihealth.toml` is the single place to tune the profile (confirmed by the owner, Q15). All keys not
-listed use the ai-health defaults of the pinned release.
+Production code uses `.aihealth.toml` (profile confirmed by the owner, Q15); it excludes `tests/`.
+Test code uses `tests/.aihealth.toml`: the same profile, but **Primitive Obsession is off**
+(`weights.primitive_obsession = 0`, owner decision Q18.1). ai-health has no config inheritance, so
+the shared values must be kept in sync in both files. All keys not listed use the ai-health
+defaults of the pinned release.
 
 | Key | Value | Default | Meaning |
 |---|---|---|---|
@@ -46,15 +50,17 @@ listed use the ai-health defaults of the pinned release.
 | `score.symbol_cap` | 4 | 4 | |
 | `score.density_loc` | 100000 | 300 | large files are not relieved through finding density |
 | `delta.tolerance` | 0.0 | 0.1 | any degradation fails the gate |
+| `scan.exclude` (`.aihealth.toml`) | `tests/*` | – | tests are scored with `tests/.aihealth.toml` |
+| `weights.primitive_obsession` (`tests/.aihealth.toml`) | 0 | 0.75 | Primitive Obsession off in tests |
 
 ## Gate
 
 | Where | Command | Fails when |
 |---|---|---|
-| pre-commit `code-health` | `aihealth delta --config .aihealth.toml --staged` | a staged file got worse, or a new file has a finding |
-| PR CI, quality job | `delta --base "$(git merge-base origin/<base> HEAD)" --head HEAD` | same, for the whole PR |
+| pre-commit `code-health`, `code-health-tests` | `aihealth delta --config .aihealth.toml --staged`, `… --config tests/.aihealth.toml --staged tests` | a staged file got worse, or a new file has a finding |
+| PR CI, quality job | `delta --base "$(git merge-base origin/<base> HEAD)" --head HEAD` (once per config) | same, for the whole PR |
 | PR CI, quality job | `nox -s code-health-components -- origin/<base>` | the project score of `.`, `src` or `tests` drops |
-| PR CI, job summary | `scan . --format markdown` | report only |
+| PR CI, job summary | `scan . …` and `scan tests …` | report only |
 
 The CI checks against the **merge-base**, so changes that landed on `main` later are not counted
 against the branch. The tree-sitter grammars (~30 MB, `~/.cache/tree-sitter-language-pack`) are
@@ -72,7 +78,7 @@ reason of at least 10 characters.
 ```
 
 Current suppressions (primitive_obsession): `src/repoenv/cli/commands/add.py` and `merge.py` (typer CLI
-boundary), `tests/integration/support/fake_scm.py` (fake HTTP server with raw JSON bodies).
+boundary).
 
 ### One source per smell
 
@@ -95,7 +101,8 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 - **ai-health bewertet** alle von ihm unterstützten Dateien im Repo: Python unter `src/`, `tests/` und `noxfile.py`, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.
 - **Ausgenommen sind:**
   - nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.
-- **Komponenten** für den Score-Vergleich: das ganze Repo (`.`), `src` und `tests`.
+- **Zwei Konfigurationen:** Produktivcode mit `.aihealth.toml` (ohne `tests/`), Tests mit `tests/.aihealth.toml` (gleiches Profil, Primitive Obsession aus, Q18.1).
+- **Komponenten** für den Score-Vergleich: `.` (alles außer `tests/`), `src` und `tests`.
 
 ### 2. Tools und Versionen, je Sprache
 
@@ -120,6 +127,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 
 - **ai-health, Profil strict** (vom Owner bestätigt):
   - eigene Werte: large_file 600, primitive_obsession 0.3, decay 8, symbol_cap 4, density_loc 100000, delta.tolerance 0;
+  - in Tests (`tests/.aihealth.toml`) zusätzlich `weights.primitive_obsession = 0` (Q18.1); ohne Config-Vererbung stehen die gemeinsamen Werte in beiden Dateien;
   - ai-health-Defaults für den Rest: Methode > 70 Zeilen, CC > 9, kognitive Komplexität > 15, Verschachtelung ≥ 4, Bumpy Road ≥ 2 Bumps, Argumente > 4, Complex Conditional ≥ 2 Operatoren, LCOM4 ≥ 3, Duplikate ab 6 Zeilen bzw. 50 Tokens.
 - **Formel ai-health:**
   - Je Smell wird `weight × severity` aufsummiert, mit einem Deckel je Symbol (`symbol_cap`).
@@ -130,6 +138,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 ### 5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit
 
 - **Befehl:** `nox -s code-health`. Die Session installiert die gepinnte Version und reicht Argumente an `aihealth` durch (Default `delta`); einzige Zutat ist `--config` für `scan`/`delta`.
+- **Tests:** `nox -s code-health-tests` (gleiche Session mit `tests/.aihealth.toml`, Default `delta tests`).
 - **Komponenten-Vergleich:** `nox -s code-health-components`.
 - **Ausgabe:** Text, Markdown oder JSON (`--format`); `scan . --report` erzeugt einen vollständigen Bericht.
 - **Nur geänderte Dateien:** `delta` (Working Tree gegen HEAD), `delta --staged` (pre-commit) oder `delta --base <ref> --head HEAD` (CI).
@@ -139,7 +148,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 ### 6. Gate: Hook, CI, Ratchet und Baseline, Suppressions
 
 - **pre-commit:**
-  - `aihealth delta --staged` (Toleranz 0; neue Dateien dürfen keinen Fund haben);
+  - `aihealth delta --staged`, je einmal pro Config (Toleranz 0; neue Dateien dürfen keinen Fund haben);
   - pygrep-Hook für die Begründung bei Suppressions.
 - **CI (PR-Quality-Job):**
   - `delta` gegen die Merge-Base;
@@ -148,18 +157,20 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 - **Ratchet:** ai-health braucht keine Baseline-Datei. Das `delta` gegen die Basis ist die Ratsche.
 - **Suppressions:**
   - nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`;
-  - aktuell 3, alle `primitive_obsession`: `cli/commands/add.py` und `merge.py` (typer-CLI-Grenze) sowie `tests/integration/support/fake_scm.py` (Fake-HTTP-Server mit rohem JSON).
+  - aktuell 2, beide `primitive_obsession` an der typer-CLI-Grenze: `cli/commands/add.py` und `merge.py`.
 
 ### 7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
 
 | Komponente | `main` (ai-health strict) | Branch |
 |---|---|---|
-| Repo | 6.87 | **9.32** |
+| Repo, ohne Tests (`.aihealth.toml`) | 7.47 | **8.75** |
 | `src` | 7.32 | **8.66** |
-| `tests` | 6.31 | **9.92** |
+| `tests` (`tests/.aihealth.toml`) | 6.47 | **9.95** |
+
+Werte mit der aufgeteilten Konfiguration (Tests ohne Primitive Obsession); mit nur einer Config für alles lag das Repo bei 6.87 → 9.32.
 
 - **Gate:** `delta` gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.
-- **Welle 1 (Tests):** fertig. 3 Testdateien haben noch Funde, alle übrigen stehen bei 10.
+- **Welle 1 (Tests):** fertig. 2 Testdateien haben noch Funde, alle übrigen stehen bei 10.
 - **Eigener Checker:** wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).
 - **Schlechteste Dateien (ai-health strict),** alle in `src`:
   - `cli/commands/pr.py` 6.08, `add.py` 6.46, `repair.py` 6.63, `create.py` 6.74;
@@ -171,7 +182,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
   - Excess Arguments 10×;
   - Duplikate 5×;
   - Cognitive Complexity 1×.
-- **Suppressions:** 3, nämlich `primitive_obsession` in `add.py`, `merge.py` (typer-CLI-Grenze) und `tests/integration/support/fake_scm.py` (Fake-HTTP-Server mit rohem JSON).
+- **Suppressions:** 2, `primitive_obsession` in `add.py` und `merge.py` (typer-CLI-Grenze).
 - Welle 2 (`src`) braucht die Freigabe des Owners.
 
 ### 8. Skills: geprüfte und übernommene Skills
@@ -206,11 +217,11 @@ Fix findings instead of suppressing them. The output lists every new or worsened
   - eine Quelle je Smell, also die Strukturregeln der Linter aus.
 - **Projektspezifisch:**
   - Suppressions für typer-CLI-Module;
-  - pfadgefilterte PR-Jobs: `.aihealth.toml` steht im Filter.
+  - pfadgefilterte PR-Jobs: beide `.aihealth.toml` stehen im Filter.
 
 ### Verbliebene eigene Logik (und warum)
 
-- **`nox -s code-health`:** installiert die gepinnte Gruppe und reicht an `aihealth` durch. Einzige Zutat: `--config` für `scan`/`delta`, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.
+- **`nox -s code-health` / `code-health-tests`:** dieselbe Funktion mit der jeweiligen Config; installiert die gepinnte Gruppe und reicht an `aihealth` durch. Einzige Zutat: `--config` für `scan`/`delta`, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.
 - **`nox -s code-health-components`** (rund 25 Zeilen): ai-health vergleicht Dateien (`delta`), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei `scan --format json`.
 - **CI:** `git merge-base` in der Shell, damit ein Branch, der hinter `main` liegt, keine fremden Änderungen angerechnet bekommt.
 - **pre-commit:** ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.

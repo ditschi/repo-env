@@ -6,7 +6,6 @@ client libraries to list repos and memberships -- with deliberately tiny pages
 so every pagination path is exercised. Clone URLs point at local bare repos
 (``file://``), so the discovered repos can really be cloned.
 """
-# aihealth: disable=primitive_obsession -- fake HTTP server: request/response bodies are raw JSON by design
 
 from __future__ import annotations
 

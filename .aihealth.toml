@@ -1,7 +1,7 @@
 # ai-health configuration (https://github.com/epatel/ai-health, pinned in pyproject
-# [dependency-groups] code-health). Profile "strict" — the single place to tune it.
-# Values are provisional until the owner confirms them (Q15); all other keys use the
-# ai-health defaults (see src/aihealth/config.py of the pinned release).
+# [dependency-groups] code-health). Profile "strict" (confirmed, Q15) for production code;
+# tests/ use tests/.aihealth.toml (same profile, Primitive Obsession off, Q18.1) — keep the
+# shared values in sync. Other keys use the ai-health defaults of the pinned release.
 # Docs: docs/contributor-guide/code-health.md
 
 [thresholds]
@@ -16,3 +16,5 @@ density_loc = 100000        # large files are not relieved through finding densi
 [delta]
 tolerance = 0.0             # any degradation fails the gate
 
+[scan]
+exclude = ["tests/*"]       # scored separately with tests/.aihealth.toml
