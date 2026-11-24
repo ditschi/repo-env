@@ -47,7 +47,8 @@ The repo uses a CodeScene-style code health score from 1 to 10 (`tools/code_heal
 
 - Run `nox -s code-health -- --changed` (or `--changed --json` for structured output) **before every
   commit**. Every changed file must reach ≥ 9.5 (or its value in `code-health-baseline.json`), must
-  not get worse than in the base commit, and the repo score must not drop.
+  not get worse than in the base commit, and the repo score must not drop below
+  `min(9.5, base repo score)`.
 - **Fix smells instead of suppressing them.** Extract functions, flatten nesting with guard clauses,
   introduce parameter objects or dataclasses, and parametrize tests or use assertion helpers.
 - Suppressions are allowed only as an inline comment with a reason, for example

@@ -35,6 +35,10 @@ def file_facts(root: Path, path: str, config: Config) -> FileFacts:
     lines = code_lines(source) - docstring_lines(tree)
     limits = {kind: rule.limit for kind, rule in config.rules.items()}
     suppressions, warnings = parse_suppressions(source)
+    for line, (kinds, _) in suppressions.items():
+        warnings.extend(
+            f"L{line}: unknown smell '{kind}' in suppression" for kind in sorted(kinds - set(config.rules))
+        )
     facts = FileFacts(path=path, loc=len(lines), suppressions=suppressions)
     functions = FunctionAnalyzer(lines, config.cli_param_factories, limits)
     functions.is_test_module = config.paths.is_test(path)

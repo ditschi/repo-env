@@ -36,8 +36,14 @@ The gate runs in pre-commit (`--changed HEAD`) and in the PR quality job (`--cha
 
 1. Every changed file must score **≥ 9.5** (`score.target`).
 2. A changed file must **not get worse** than in the base commit. The base tree is exported with
-   `git archive` and scored the same way.
-3. The **repo score must not drop**.
+   `git archive` and scored the same way. Renamed files are compared with their old path.
+3. The **repo score must not drop** below `min(target, base repo score)`. Once the repo is at the
+   target, adding or deleting healthy files (≥ 9.5) may move the mean slightly without failing.
+
+Changed files include untracked files, except under pre-commit (`PRE_COMMIT` is set there): only the
+staged state is committed, so unrelated scratch files must not block it. A missing or failing
+analyzer is a tool error (exit 2), never "no findings". Unknown smell names in a suppression produce
+a warning.
 4. **Ratchet baseline** (`code-health-baseline.json`): files that already scored below 9.5 when the
    gate was introduced are grandfathered at their recorded score. Rule 2 still applies to them, so
    any change must keep or improve them. After improving such a file, run `--update-baseline` and
@@ -203,7 +209,7 @@ Nicht abgebildet:
 - **Regeln:**
   - Geänderte Dateien müssen ≥ 9.5 haben.
   - Keine Datei darf schlechter werden als in der Basis.
-  - Der Repo-Score darf nicht sinken.
+  - Der Repo-Score darf nicht unter `min(Ziel, Basis-Score)` sinken.
   - Ein Vollscan prüft gegen `code-health-baseline.json`.
 - **Ratchet:** Die Baseline hielt anfangs 33 Dateien unter 9.5 fest. Seit dem Refactoring ist sie **leer**, es ist also keine Datei mehr unter 9.5 zugelassen.
 - **Suppressions:** nur inline als `# code-health: ignore[<smell>] -- <Begründung ≥ 10 Zeichen>`. Ohne Begründung werden sie ignoriert und erzeugen eine Warnung. Unterdrückte Smells bleiben im Report sichtbar. Aktuell gibt es **0** Suppressions.

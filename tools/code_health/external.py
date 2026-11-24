@@ -34,7 +34,8 @@ class ToolError(RuntimeError):
 
 def _run(args: list[str], cwd: Path) -> str:
     proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)  # nosec B603
-    if proc.returncode not in (0, 1) and not proc.stdout:
+    # A missing module (``python -m x``) exits with 1 and prints nothing: never treat that as "no findings".
+    if proc.returncode != 0 and not proc.stdout.strip():
         raise ToolError(f"{' '.join(args[:3])} failed: {proc.stderr.strip()[:500]}")
     return proc.stdout
 

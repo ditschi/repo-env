@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess  # nosec B404 - runs git only
 import tarfile
 from dataclasses import dataclass, field
@@ -36,20 +37,34 @@ def resolve_base(root: Path, base: str | None) -> str:
     return _git(root, "rev-parse", "HEAD").strip()
 
 
-def changed_files(root: Path, base: str, scored: set[str]) -> list[str]:
-    """Scored files that differ from ``base`` in the working tree (incl. untracked)."""
-    diff = _git(root, "diff", "--name-only", "--diff-filter=ACMR", base).splitlines()
-    untracked = _git(root, "ls-files", "--others", "--exclude-standard").splitlines()
-    return sorted({path for path in (*diff, *untracked) if path in scored})
+def changed_files(root: Path, base: str, scored: set[str]) -> tuple[list[str], dict[str, str]]:
+    """Scored files that differ from ``base`` plus a ``{new_path: old_path}`` map of renames.
+
+    Untracked files count too, except under pre-commit (``PRE_COMMIT`` set): there only
+    the staged state is being committed, and unrelated scratch files must not block it.
+    """
+    renames: dict[str, str] = {}
+    paths: set[str] = set()
+    for line in _git(root, "diff", "-M", "--name-status", "--diff-filter=ACMR", base).splitlines():
+        status, *names = line.split("\t")
+        paths.add(names[-1])
+        if status.startswith("R"):
+            renames[names[-1]] = names[0]
+    if not os.environ.get("PRE_COMMIT"):
+        paths.update(_git(root, "ls-files", "--others", "--exclude-standard").splitlines())
+    return sorted(p for p in paths if p in scored), renames
 
 
 def export_tree(root: Path, base: str, target: Path, config: Config) -> None:
     """Write the configured paths of commit ``base`` into ``target``."""
     names = set(_git(root, "ls-tree", "--name-only", base).splitlines())
     paths = [p for p in config.paths.include if p.split("/")[0] in names]
-    archive = subprocess.run(  # nosec B603 B607
-        ["git", "archive", "--format=tar", base, *paths], cwd=root, capture_output=True, check=True
-    ).stdout
+    proc = subprocess.run(  # nosec B603 B607
+        ["git", "archive", "--format=tar", base, *paths], cwd=root, capture_output=True, check=False
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"git archive {base}: {proc.stderr.decode(errors='replace').strip()}")
+    archive = proc.stdout
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(target, filter="data") if hasattr(tarfile, "data_filter") else tar.extractall(target)
     (target / Path(config.baseline).name).unlink(missing_ok=True)
@@ -106,10 +121,15 @@ class GateInput:
     files: list[str]
     baseline: Baseline
     base: TreeReport | None = None
+    renames: dict[str, str] = field(default_factory=dict)
 
 
 def evaluate(gate: GateInput, config: Config) -> GateResult:
-    """Each checked file must reach target (or its baseline) and not get worse; repo must not drop."""
+    """Each checked file must reach target (or its baseline) and not get worse.
+
+    The repo score may not drop below ``min(target, reference)``: once the repo is at target,
+    adding or removing healthy files (>= target) is allowed even if the mean moves a little.
+    """
     result = GateResult(checked=gate.files)
     tol = config.tolerance
     for path in gate.files:
@@ -117,10 +137,11 @@ def evaluate(gate: GateInput, config: Config) -> GateResult:
         floor = min(config.target, gate.baseline.files.get(path, config.target))
         if score < floor - tol:
             result.violations.append(f"{path}: {score:.2f} < required {floor:.2f}")
-        previous = gate.base.files.get(path) if gate.base else None
+        previous = gate.base.files.get(gate.renames.get(path, path)) if gate.base else None
         if previous is not None and score < previous.score - tol:
             result.violations.append(f"{path}: got worse ({previous.score:.2f} -> {score:.2f})")
     reference = gate.base.repo_score if gate.base is not None else gate.baseline.repo_score
-    if gate.head.repo_score < reference - tol:
+    floor = min(config.target, reference)
+    if gate.head.repo_score < floor - tol:
         result.violations.append(f"repo score dropped ({reference:.2f} -> {gate.head.repo_score:.2f})")
     return result
