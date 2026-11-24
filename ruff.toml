@@ -19,7 +19,7 @@ extend-exclude = [
 select = ["E", "W", "F", "I"]
 
 [lint.isort]
-known-first-party = ["repoenv", "tests", "tools"]
+known-first-party = ["repoenv", "tests"]
 
 [format]
 # black-compatible defaults

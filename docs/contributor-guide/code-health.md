@@ -26,11 +26,12 @@ nox -s code-health -- delta --format json           # machine-readable, for agen
 nox -s code-health -- scan src --format markdown    # report for one component
 nox -s code-health -- scan . --report               # full report in AI-HEALTH.md
 nox -s code-health-tests                            # the same for tests/ (tests/.aihealth.toml), default `delta tests`
-nox -s code-health-components                       # component scores (repo/src/tests): merge-base vs HEAD
+nox -s code-health-components                       # component scores (repo/src/tests): merge-base vs working tree
 ```
 
-The nox session always passes `--config <repo>/.aihealth.toml`. Without it, `aihealth scan <dir>`
-would silently fall back to the defaults. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
+The nox sessions pass the matching `--config` to `scan` and `delta`: without it, `aihealth scan <dir>`
+would read `<dir>/.aihealth.toml` and silently fall back to the defaults, and tests use their own
+config. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
 Its version is pinned to a commit in exactly one place: the `code-health` dependency group in
 `pyproject.toml`, locked in `uv.lock`.
 
@@ -98,7 +99,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 
 ### 1. Messumfang: was zählt, was nicht, mit Begründung
 
-- **ai-health bewertet** alle von ihm unterstützten Dateien im Repo: Python unter `src/`, `tests/` und `noxfile.py`, dazu Shell-Skripte. Stand: 145 Dateien, rund 10 750 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.
+- **ai-health bewertet** alle von ihm unterstützten Dateien im Repo: Python unter `src/` und `tests/`, dazu `noxfile.py`, `vulture_whitelist.py` und `docs/assets/casts/*.py` (Shell-Skripte gibt es derzeit keine). Stand: 70 Dateien mit 5 104 Codezeilen ohne Tests, 72 Testdateien mit 4 655 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.
 - **Ausgenommen sind:**
   - nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.
 - **Zwei Konfigurationen:** Produktivcode mit `.aihealth.toml` (ohne `tests/`), Tests mit `tests/.aihealth.toml` (gleiches Profil, Primitive Obsession aus, Q18.1).
@@ -152,7 +153,7 @@ Fix findings instead of suppressing them. The output lists every new or worsened
   - pygrep-Hook für die Begründung bei Suppressions.
 - **CI (PR-Quality-Job):**
   - `delta` gegen die Merge-Base;
-  - Komponenten-Score von Merge-Base und Head; kein Score von `.`, `src` oder `tests` darf sinken;
+  - Komponenten-Score von Merge-Base und Arbeitsstand (in der CI identisch mit dem PR-Head); kein Score von `.`, `src` oder `tests` darf sinken;
   - `scan` als Bericht in der Job-Summary.
 - **Ratchet:** ai-health braucht keine Baseline-Datei. Das `delta` gegen die Basis ist die Ratsche.
 - **Suppressions:**
@@ -222,6 +223,6 @@ Werte mit der aufgeteilten Konfiguration (Tests ohne Primitive Obsession); mit n
 ### Verbliebene eigene Logik (und warum)
 
 - **`nox -s code-health` / `code-health-tests`:** dieselbe Funktion mit der jeweiligen Config; installiert die gepinnte Gruppe und reicht an `aihealth` durch. Einzige Zutat: `--config` für `scan`/`delta`, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.
-- **`nox -s code-health-components`** (rund 25 Zeilen): ai-health vergleicht Dateien (`delta`), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei `scan --format json`.
-- **CI:** `git merge-base` in der Shell, damit ein Branch, der hinter `main` liegt, keine fremden Änderungen angerechnet bekommt.
+- **`nox -s code-health-components`** (rund 35 Zeilen): ai-health vergleicht Dateien (`delta`), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei `scan --format json`.
+- **CI:** `git merge-base` in der Shell. Im `pull_request`-Checkout (Merge-Commit) entspricht das der Basis-Spitze; der Ausdruck bleibt aber auch bei anderen Checkouts und lokal korrekt (ein Branch hinter `main` bekommt keine fremden Änderungen angerechnet).
 - **pre-commit:** ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.

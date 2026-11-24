@@ -74,10 +74,11 @@ _CI_DEFAULT = [
     "dead_code",
     "duplicates",
     "cyclic_imports",
-    "code-health",
-    "code-health-tests",
 ]
-nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
+# Locally the ai-health delta (working tree vs HEAD) is useful; on a clean CI checkout it checks
+# nothing, so CI runs the code-health gate as explicit PR steps instead (.github/workflows/pr.yml).
+_LOCAL_DEFAULT = ["format", *_CI_DEFAULT, "code-health", "code-health-tests"]
+nox.options.sessions = _CI_DEFAULT if is_ci() else _LOCAL_DEFAULT
 
 
 @nox.session(python=PYTHON_VERSIONS, tags=["unit", "tests"])
@@ -246,8 +247,8 @@ def cyclic_imports(session: nox.Session) -> None:
 def _run_aihealth(session: nox.Session, config: str, default: list[str]) -> None:
     _install_aihealth(session)
     command, *rest = session.posargs or default
-    # scan/delta read <path>/.aihealth.toml and silently fall back to defaults without --config;
-    # the other subcommands reject the option.
+    # Explicit --config: `scan <subdir>` would otherwise read <subdir>/.aihealth.toml (silently
+    # falling back to defaults), and tests use their own config. Other subcommands reject it.
     options = ("--config", config) if command in ("scan", "delta") else ()
     session.run("aihealth", command, *options, *rest)
 
