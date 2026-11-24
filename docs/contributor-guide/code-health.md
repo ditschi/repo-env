@@ -99,7 +99,8 @@ two tools disagree (e.g. bundled test assertions vs. duplicated setup), ai-healt
 
 ### Gate
 
-The gate runs in pre-commit (`--changed HEAD`) and in the PR quality job (`--changed <PR base>`).
+The own checker runs informationally: in the PR quality job (`--changed <PR base>`, `continue-on-error`)
+and as a pre-commit hook in the `manual` stage (`pre-commit run --hook-stage manual code-health-own`).
 
 1. Every changed file must score **≥ 9.5** (`score.target`).
 2. A changed file must **not get worse** than in the base commit. The base tree is exported with
@@ -183,7 +184,7 @@ suppressing them.** Suppressed smells stay visible in the report.
 
 Optional cross-check: `nox -s code-health-own -- --changed --json`. The JSON lists each changed file
 with `score`, `smells[]` (`kind`, `line`, `value`, `max`, `deduction`) and `gate.violations`.
-The own checker's gate (`gate.passed`) still runs in pre-commit and CI until it is removed.
+Its `gate.passed` is informational only; it no longer blocks commits or CI.
 
 
 ## Steckbrief Code Health
@@ -251,7 +252,7 @@ The own checker's gate (`gate.passed`) still runs in pre-commit and CI until it 
 - **Ratchet:** ai-health braucht keine Baseline-Datei. Das `delta` gegen die Basis ist die Ratsche. Die eigene Baseline-Datei (`code-health-baseline.json`) ist leer.
 - **Suppressions:**
   - nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`;
-  - aktuell 2, nämlich `primitive_obsession` in `cli/commands/add.py` und `merge.py`, wegen der typer-CLI-Grenze.
+  - aktuell 3, alle `primitive_obsession`: `cli/commands/add.py` und `merge.py` (typer-CLI-Grenze) sowie `tests/integration/support/fake_scm.py` (Fake-HTTP-Server mit rohem JSON).
 
 ### 7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
 

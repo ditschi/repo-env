@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from dataclasses import dataclass
 
 import pytest
 
@@ -179,21 +180,31 @@ def test_probe_treats_unreachable_host_as_unknown(monkeypatch: pytest.MonkeyPatc
 _GITLAB_SETTING = {"Git.Corp": "gitlab https://git.corp/gl"}
 
 
+@dataclass(frozen=True)
+class _DetectCase:
+    host: str
+    override: ProviderKind | None
+    settings: dict[str, str]
+    expected: tuple[ProviderKind, str | None]
+
+
 @pytest.mark.parametrize(
-    "case",  # (host, override, settings, expected)
+    "case",
     [
-        ("git.corp", None, _GITLAB_SETTING, (ProviderKind.GITLAB, "https://git.corp/gl")),
-        ("git.corp", ProviderKind.GITHUB, _GITLAB_SETTING, (ProviderKind.GITHUB, "https://git.corp/gl")),
-        ("other.corp", ProviderKind.GITHUB, {}, (ProviderKind.GITHUB, None)),
-        ("gitlab.com", None, {}, (ProviderKind.GITLAB, None)),
-        ("other.corp", None, {}, (ProviderKind.GITEA, None)),
+        _DetectCase("git.corp", None, _GITLAB_SETTING, (ProviderKind.GITLAB, "https://git.corp/gl")),
+        _DetectCase(
+            "git.corp", ProviderKind.GITHUB, _GITLAB_SETTING, (ProviderKind.GITHUB, "https://git.corp/gl")
+        ),
+        _DetectCase("other.corp", ProviderKind.GITHUB, {}, (ProviderKind.GITHUB, None)),
+        _DetectCase("gitlab.com", None, {}, (ProviderKind.GITLAB, None)),
+        _DetectCase("other.corp", None, {}, (ProviderKind.GITEA, None)),
     ],
+    ids=["setting", "override-wins-kind", "override-no-setting", "known-host", "probe"],
 )
-def test_detect_precedence(monkeypatch: pytest.MonkeyPatch, case: tuple) -> None:
-    host, override, settings, expected = case
+def test_detect_precedence(monkeypatch: pytest.MonkeyPatch, case: _DetectCase) -> None:
     monkeypatch.setattr(detect, "probe", lambda host: ProviderKind.GITEA)
 
-    assert detect.detect(host, override=override, settings=settings) == expected
+    assert detect.detect(case.host, override=case.override, settings=case.settings) == case.expected
 
 
 def test_detect_falls_back_to_hostname_hint_when_probes_fail(monkeypatch: pytest.MonkeyPatch) -> None:

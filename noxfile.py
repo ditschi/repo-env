@@ -74,7 +74,6 @@ _CI_DEFAULT = [
     "duplicates",
     "cyclic_imports",
     "code-health",
-    "code-health-own",
 ]
 nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
 
@@ -256,7 +255,9 @@ def code_health(session: nox.Session) -> None:
     _install_aihealth(session)  # exactly the locked dependency group (single pin in pyproject.toml)
     config = ("--config", AIHEALTH_CONFIG)  # never let a sub-path fall back to defaults silently
     if session.posargs:
-        session.run("aihealth", *session.posargs[:1], *config, *session.posargs[1:])
+        command, *rest = session.posargs
+        options = config if command in ("scan", "delta") else ()  # other subcommands reject --config
+        session.run("aihealth", command, *options, *rest)
         return
     session.run("aihealth", "scan", ".", *config, "--format", "markdown", "--max-findings", "20")
     base = session.run("git", "merge-base", "origin/main", "HEAD", silent=True, external=True)
@@ -293,7 +294,9 @@ def code_health_components(session: nox.Session) -> None:
     """
     _install_aihealth(session)
     ref = session.posargs[0] if session.posargs else "origin/main"
-    base = subprocess.run(["git", "merge-base", ref, "HEAD"], capture_output=True, text=True, check=True)
+    base = subprocess.run(["git", "merge-base", ref, "HEAD"], capture_output=True, text=True, check=False)
+    if base.returncode != 0:
+        session.error(f"git merge-base {ref} HEAD failed: {base.stderr.strip()}")
     head_scores = _component_scores(session)
     with tempfile.TemporaryDirectory(prefix="aihealth-base-") as tmp:
         archive = subprocess.run(["git", "archive", base.stdout.strip()], capture_output=True, check=True)

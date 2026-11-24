@@ -587,7 +587,7 @@ def _carry_over_branches(
         chosen = left_branch or right_branch
         if chosen is not None:
             branch_overrides[repo] = chosen
-        if len({left_branch, right_branch} - {None}) == 2:  # both sides set, and they differ
+        if None not in (left_branch, right_branch) and left_branch != right_branch:
             branch_conflicts.append(
                 f"{repo}: '{left_branch}' (from {left.name}) vs '{right_branch}' "
                 f"(from {right.name}); using '{left_branch}'"

@@ -7,6 +7,8 @@ of hand-writing the same pattern every time.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 
 from tests.integration.support.gitfixtures import existing_repos
@@ -30,20 +32,29 @@ def test_config_groups_set_get_unset(renv: Renv) -> None:
     assert get_after_unset.output.strip() == ""
 
 
+@dataclass(frozen=True)
+class _GroupCase:
+    repos: tuple[str, ...]  # repos in the source dir
+    include: str  # --include value
+    expected: set[str]  # repos expected in the environment
+
+
 GROUP_CASES = [
-    # (repos in source, --include value, repos expected in the environment)
-    (("backend-alpha", "backend-beta", "frontend-app"), "@backend", {"backend-alpha", "backend-beta"}),
-    (("backend-alpha", "frontend-app", "tool-x"), "@backend,frontend-*", {"backend-alpha", "frontend-app"}),
+    _GroupCase(
+        ("backend-alpha", "backend-beta", "frontend-app"), "@backend", {"backend-alpha", "backend-beta"}
+    ),
+    _GroupCase(
+        ("backend-alpha", "frontend-app", "tool-x"), "@backend,frontend-*", {"backend-alpha", "frontend-app"}
+    ),
 ]
 
 
 @pytest.mark.parametrize("case", GROUP_CASES, ids=["group-only", "group-and-literal-glob"])
-def test_create_include_expands_repo_group(renv: Renv, case: tuple) -> None:
-    repos, include, expected = case
-    _setup_with_backend_group(renv, *repos)
+def test_create_include_expands_repo_group(renv: Renv, case: _GroupCase) -> None:
+    _setup_with_backend_group(renv, *case.repos)
 
-    renv.ok("create", "svc", "--include", include)
-    assert existing_repos(renv.worktrees / "svc", repos) == expected
+    renv.ok("create", "svc", "--include", case.include)
+    assert existing_repos(renv.worktrees / "svc", case.repos) == case.expected
 
 
 def test_unknown_group_errors_clearly(renv: Renv) -> None:

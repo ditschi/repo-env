@@ -27,6 +27,8 @@ jobs:
             code:
               - 'src/**'
               - 'tests/**'
+              - '**/*.py'
+              - '**/*.sh'
               - 'pyproject.toml'
               - 'uv.lock'
               - 'noxfile.py'
