@@ -1427,7 +1427,8 @@ with <code>continue-on-error</code>, pre-commit hook only in the <code>manual</c
 two tools disagree (e.g. bundled test assertions vs. duplicated setup), ai-health decides. Its thresholds are looser than the CodeScene defaults
 (see the Steckbrief, section 4).</p>
 <h3 id="gate_1">Gate<a class="headerlink" href="#gate_1" title="Permanent link">&para;</a></h3>
-<p>The gate runs in pre-commit (<code>--changed HEAD</code>) and in the PR quality job (<code>--changed &lt;PR base&gt;</code>).</p>
+<p>The own checker runs informationally: in the PR quality job (<code>--changed &lt;PR base&gt;</code>, <code>continue-on-error</code>)
+and as a pre-commit hook in the <code>manual</code> stage (<code>pre-commit run --hook-stage manual code-health-own</code>).</p>
 <ol>
 <li>Every changed file must score <strong>≥ 9.5</strong> (<code>score.target</code>).</li>
 <li>A changed file must <strong>not get worse</strong> than in the base commit. The base tree is exported with
@@ -1606,7 +1607,7 @@ suppressing them.</strong> Suppressed smells stay visible in the report.</p>
 <h3 id="working-with-agents-own-checker">Working with agents (own checker)<a class="headerlink" href="#working-with-agents-own-checker" title="Permanent link">&para;</a></h3>
 <p>Optional cross-check: <code>nox -s code-health-own -- --changed --json</code>. The JSON lists each changed file
 with <code>score</code>, <code>smells[]</code> (<code>kind</code>, <code>line</code>, <code>value</code>, <code>max</code>, <code>deduction</code>) and <code>gate.violations</code>.
-The own checker's gate (<code>gate.passed</code>) still runs in pre-commit and CI until it is removed.</p>
+Its <code>gate.passed</code> is informational only; it no longer blocks commits or CI.</p>
 <h2 id="steckbrief-code-health">Steckbrief Code Health<a class="headerlink" href="#steckbrief-code-health" title="Permanent link">&para;</a></h2>
 <h3 id="1-messumfang-was-zahlt-was-nicht-mit-begrundung">1. Messumfang: was zählt, was nicht, mit Begründung<a class="headerlink" href="#1-messumfang-was-zahlt-was-nicht-mit-begrundung" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1695,7 +1696,7 @@ The own checker's gate (<code>gate.passed</code>) still runs in pre-commit and C
 <li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche. Die eigene Baseline-Datei (<code>code-health-baseline.json</code>) ist leer.</li>
 <li><strong>Suppressions:</strong></li>
 <li>nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>;</li>
-<li>aktuell 2, nämlich <code>primitive_obsession</code> in <code>cli/commands/add.py</code> und <code>merge.py</code>, wegen der typer-CLI-Grenze.</li>
+<li>aktuell 3, alle <code>primitive_obsession</code>: <code>cli/commands/add.py</code> und <code>merge.py</code> (typer-CLI-Grenze) sowie <code>tests/integration/support/fake_scm.py</code> (Fake-HTTP-Server mit rohem JSON).</li>
 </ul>
 <h3 id="7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells">7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells<a class="headerlink" href="#7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells" title="Permanent link">&para;</a></h3>
 <table>
