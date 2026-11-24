@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from click.testing import Result
+from typer.testing import Result
 
 from tests.integration.support import gitfixtures
 from tests.integration.support.renv_helpers import Renv, env_meta

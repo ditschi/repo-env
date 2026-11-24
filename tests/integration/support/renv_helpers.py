@@ -7,8 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from click.testing import Result
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from repoenv.cli.app import app
 from tests.integration.support.gitfixtures import RepoFactory, checkout_branch_in_source

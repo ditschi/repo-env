@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from click.testing import Result
+from typer.testing import Result
 
 from repoenv.adapters import state_store
 from repoenv.domain.models import RepoStatus

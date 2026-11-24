@@ -13,8 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from click.testing import Result
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from repoenv.adapters.scm import credentials, detect
 from repoenv.cli.app import app
