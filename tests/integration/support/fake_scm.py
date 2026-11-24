@@ -6,6 +6,7 @@ client libraries to list repos and memberships -- with deliberately tiny pages
 so every pagination path is exercised. Clone URLs point at local bare repos
 (``file://``), so the discovered repos can really be cloned.
 """
+# aihealth: disable=primitive_obsession -- fake HTTP server: request/response bodies are raw JSON by design
 
 from __future__ import annotations
 
@@ -18,9 +19,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, NamedTuple
 from urllib.parse import parse_qs, urlsplit
-
-# Anything ``json.dumps`` accepts: the request and response bodies of the fake APIs.
-JsonValue = Any
 
 
 @dataclass(frozen=True)
@@ -78,7 +76,7 @@ class FakeScmServer:
         self._httpd.shutdown()
         self._httpd.server_close()
 
-    def page(self, items: Sequence[JsonValue], number: int) -> tuple[list[JsonValue], bool]:
+    def page(self, items: Sequence[Any], number: int) -> tuple[list[Any], bool]:
         size = self.data.page_size
         chunk = list(items[(number - 1) * size : number * size])
         return chunk, number * size < len(items)
@@ -116,7 +114,7 @@ class _Route(NamedTuple):
 
     pattern: tuple[str, ...]
     handler: Callable[[_Handler, _Request], None]
-    missing: JsonValue = None
+    missing: Any = None
 
     def matches(self, request: _Request) -> bool:
         return len(request.parts) == len(self.pattern) and all(
@@ -140,7 +138,7 @@ class _Handler(BaseHTTPRequestHandler):
         return self.server_state.data
 
     def _send(
-        self, payload: JsonValue, status: HTTPStatus = HTTPStatus.OK, headers: Mapping[str, str] | None = None
+        self, payload: Any, status: HTTPStatus = HTTPStatus.OK, headers: Mapping[str, str] | None = None
     ) -> None:
         body = json.dumps(payload).encode()
         self.send_response(status)
@@ -161,25 +159,25 @@ class _Handler(BaseHTTPRequestHandler):
     def _next_page_url(self, request: _Request) -> str:
         return f"{self._state.base_url}{request.path}?{request.next_page_query()}"
 
-    def _link_paged(self, request: _Request, items: Sequence[JsonValue]) -> None:
+    def _link_paged(self, request: _Request, items: Sequence[Any]) -> None:
         chunk, more = self._state.page(items, request.page)
         headers = {"X-Total-Count": str(len(items))}
         if more:
             headers["Link"] = f'<{self._next_page_url(request)}>; rel="next"'
         self._send(chunk, headers=headers)
 
-    def _cloud_paged(self, request: _Request, values: Sequence[JsonValue]) -> None:
+    def _cloud_paged(self, request: _Request, values: Sequence[Any]) -> None:
         chunk, more = self._state.page(values, request.page)
-        payload: dict[str, JsonValue] = {"values": chunk, "pagelen": len(chunk), "page": request.page}
+        payload: dict[str, Any] = {"values": chunk, "pagelen": len(chunk), "page": request.page}
         if more:
             payload["next"] = self._next_page_url(request)
         self._send(payload)
 
-    def _start_paged(self, request: _Request, values: Sequence[JsonValue]) -> None:
+    def _start_paged(self, request: _Request, values: Sequence[Any]) -> None:
         start = int(request.arg("start") or "0")
         size = self._data.page_size
         chunk = list(values[start : start + size])
-        payload: dict[str, JsonValue] = {"values": chunk, "size": len(chunk), "start": start}
+        payload: dict[str, Any] = {"values": chunk, "size": len(chunk), "start": start}
         payload["isLastPage"] = start + size >= len(values)
         if not payload["isLastPage"]:
             payload["nextPageStart"] = start + size
@@ -228,7 +226,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send({"login": request.owner})
 
     # --- GitHub ---------------------------------------------------------
-    def _github_graphql(self, variables: Mapping[str, JsonValue]) -> None:
+    def _github_graphql(self, variables: Mapping[str, Any]) -> None:
         owner = variables["owner"]
         if not self._data.exists(owner):
             self._send({"data": {"repositoryOwner": None}})
@@ -372,7 +370,7 @@ class _Api(NamedTuple):
     """One provider API: its path prefix, its generic 404 body and its GET routes."""
 
     prefix: str
-    not_found: JsonValue
+    not_found: Any
     routes: tuple[_Route, ...]
 
 

@@ -95,11 +95,12 @@ repos:
         entry: 'aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})'
         types_or: [python, shell, makefile]
       - id: code-health-own
-        name: code-health-own (cross-check, changed files vs HEAD)
+        name: code-health-own (informational cross-check, run manually)
         entry: uv run --isolated --extra code-quality python -m tools.code_health --changed HEAD
         language: system
         pass_filenames: false
         types_or: [python, toml]
+        stages: [manual]
       - id: mypy
         name: mypy
         entry: uv run --isolated --extra type-check mypy

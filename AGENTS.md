@@ -57,4 +57,5 @@ findings; 9.5 is only the minimum.
   imposes the signature.
 - Refactorings must keep behaviour unchanged, and the tests must stay green.
 - Do not change `.aihealth.toml` to make the gate pass.
-- The own checker (`nox -s code-health-own`, `tools/code_health`) is a temporary cross-check.
+- The own checker (`nox -s code-health-own`, `tools/code_health`) is an informational cross-check
+  only; where it disagrees with ai-health, ai-health decides.

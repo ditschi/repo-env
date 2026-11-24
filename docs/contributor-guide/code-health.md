@@ -92,8 +92,9 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 ## Own checker (cross-check, temporary)
 
 `tools/code_health` (`nox -s code-health-own`, config `code-health.toml`) was built first, from
-ruff, complexipy, pylint symilar and AST checks. It stays as a cross-check until the ai-health gate
-runs green in CI, then it can be removed. Its thresholds are looser than the CodeScene defaults
+ruff, complexipy, pylint symilar and AST checks. It stays as an **informational** cross-check (CI step
+with `continue-on-error`, pre-commit hook only in the `manual` stage) until it is removed: where the
+two tools disagree (e.g. bundled test assertions vs. duplicated setup), ai-health decides. Its thresholds are looser than the CodeScene defaults
 (see the Steckbrief, section 4).
 
 ### Gate
