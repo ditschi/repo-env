@@ -102,8 +102,13 @@ The gate runs in pre-commit (`--changed HEAD`) and in the PR quality job (`--cha
 
 1. Every changed file must score **≥ 9.5** (`score.target`).
 2. A changed file must **not get worse** than in the base commit. The base tree is exported with
-   `git archive` and scored the same way.
-3. The **repo score must not drop**.
+   `git archive` and scored the same way. Renamed files are compared with their old path.
+3. The **repo score must not drop** below `min(target, base repo score)`. Once the repo is at the
+   target, adding or deleting healthy files (≥ 9.5) may move the mean slightly without failing.
+
+Changed files include untracked files, except under pre-commit (`PRE_COMMIT` is set there). A
+missing or failing analyzer is a tool error (exit 2). Unknown smell names in a suppression produce
+a warning.
 4. **Ratchet baseline** (`code-health-baseline.json`): files that already scored below 9.5 when the
    gate was introduced are grandfathered at their recorded score. Rule 2 still applies to them, so
    any change must keep or improve them. After improving such a file, run `--update-baseline` and

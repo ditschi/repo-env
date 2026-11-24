@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import pytest
 from tools.code_health.analyze import score_file
 from tools.code_health.cli import main
 from tools.code_health.config import Config, PathRules, SmellRule, load_config
+from tools.code_health.external import ToolError, _run
 from tools.code_health.gate import Baseline, GateInput, evaluate
 from tools.code_health.model import FileFacts, FileReport, Finding, FunctionInfo, TreeReport
 
@@ -66,7 +68,7 @@ def test_repo_score_is_loc_weighted() -> None:
         ({"src_a": 9.2}, None, {}, 1),
         ({"src_a": 7.0}, {"src_a": 7.0}, {"src/a": 7.0}, 0),
         ({"src_a": 6.9}, {"src_a": 7.0}, {"src/a": 7.0}, 3),
-        ({"src_a": 9.7}, {"src_a": 9.9}, {}, 2),
+        ({"src_a": 9.7}, {"src_a": 9.9}, {}, 1),  # worse file; repo still >= target
     ],
 )
 def test_gate(head: dict, base: dict | None, baseline: dict, violations: int) -> None:
@@ -101,3 +103,22 @@ def test_cli_changed_detects_regression(tmp_path: Path, capsys: pytest.CaptureFi
         False,
         "complex-method",
     )
+
+
+def test_repo_may_dip_while_staying_at_target() -> None:
+    base = _tree(src_a=10.0, src_b=10.0)
+    head = _tree(src_a=10.0, src_b=10.0, src_c=9.6)
+    gate = GateInput(head, ["src/c"], Baseline(), base)
+    assert evaluate(gate, _config()).passed
+
+
+def test_renamed_file_is_compared_with_its_old_path() -> None:
+    gate = GateInput(_tree(src_new=9.6), ["src/new"], Baseline(), _tree(src_old=9.9), {"src/new": "src/old"})
+    assert [v for v in evaluate(gate, _config()).violations if "got worse" in v] == [
+        "src/new: got worse (9.90 -> 9.60)"
+    ]
+
+
+def test_missing_analyzer_module_is_a_tool_error(tmp_path: Path) -> None:
+    with pytest.raises(ToolError):
+        _run([sys.executable, "-m", "no_such_module_for_code_health"], tmp_path)
