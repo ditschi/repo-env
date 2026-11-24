@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 
-from tests.integration.support.gitfixtures import run_git
+from tests.integration.support.gitfixtures import worktree_listing
 from tests.integration.support.renv_helpers import Renv
 
 
@@ -39,7 +39,6 @@ def test_preserve_create_json_run_then_delete_files_leaves_no_trace(renv: Renv) 
     # repos' own worktree metadata is clean, so recreating doesn't hit stale
     # registration errors (the original "orphaned worktree" failure mode).
     for repo_path in clones:
-        listing = run_git(["worktree", "list", "--porcelain"], cwd=repo_path).stdout
-        assert str(ci) not in listing
+        assert str(ci) not in worktree_listing(repo_path)
 
     renv.ok("create", "ci", "--preserve", "--include", "alpha,beta")

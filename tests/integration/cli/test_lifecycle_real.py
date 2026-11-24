@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 from repoenv.adapters import git_adapter
-from tests.integration.support.gitfixtures import run_git
+from tests.integration.support.gitfixtures import run_git, worktree_listing
 from tests.integration.support.renv_helpers import Renv
 
 
@@ -26,10 +26,6 @@ def _push_colleague_commit(renv: Renv) -> None:
     run_git(["add", "-A"], cwd=other_clone)
     run_git(["commit", "-q", "-m", "colleague change"], cwd=other_clone)
     run_git(["push", "-q", "origin", "HEAD:main"], cwd=other_clone)
-
-
-def _worktree_listing(repo: Path) -> str:
-    return run_git(["worktree", "list", "--porcelain"], cwd=repo).stdout
 
 
 def _rev_parse(repo: Path, *args: str) -> str:
@@ -57,13 +53,13 @@ def test_sync_fetches_remote_without_touching_worktree(renv: Renv) -> None:
 def test_prune_clears_stale_worktree_metadata_after_manual_deletion(renv: Renv, web_env: Path) -> None:
     wt = web_env / "alpha"
     source_repo = renv.source / "alpha"
-    assert str(wt) in _worktree_listing(source_repo)
+    assert str(wt) in worktree_listing(source_repo)
 
     # Bypass renv entirely: delete the worktree directory by hand.
     shutil.rmtree(wt)
 
     renv.ok("prune", "web")
-    assert str(wt) not in _worktree_listing(source_repo)
+    assert str(wt) not in worktree_listing(source_repo)
 
     # With the stale metadata cleared, recreating no longer hits a conflict.
     renv.ok("repair", "web")

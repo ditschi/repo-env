@@ -28,10 +28,6 @@ def _point_origin_at_github_keep_local_push(renv: Renv, worktree: Path, branch: 
     run_git(["remote", "set-url", "origin", f"git@github.com:example/{worktree.name}.git"], cwd=worktree)
 
 
-def _head(worktree: Path) -> str:
-    return run_git(["rev-parse", "HEAD"], cwd=worktree).stdout.strip()
-
-
 def test_power_user_batch_edit_commit_push_and_pr(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     branch = "feature/rollout"
     batch = _batch_of_services(renv, branch)
@@ -73,7 +69,7 @@ def test_power_user_batch_edit_commit_push_and_pr(renv: Renv, monkeypatch: pytes
 
 def test_subset_follow_up_only_touches_marked_repos(renv: Renv) -> None:
     batch = _batch_of_services(renv, "feature/followup")
-    beta_head_before = _head(batch / "svc-beta")
+    beta_head_before = gitfixtures.head_sha(batch / "svc-beta")
 
     marked = ("svc-alpha", "svc-gamma")
     for name in marked:
@@ -86,7 +82,7 @@ def test_subset_follow_up_only_touches_marked_repos(renv: Renv) -> None:
     )
     renv.ok("run", "batch", "--shell", "--", follow_up)
 
-    heads = {name: _head(batch / name) for name in _SERVICES}
+    heads = {name: gitfixtures.head_sha(batch / name) for name in _SERVICES}
     assert {name for name, head in heads.items() if head != beta_head_before} == set(marked)
     marked_messages = {name: gitfixtures.latest_commit_message(batch / name) for name in marked}
     assert marked_messages == dict.fromkeys(marked, "chore: follow-up subset")
