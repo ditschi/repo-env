@@ -1408,8 +1408,8 @@ silently ignores the suppression. The pre-commit hook <code>aihealth-suppression
 reason of at least 10 characters.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters</span>
 </span></code></pre></div>
-<p>Current suppressions: <code>src/repoenv/cli/commands/add.py</code> and <code>merge.py</code> (primitive_obsession, typer
-CLI boundary).</p>
+<p>Current suppressions (primitive_obsession): <code>src/repoenv/cli/commands/add.py</code> and <code>merge.py</code> (typer CLI
+boundary), <code>tests/integration/support/fake_scm.py</code> (fake HTTP server with raw JSON bodies).</p>
 <h3 id="one-source-per-smell">One source per smell<a class="headerlink" href="#one-source-per-smell" title="Permanent link">&para;</a></h3>
 <p>Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
 pylint has its design checks (too-many-*, too-many-lines) disabled and no <code>fail-under</code> score gate.
@@ -1422,8 +1422,9 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <code>path:line</code> and a fix hint.</p>
 <h2 id="own-checker-cross-check-temporary">Own checker (cross-check, temporary)<a class="headerlink" href="#own-checker-cross-check-temporary" title="Permanent link">&para;</a></h2>
 <p><code>tools/code_health</code> (<code>nox -s code-health-own</code>, config <code>code-health.toml</code>) was built first, from
-ruff, complexipy, pylint symilar and AST checks. It stays as a cross-check until the ai-health gate
-runs green in CI, then it can be removed. Its thresholds are looser than the CodeScene defaults
+ruff, complexipy, pylint symilar and AST checks. It stays as an <strong>informational</strong> cross-check (CI step
+with <code>continue-on-error</code>, pre-commit hook only in the <code>manual</code> stage) until it is removed: where the
+two tools disagree (e.g. bundled test assertions vs. duplicated setup), ai-health decides. Its thresholds are looser than the CodeScene defaults
 (see the Steckbrief, section 4).</p>
 <h3 id="gate_1">Gate<a class="headerlink" href="#gate_1" title="Permanent link">&para;</a></h3>
 <p>The gate runs in pre-commit (<code>--changed HEAD</code>) and in the PR quality job (<code>--changed &lt;PR base&gt;</code>).</p>
@@ -1709,36 +1710,36 @@ The own checker's gate (<code>gate.passed</code>) still runs in pre-commit and C
 <tr>
 <td>Repo</td>
 <td>6.87</td>
-<td><strong>7.82</strong></td>
+<td><strong>9.32</strong></td>
 </tr>
 <tr>
 <td><code>src</code></td>
 <td>7.32</td>
-<td><strong>8.60</strong></td>
+<td><strong>8.66</strong></td>
 </tr>
 <tr>
 <td><code>tests</code></td>
 <td>6.31</td>
-<td><strong>7.03</strong></td>
+<td><strong>9.92</strong></td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li><strong>Gate:</strong> <code>delta</code> gegen <code>main</code> meldet IMPROVED, also keine Datei verschlechtert.</li>
-<li><strong>Eigener Checker:</strong> von 8.93 auf 9.97, 0 Dateien unter 9.5.</li>
-<li><strong>Schlechteste Dateien (ai-health strict):</strong></li>
-<li><code>tests/integration/git/test_repair.py</code> 2.37 und <code>test_worktree_conflicts.py</code> 2.58 (Duplikate);</li>
-<li><code>tests/integration/cli/test_merge_branches.py</code> 3.64;</li>
-<li><code>tests/integration/support/fake_scm.py</code> 4.13.</li>
-<li><strong>Verbleibende Funde</strong> (62 Dateien):</li>
-<li>Duplikate 81×, vor allem in Tests;</li>
-<li>Excess Arguments 31×, auch durch pytest-Fixtures, die ai-health als Parameter zählt;</li>
-<li>Primitive Obsession 22×;</li>
-<li>Complex Method 20×;</li>
-<li>Complex Conditional 17×;</li>
+<li><strong>Gate:</strong> <code>delta</code> gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.</li>
+<li><strong>Welle 1 (Tests):</strong> fertig. 3 Testdateien haben noch Funde, alle übrigen stehen bei 10.</li>
+<li><strong>Eigener Checker:</strong> von 8.93 auf 9.97. Er ist jetzt nur noch informativ, weil er bei Test-Assertions ai-health widerspricht.</li>
+<li><strong>Schlechteste Dateien (ai-health strict),</strong> alle in <code>src</code>:</li>
+<li><code>cli/commands/pr.py</code> 6.08, <code>add.py</code> 6.46, <code>repair.py</code> 6.63, <code>create.py</code> 6.74;</li>
+<li><code>domain/repo_url.py</code> 6.78.</li>
+<li><strong>Verbleibende Funde,</strong> fast alle in <code>src</code> (30 Dateien):</li>
+<li>Primitive Obsession 18×;</li>
+<li>Complex Method 15×;</li>
+<li>Complex Conditional 11×;</li>
+<li>Excess Arguments 10×;</li>
+<li>Duplikate 5×;</li>
 <li>Cognitive Complexity 1×.</li>
-<li><strong>Davon in <code>src</code>:</strong> Primitive Obsession 17×, Complex Method 16×, Complex Conditional 12×, Excess Arguments 10×, Duplikate 3×, Cognitive Complexity 1×.</li>
-<li>Die Refactorings in Richtung 10 brauchen die Freigabe des Owners.</li>
+<li><strong>Suppressions:</strong> 3, nämlich <code>primitive_obsession</code> in <code>add.py</code>, <code>merge.py</code> (typer-CLI-Grenze) und <code>tests/integration/support/fake_scm.py</code> (Fake-HTTP-Server mit rohem JSON).</li>
+<li>Welle 2 (<code>src</code>) braucht die Freigabe des Owners.</li>
 </ul>
 <h3 id="8-skills-geprufte-und-ubernommene-skills">8. Skills: geprüfte und übernommene Skills<a class="headerlink" href="#8-skills-geprufte-und-ubernommene-skills" title="Permanent link">&para;</a></h3>
 <ul>
