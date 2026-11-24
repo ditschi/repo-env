@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.integration.support.gitfixtures import RepoFactory
+from tests.integration.support.renv_helpers import Renv
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -73,3 +74,17 @@ def repoenv_home(testenv_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home.mkdir()
     monkeypatch.setenv("REPOENV_HOME", str(home))
     return home
+
+
+@pytest.fixture()
+def renv(repo_factory: RepoFactory, repoenv_home: Path) -> Renv:  # repoenv_home: isolation side effect
+    """The renv CLI with an isolated ``REPOENV_HOME``; call ``renv.setup(...)`` to clone and init."""
+    return Renv(repo_factory)
+
+
+@pytest.fixture()
+def web_env(renv: Renv) -> Path:
+    """Environment ``web`` holding the single repo ``alpha``; returns its directory."""
+    renv.setup("alpha")
+    renv.ok("create", "web", "--include", "alpha")
+    return renv.worktrees / "web"

@@ -11,17 +11,28 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import parse_qs, urlsplit
+
+# Anything ``json.dumps`` accepts: the request and response bodies of the fake APIs.
+JsonValue = Any
 
 
 @dataclass(frozen=True)
 class FakeRepo:
     owner: str  # full owner path, e.g. "grp/sub" or "org/project"
     name: str
+
+    def is_under(self, root: str, *, nested: bool) -> bool:
+        """Owned by ``root`` itself or, when ``nested``, by any of its sub-owners."""
+        if self.owner == root:
+            return True
+        return nested and self.owner.startswith(f"{root}/")
 
 
 @dataclass
@@ -36,11 +47,11 @@ class FakeScmData:
         return (self.remotes / repo.owner / f"{repo.name}.git").as_uri()
 
     def repos_under(self, root: str, *, nested: bool) -> list[FakeRepo]:
-        return [r for r in self.repos if r.owner == root or (nested and r.owner.startswith(f"{root}/"))]
+        return [r for r in self.repos if r.is_under(root, nested=nested)]
 
     def exists(self, owner: str) -> bool:
         return any(login == owner for login, _, _ in self.memberships) or any(
-            r.owner == owner or r.owner.startswith(f"{owner}/") for r in self.repos
+            r.is_under(owner, nested=True) for r in self.repos
         )
 
 
@@ -67,10 +78,50 @@ class FakeScmServer:
         self._httpd.shutdown()
         self._httpd.server_close()
 
-    def page(self, items: list[Any], number: int) -> tuple[list[Any], bool]:
+    def page(self, items: Sequence[JsonValue], number: int) -> tuple[list[JsonValue], bool]:
         size = self.data.page_size
-        chunk = items[(number - 1) * size : number * size]
+        chunk = list(items[(number - 1) * size : number * size])
         return chunk, number * size < len(items)
+
+
+@dataclass(frozen=True)
+class _Request:
+    """A GET request to one provider API: path segments after the API prefix plus the query."""
+
+    path: str
+    parts: tuple[str, ...]
+    query: dict[str, list[str]]
+
+    def arg(self, name: str) -> str:
+        """First value of query parameter ``name``, or ``""``."""
+        return self.query.get(name, [""])[0]
+
+    @property
+    def owner(self) -> str:
+        """The owner segment of ``/<kind>/<owner>/...`` paths."""
+        return self.parts[1]
+
+    @property
+    def page(self) -> int:
+        return int(self.arg("page") or "1")
+
+    def next_page_query(self) -> str:
+        rest = {k: v[0] for k, v in self.query.items() if k != "page"}
+        rest["page"] = str(self.page + 1)
+        return "&".join(f"{k}={v}" for k, v in rest.items())
+
+
+class _Route(NamedTuple):
+    """``pattern`` segments (``*`` = any) -> handler; ``missing`` is the 404 body if the owner is unknown."""
+
+    pattern: tuple[str, ...]
+    handler: Callable[[_Handler, _Request], None]
+    missing: JsonValue = None
+
+    def matches(self, request: _Request) -> bool:
+        return len(request.parts) == len(self.pattern) and all(
+            expected in ("*", part) for part, expected in zip(request.parts, self.pattern)
+        )
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -84,7 +135,13 @@ class _Handler(BaseHTTPRequestHandler):
     def _state(self) -> FakeScmServer:
         return self.server_state
 
-    def _send(self, status: int, payload: Any, headers: dict[str, str] | None = None) -> None:
+    @property
+    def _data(self) -> FakeScmData:
+        return self.server_state.data
+
+    def _send(
+        self, payload: JsonValue, status: HTTPStatus = HTTPStatus.OK, headers: Mapping[str, str] | None = None
+    ) -> None:
         body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -101,18 +158,32 @@ class _Handler(BaseHTTPRequestHandler):
             self._state.seen.auth_headers.add(self.headers["Authorization"])
         return parts.path, parse_qs(parts.query)
 
-    def _link_paged(
-        self, path: str, query: dict[str, list[str]], items: list[Any], page_param: str = "page"
-    ) -> None:
-        number = int(query.get(page_param, ["1"])[0])
-        chunk, more = self._state.page(items, number)
+    def _next_page_url(self, request: _Request) -> str:
+        return f"{self._state.base_url}{request.path}?{request.next_page_query()}"
+
+    def _link_paged(self, request: _Request, items: Sequence[JsonValue]) -> None:
+        chunk, more = self._state.page(items, request.page)
         headers = {"X-Total-Count": str(len(items))}
         if more:
-            rest = {k: v[0] for k, v in query.items() if k != page_param}
-            rest[page_param] = str(number + 1)
-            qs = "&".join(f"{k}={v}" for k, v in rest.items())
-            headers["Link"] = f'<{self._state.base_url}{path}?{qs}>; rel="next"'
-        self._send(200, chunk, headers)
+            headers["Link"] = f'<{self._next_page_url(request)}>; rel="next"'
+        self._send(chunk, headers=headers)
+
+    def _cloud_paged(self, request: _Request, values: Sequence[JsonValue]) -> None:
+        chunk, more = self._state.page(values, request.page)
+        payload: dict[str, JsonValue] = {"values": chunk, "pagelen": len(chunk), "page": request.page}
+        if more:
+            payload["next"] = self._next_page_url(request)
+        self._send(payload)
+
+    def _start_paged(self, request: _Request, values: Sequence[JsonValue]) -> None:
+        start = int(request.arg("start") or "0")
+        size = self._data.page_size
+        chunk = list(values[start : start + size])
+        payload: dict[str, JsonValue] = {"values": chunk, "size": len(chunk), "start": start}
+        payload["isLastPage"] = start + size >= len(values)
+        if not payload["isLastPage"]:
+            payload["nextPageStart"] = start + size
+        self._send(payload)
 
     # --- dispatch -------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802 - http.server API
@@ -122,238 +193,250 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/graphql":
             self._github_graphql(request["variables"])
         else:
-            self._send(404, {"message": "Not Found"})
+            self._send({"message": "Not Found"}, HTTPStatus.NOT_FOUND)
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
         path, query = self._record()
-        for prefix, handler in (
-            ("/api/v3/", self._github_rest),
-            ("/api/v4/", self._gitlab),
-            ("/2.0/", self._bitbucket_cloud),
-            ("/rest/api/1.0/", self._bitbucket_server),
-            ("/api/v1/", self._gitea),
-        ):
-            if path.startswith(prefix):
-                handler(path, path[len(prefix) :].split("/"), query)
+        for api in _APIS:
+            if path.startswith(api.prefix):
+                self._dispatch(api, _Request(path, tuple(path[len(api.prefix) :].split("/")), query))
                 return
         if "/_apis/git/repositories" in path:
             self._azure(path.split("/")[1])
             return
-        self._send(404, {"message": "Not Found"})
+        self._send({"message": "Not Found"}, HTTPStatus.NOT_FOUND)
+
+    def _dispatch(self, api: _Api, request: _Request) -> None:
+        route = next((r for r in api.routes if r.matches(request)), None)
+        if route is None:
+            self._send(api.not_found, HTTPStatus.NOT_FOUND)
+        elif route.missing is not None and not self._data.exists(request.owner):
+            self._send(route.missing, HTTPStatus.NOT_FOUND)
+        else:
+            route.handler(self, request)
+
+    # --- shared ---------------------------------------------------------
+    def _owner_repos(self, request: _Request) -> None:
+        """GitHub REST and Gitea list an org's/user's repos in the same shape."""
+        items = [
+            {"name": r.name, "clone_url": self._data.clone_url(r), "ssh_url": f"git@x:{r.name}"}
+            for r in self._data.repos_under(request.owner, nested=False)
+        ]
+        self._link_paged(request, items)
+
+    def _login(self, request: _Request) -> None:
+        self._send({"login": request.owner})
 
     # --- GitHub ---------------------------------------------------------
-    def _github_graphql(self, variables: dict[str, Any]) -> None:
+    def _github_graphql(self, variables: Mapping[str, JsonValue]) -> None:
         owner = variables["owner"]
-        if not self._state.data.exists(owner):
-            self._send(200, {"data": {"repositoryOwner": None}})
+        if not self._data.exists(owner):
+            self._send({"data": {"repositoryOwner": None}})
             return
-        repos = self._state.data.repos_under(owner, nested=False)
         number = int(variables.get("cursor") or "1")
-        chunk, more = self._state.page(repos, number)
+        chunk, more = self._state.page(self._data.repos_under(owner, nested=False), number)
         nodes = [
-            {
-                "name": r.name,
-                "url": self._state.data.clone_url(r)[: -len(".git")],
-                "sshUrl": f"git@x:{r.name}",
-            }
+            {"name": r.name, "url": self._data.clone_url(r)[: -len(".git")], "sshUrl": f"git@x:{r.name}"}
             for r in chunk
         ]
         connection = {"pageInfo": {"hasNextPage": more, "endCursor": str(number + 1)}, "nodes": nodes}
-        self._send(200, {"data": {"repositoryOwner": {"repositories": connection}}})
+        self._send({"data": {"repositoryOwner": {"repositories": connection}}})
 
-    def _github_rest(self, path: str, parts: list[str], query: dict[str, list[str]]) -> None:
-        data = self._state.data
-        if parts == ["user", "memberships", "orgs"]:
-            items = [
-                {"organization": {"login": login}, "role": role, "state": state}
-                for login, role, state in data.memberships
-            ]
-            self._link_paged(path, query, items)
-        elif len(parts) == 3 and parts[0] in ("orgs", "users") and parts[2] == "repos":
-            if not data.exists(parts[1]):
-                self._send(404, {"message": "Not Found"})
-                return
-            repos = data.repos_under(parts[1], nested=False)
-            items = [
-                {"name": r.name, "clone_url": data.clone_url(r), "ssh_url": f"git@x:{r.name}"} for r in repos
-            ]
-            self._link_paged(path, query, items)
-        elif len(parts) == 2 and parts[0] == "orgs":
-            if data.exists(parts[1]):
-                self._send(200, {"login": parts[1]})
-            else:
-                self._send(404, {"message": "Not Found"})
-        elif len(parts) == 2 and parts[0] == "users":
-            self._send(200, {"login": parts[1]})
-        else:
-            self._send(404, {"message": "Not Found"})
+    def _github_memberships(self, request: _Request) -> None:
+        items = [
+            {"organization": {"login": login}, "role": role, "state": state}
+            for login, role, state in self._data.memberships
+        ]
+        self._link_paged(request, items)
 
     # --- GitLab ---------------------------------------------------------
-    def _gitlab_projects(self, path: str, query: dict[str, list[str]], repos: list[FakeRepo]) -> None:
-        search = query.get("search", [""])[0].lower()
+    def _gitlab_projects(self, request: _Request, repos: Sequence[FakeRepo]) -> None:
+        search = request.arg("search").lower()
         items = [
             {
                 "id": index,
                 "name": r.name,
                 "path": r.name,
                 "namespace": {"full_path": r.owner},
-                "http_url_to_repo": self._state.data.clone_url(r),
+                "http_url_to_repo": self._data.clone_url(r),
                 "ssh_url_to_repo": f"git@x:{r.owner}/{r.name}.git",
             }
             for index, r in enumerate(repos)
             if search in r.name.lower()
         ]
-        self._link_paged(path, query, items)
+        self._link_paged(request, items)
 
-    def _gitlab(self, path: str, parts: list[str], query: dict[str, list[str]]) -> None:
-        data = self._state.data
-        if len(parts) == 3 and parts[0] == "groups" and parts[2] == "projects":
-            if not data.exists(parts[1]):
-                self._send(404, {"message": "404 Group Not Found"})
-                return
-            nested = query.get("include_subgroups", ["false"])[0].lower() == "true"
-            self._gitlab_projects(path, query, data.repos_under(parts[1], nested=nested))
-        elif parts == ["groups"]:
-            minimum = int(query.get("min_access_level", ["10"])[0])
-            groups = [
-                {"id": i, "full_path": login}
-                for i, (login, role, state) in enumerate(data.memberships)
-                if state == "active" and (minimum < 50 or role == "admin")
-            ]
-            self._link_paged(path, query, groups)
-        elif parts == ["users"]:
-            # The id doubles as the username so /users/<id>/projects can be resolved.
-            name = query["username"][0]
-            self._send(200, [{"id": name, "username": name}] if data.repos_under(name, nested=False) else [])
-        elif len(parts) == 3 and parts[0] == "users" and parts[2] == "projects":
-            self._gitlab_projects(path, query, data.repos_under(parts[1], nested=False))
-        else:
-            self._send(404, {"message": "404 Not Found"})
+    def _gitlab_group_projects(self, request: _Request) -> None:
+        nested = (request.arg("include_subgroups") or "false").lower() == "true"
+        self._gitlab_projects(request, self._data.repos_under(request.owner, nested=nested))
+
+    def _gitlab_user_projects(self, request: _Request) -> None:
+        self._gitlab_projects(request, self._data.repos_under(request.owner, nested=False))
+
+    def _gitlab_groups(self, request: _Request) -> None:
+        minimum = int(request.arg("min_access_level") or "10")
+        groups = [
+            {"id": i, "full_path": login}
+            for i, (login, role, state) in enumerate(self._data.memberships)
+            if state == "active"
+            if minimum < 50 or role == "admin"
+        ]
+        self._link_paged(request, groups)
+
+    def _gitlab_users(self, request: _Request) -> None:
+        # The id doubles as the username so /users/<id>/projects can be resolved.
+        name = request.query["username"][0]
+        self._send([{"id": name, "username": name}] if self._data.repos_under(name, nested=False) else [])
 
     # --- Bitbucket Cloud ------------------------------------------------
-    def _bitbucket_cloud(self, path: str, parts: list[str], query: dict[str, list[str]]) -> None:
-        data, base = self._state.data, self._state.base_url
-        if len(parts) == 2 and parts[0] == "workspaces":
-            slug = parts[1]
-            if not data.exists(slug):
-                self._send(404, {"type": "error", "error": {"message": "not found"}})
-                return
-            links = {
-                name: {
-                    "href": f"{base}/2.0/{name}/{slug}" if name == "repositories" else f"{base}/2.0/x/{name}"
-                }
-                for name in ("repositories", "projects", "members")
-            }
-            links["self"] = {"href": f"{base}/2.0/workspaces/{slug}"}
-            self._send(200, {"type": "workspace", "slug": slug, "name": slug, "links": links})
-        elif len(parts) == 2 and parts[0] == "repositories":
-            needle = ""
-            if "q" in query:  # name ~ "radar"
-                needle = query["q"][0].split('"')[1].lower()
-            repos = [r for r in data.repos_under(parts[1], nested=False) if needle in r.name.lower()]
-            values = [
-                {
-                    "type": "repository",
-                    "slug": r.name,
-                    "name": r.name,
-                    "links": {
-                        "self": {"href": f"{base}/2.0/repositories/{r.owner}/{r.name}"},
-                        "clone": [
-                            {"name": "https", "href": data.clone_url(r)},
-                            {"name": "ssh", "href": f"git@x:{r.owner}/{r.name}.git"},
-                        ],
-                    },
-                }
-                for r in repos
-            ]
-            self._cloud_paged(path, query, values)
-        elif parts == ["user", "workspaces"]:
-            admin_only = query.get("administrator", [""])[0] == "True"
-            values = [
-                {"workspace": {"slug": login}, "administrator": role == "admin"}
-                for login, role, _ in data.memberships
-                if not admin_only or role == "admin"
-            ]
-            self._cloud_paged(path, query, values)
-        else:
-            self._send(404, {"type": "error"})
+    def _bitbucket_workspace(self, request: _Request) -> None:
+        slug, base = request.owner, self._state.base_url
+        links = {
+            "repositories": {"href": f"{base}/2.0/repositories/{slug}"},
+            **{name: {"href": f"{base}/2.0/x/{name}"} for name in ("projects", "members")},
+            "self": {"href": f"{base}/2.0/workspaces/{slug}"},
+        }
+        self._send({"type": "workspace", "slug": slug, "name": slug, "links": links})
 
-    def _cloud_paged(self, path: str, query: dict[str, list[str]], values: list[Any]) -> None:
-        number = int(query.get("page", ["1"])[0])
-        chunk, more = self._state.page(values, number)
-        payload: dict[str, Any] = {"values": chunk, "pagelen": len(chunk), "page": number}
-        if more:
-            rest = {k: v[0] for k, v in query.items() if k != "page"}
-            rest["page"] = str(number + 1)
-            payload["next"] = f"{self._state.base_url}{path}?" + "&".join(f"{k}={v}" for k, v in rest.items())
-        self._send(200, payload)
+    def _bitbucket_repositories(self, request: _Request) -> None:
+        # q looks like: name ~ "radar"
+        needle = request.arg("q").split('"')[1].lower() if "q" in request.query else ""
+        base = self._state.base_url
+        values = [
+            {
+                "type": "repository",
+                "slug": r.name,
+                "name": r.name,
+                "links": {
+                    "self": {"href": f"{base}/2.0/repositories/{r.owner}/{r.name}"},
+                    "clone": [
+                        {"name": "https", "href": self._data.clone_url(r)},
+                        {"name": "ssh", "href": f"git@x:{r.owner}/{r.name}.git"},
+                    ],
+                },
+            }
+            for r in self._data.repos_under(request.owner, nested=False)
+            if needle in r.name.lower()
+        ]
+        self._cloud_paged(request, values)
+
+    def _bitbucket_user_workspaces(self, request: _Request) -> None:
+        admin_only = request.arg("administrator") == "True"
+        values = [
+            {"workspace": {"slug": login}, "administrator": role == "admin"}
+            for login, role, _ in self._data.memberships
+            if not admin_only or role == "admin"
+        ]
+        self._cloud_paged(request, values)
 
     # --- Bitbucket Server -----------------------------------------------
-    def _bitbucket_server(self, path: str, parts: list[str], query: dict[str, list[str]]) -> None:
-        data = self._state.data
-        if len(parts) == 3 and parts[0] == "projects" and parts[2] == "repos":
-            if not data.exists(parts[1]):
-                self._send(404, {"errors": [{"message": "Project does not exist."}]})
-                return
-            repos = data.repos_under(parts[1], nested=False)
-            values = [
-                {
-                    "slug": r.name,
-                    "name": r.name,
-                    "project": {"key": r.owner},
-                    "links": {
-                        "clone": [
-                            {"name": "http", "href": data.clone_url(r)},
-                            {"name": "ssh", "href": f"ssh://git@x:7999/{r.owner}/{r.name}.git"},
-                        ]
-                    },
-                }
-                for r in repos
-            ]
-            self._start_paged(query, values)
-        elif parts == ["projects"]:
-            self._start_paged(query, [{"key": login} for login, _, _ in data.memberships])
-        else:
-            self._send(404, {"errors": [{"message": "not found"}]})
+    def _bitbucket_server_repos(self, request: _Request) -> None:
+        values = [
+            {
+                "slug": r.name,
+                "name": r.name,
+                "project": {"key": r.owner},
+                "links": {
+                    "clone": [
+                        {"name": "http", "href": self._data.clone_url(r)},
+                        {"name": "ssh", "href": f"ssh://git@x:7999/{r.owner}/{r.name}.git"},
+                    ]
+                },
+            }
+            for r in self._data.repos_under(request.owner, nested=False)
+        ]
+        self._start_paged(request, values)
 
-    def _start_paged(self, query: dict[str, list[str]], values: list[Any]) -> None:
-        start = int(query.get("start", ["0"])[0])
-        size = self._state.data.page_size
-        chunk = values[start : start + size]
-        payload: dict[str, Any] = {"values": chunk, "size": len(chunk), "start": start}
-        payload["isLastPage"] = start + size >= len(values)
-        if not payload["isLastPage"]:
-            payload["nextPageStart"] = start + size
-        self._send(200, payload)
+    def _bitbucket_server_projects(self, request: _Request) -> None:
+        self._start_paged(request, [{"key": login} for login, _, _ in self._data.memberships])
 
     # --- Azure DevOps ---------------------------------------------------
     def _azure(self, org: str) -> None:
-        data = self._state.data
-        repos = data.repos_under(org, nested=True)
         value = [
             {
                 "name": r.name,
                 "project": {"name": r.owner.split("/", 1)[1]},
-                "remoteUrl": data.clone_url(r),
+                "remoteUrl": self._data.clone_url(r),
                 "sshUrl": f"git@ssh.x:v3/{r.owner}/{r.name}",
             }
-            for r in repos
+            for r in self._data.repos_under(org, nested=True)
         ]
-        self._send(200, {"value": value, "count": len(value)})
+        self._send({"value": value, "count": len(value)})
 
     # --- Gitea ----------------------------------------------------------
-    def _gitea(self, path: str, parts: list[str], query: dict[str, list[str]]) -> None:
-        data = self._state.data
-        if len(parts) == 3 and parts[0] in ("orgs", "users") and parts[2] == "repos":
-            if not data.exists(parts[1]):
-                self._send(404, {"message": "not found"})
-                return
-            repos = data.repos_under(parts[1], nested=False)
-            items = [
-                {"name": r.name, "clone_url": data.clone_url(r), "ssh_url": f"git@x:{r.name}"} for r in repos
-            ]
-            self._link_paged(path, query, items)
-        elif parts == ["user", "orgs"]:
-            self._link_paged(path, query, [{"username": login} for login, _, _ in data.memberships])
-        else:
-            self._send(404, {"message": "not found"})
+    def _gitea_orgs(self, request: _Request) -> None:
+        self._link_paged(request, [{"username": login} for login, _, _ in self._data.memberships])
+
+
+class _Api(NamedTuple):
+    """One provider API: its path prefix, its generic 404 body and its GET routes."""
+
+    prefix: str
+    not_found: JsonValue
+    routes: tuple[_Route, ...]
+
+
+_GITHUB_404 = {"message": "Not Found"}
+_GITEA_404 = {"message": "not found"}
+
+_APIS = (
+    _Api(
+        "/api/v3/",
+        _GITHUB_404,
+        (
+            _Route(("user", "memberships", "orgs"), _Handler._github_memberships),
+            _Route(("orgs", "*", "repos"), _Handler._owner_repos, _GITHUB_404),
+            _Route(("users", "*", "repos"), _Handler._owner_repos, _GITHUB_404),
+            _Route(("orgs", "*"), _Handler._login, _GITHUB_404),
+            _Route(("users", "*"), _Handler._login),
+        ),
+    ),
+    _Api(
+        "/api/v4/",
+        {"message": "404 Not Found"},
+        (
+            _Route(
+                ("groups", "*", "projects"),
+                _Handler._gitlab_group_projects,
+                {"message": "404 Group Not Found"},
+            ),
+            _Route(("groups",), _Handler._gitlab_groups),
+            _Route(("users",), _Handler._gitlab_users),
+            _Route(("users", "*", "projects"), _Handler._gitlab_user_projects),
+        ),
+    ),
+    _Api(
+        "/2.0/",
+        {"type": "error"},
+        (
+            _Route(
+                ("workspaces", "*"),
+                _Handler._bitbucket_workspace,
+                {"type": "error", "error": {"message": "not found"}},
+            ),
+            _Route(("repositories", "*"), _Handler._bitbucket_repositories),
+            _Route(("user", "workspaces"), _Handler._bitbucket_user_workspaces),
+        ),
+    ),
+    _Api(
+        "/rest/api/1.0/",
+        {"errors": [{"message": "not found"}]},
+        (
+            _Route(
+                ("projects", "*", "repos"),
+                _Handler._bitbucket_server_repos,
+                {"errors": [{"message": "Project does not exist."}]},
+            ),
+            _Route(("projects",), _Handler._bitbucket_server_projects),
+        ),
+    ),
+    _Api(
+        "/api/v1/",
+        _GITEA_404,
+        (
+            _Route(("orgs", "*", "repos"), _Handler._owner_repos, _GITEA_404),
+            _Route(("users", "*", "repos"), _Handler._owner_repos, _GITEA_404),
+            _Route(("user", "orgs"), _Handler._gitea_orgs),
+        ),
+    ),
+)

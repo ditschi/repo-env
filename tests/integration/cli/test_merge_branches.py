@@ -8,128 +8,73 @@ actually working on.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from dataclasses import dataclass
 
-from typer.testing import CliRunner
+from click.testing import Result
 
-from repoenv.cli.app import app
 from tests.integration.support import gitfixtures
-from tests.integration.support.gitfixtures import RepoFactory
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.renv_helpers import Renv, env_meta
 
 
-def test_merge_union_preserves_each_sides_branch(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+@dataclass(frozen=True)
+class _Side:
+    """One source environment of the merge: its single repo and optional task branch."""
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "left", "--branch", "feature/a", "--include", "alpha"]).exit_code == 0
-    )
-    assert (
-        runner.invoke(app, ["create", "right", "--branch", "feature/b", "--include", "beta"]).exit_code == 0
-    )
+    repo: str
+    branch: str | None = None
 
-    merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
-    assert merge.exit_code == 0, merge.output
-
-    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
-    assert gitfixtures.current_branch(worktrees_dir / "merged" / "beta") == "feature/b"
+    def create_opts(self) -> tuple[str, ...]:
+        branch = ("--branch", self.branch) if self.branch else ()
+        return (*branch, "--include", self.repo)
 
 
-def test_merge_intersect_conflicting_branch_prefers_left_and_reports(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def _merge(renv: Renv, left: _Side, right: _Side, *merge_opts: str) -> Result:
+    """Create envs ``left`` and ``right``, then ``renv merge merged left right <merge_opts>``."""
+    renv.setup(*dict.fromkeys((left.repo, right.repo)))
+    renv.ok("create", "left", *left.create_opts())
+    renv.ok("create", "right", *right.create_opts())
+    return renv.ok("merge", "merged", "left", "right", *merge_opts)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "left", "--branch", "feature/left", "--include", "alpha"]).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(app, ["create", "right", "--branch", "feature/right", "--include", "alpha"]).exit_code
-        == 0
-    )
 
-    merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "intersect"])
-    assert merge.exit_code == 0, merge.output
+def test_merge_union_preserves_each_sides_branch(renv: Renv) -> None:
+    _merge(renv, _Side("alpha", "feature/a"), _Side("beta", "feature/b"), "--op", "union")
+
+    assert gitfixtures.current_branch(renv.worktrees / "merged" / "alpha") == "feature/a"
+    assert gitfixtures.current_branch(renv.worktrees / "merged" / "beta") == "feature/b"
+
+
+def test_merge_intersect_conflicting_branch_prefers_left_and_reports(renv: Renv) -> None:
+    merge = _merge(renv, _Side("alpha", "feature/left"), _Side("alpha", "feature/right"), "--op", "intersect")
+
     assert all(text in merge.output for text in ("branch conflict", "feature/left", "feature/right")), (
         merge.output
     )
+    assert gitfixtures.current_branch(renv.worktrees / "merged" / "alpha") == "feature/left"
 
-    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/left"
 
-
-def test_merge_moves_branch_out_of_the_source_environment(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
+def test_merge_moves_branch_out_of_the_source_environment(renv: Renv) -> None:
     """Git allows one worktree per branch, so preserving the branch in ``merged``
     means the original environment's worktree loses it (goes detached)."""
-    repo_factory.make_bare_and_clone("alpha")
+    _merge(renv, _Side("alpha", "feature/a"), _Side("beta", "feature/b"), "--op", "union")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "left", "--branch", "feature/a", "--include", "alpha"]).exit_code == 0
-    )
-    repo_factory.make_bare_and_clone("beta")
-    assert (
-        runner.invoke(app, ["create", "right", "--branch", "feature/b", "--include", "beta"]).exit_code == 0
-    )
-
-    merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
-    assert merge.exit_code == 0, merge.output
-
-    assert gitfixtures.current_branch(worktrees_dir / "merged" / "alpha") == "feature/a"
-    assert gitfixtures.is_detached(worktrees_dir / "left" / "alpha") is True
+    assert gitfixtures.current_branch(renv.worktrees / "merged" / "alpha") == "feature/a"
+    assert gitfixtures.is_detached(renv.worktrees / "left" / "alpha") is True
 
 
-def test_merge_recreate_marker_records_on_branch_conflict(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_merge_recreate_marker_records_on_branch_conflict(renv: Renv) -> None:
+    _merge(renv, _Side("alpha"), _Side("beta"), "--op", "union", "--on-branch-conflict", "fail")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "left", "--include", "alpha"]).exit_code == 0
-    assert runner.invoke(app, ["create", "right", "--include", "beta"]).exit_code == 0
-
-    merge = runner.invoke(
-        app, ["merge", "merged", "left", "right", "--op", "union", "--on-branch-conflict", "fail"]
-    )
-    assert merge.exit_code == 0, merge.output
-
-    meta = json.loads((worktrees_dir / "merged" / ".repoenv.json").read_text(encoding="utf-8"))
-    options = meta["marker"]["command"]["options"]
-    assert options["on_branch_conflict"] == "fail"
-    assert "--on-branch-conflict fail" in meta["marker"]["command"]["recreate"]
+    command = env_meta(renv.worktrees / "merged")["marker"]["command"]
+    assert command["options"]["on_branch_conflict"] == "fail"
+    assert "--on-branch-conflict fail" in command["recreate"]
 
 
-def test_merge_does_not_carry_over_plain_detached_checkout(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
+def test_merge_does_not_carry_over_plain_detached_checkout(renv: Renv) -> None:
     """A repo created without --branch (detached at default) has no 'task branch' to carry over."""
-    repo_factory.make_bare_and_clone("alpha")
+    merge = _merge(renv, _Side("alpha"), _Side("beta", "feature/b"), "--op", "union")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "left", "--include", "alpha"]).exit_code == 0
-    repo_factory.make_bare_and_clone("beta")
-    assert (
-        runner.invoke(app, ["create", "right", "--branch", "feature/b", "--include", "beta"]).exit_code == 0
-    )
-
-    merge = runner.invoke(app, ["merge", "merged", "left", "right", "--op", "union"])
-    assert merge.exit_code == 0, merge.output
     assert "branch conflict" not in merge.output
-    merged = worktrees_dir / "merged"
+    merged = renv.worktrees / "merged"
     assert (gitfixtures.is_detached(merged / "alpha"), gitfixtures.current_branch(merged / "beta")) == (
         True,
         "feature/b",

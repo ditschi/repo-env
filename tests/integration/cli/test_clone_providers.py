@@ -13,6 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from click.testing import Result
 from typer.testing import CliRunner
 
 from repoenv.adapters.scm import credentials, detect
@@ -58,11 +59,6 @@ def scm_env(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     detect.probe.cache_clear()
 
 
-@pytest.fixture()
-def remotes(repo_factory: RepoFactory) -> Path:
-    return repo_factory.remotes
-
-
 def _server(remotes: Path, repos: list[FakeRepo], memberships=()) -> FakeScmServer:
     return FakeScmServer(FakeScmData(remotes=remotes, repos=repos, memberships=list(memberships)))
 
@@ -72,15 +68,30 @@ def _make_bare(repo_factory: RepoFactory, repos: list[FakeRepo]) -> None:
         repo_factory.make_bare_and_clone(f"{repo.owner}/{repo.name}")
 
 
-def _clone(kind: ProviderKind, server: FakeScmServer, dest: Path, *args: str, url_path: str = "") -> object:
+def _clone(kind: ProviderKind, server: FakeScmServer, *args: str, url_path: str = "") -> Result:
+    """Point ``<kind>.test`` at the fake server, then ``renv clone`` from it into ``server``'s ``cloned/``."""
     host = f"{kind.value}.test"
     runner = CliRunner()
     configured = runner.invoke(app, ["config", f"providers.{host}", f"{kind.value} {server.base_url}"])
     assert configured.exit_code == 0, configured.output
+    dest = _dest(server)
     return runner.invoke(
         app,
         ["clone", "--url", f"https://{host}{url_path}", "--protocol", "https", "--source", str(dest), *args],
     )
+
+
+def _dest(server: FakeScmServer) -> Path:
+    """Clone destination next to the remotes of ``server``'s fake data."""
+    return server.data.remotes.parent / "cloned"
+
+
+def _is_radar_in_sub(repo: FakeRepo) -> bool:
+    return repo.owner == "grp/sub" and repo.name.startswith("radar")
+
+
+def _is_subgroup_search(path: str) -> bool:
+    return "search=radar" in path and "include_subgroups=True" in path
 
 
 def _carries_token(headers: set[str], token: str) -> bool:
@@ -93,31 +104,30 @@ def _cloned(dest: Path, host: str) -> Iterator[str]:
     return (str(p.parent.relative_to(root)) for p in sorted(root.rglob("README.md")))
 
 
+@pytest.mark.usefixtures("scm_env")
 @pytest.mark.parametrize("kind", _LISTING_KINDS, ids=lambda k: k.value)
-def test_clone_repo_glob_across_pages(
-    kind: ProviderKind, scm_env: None, repo_factory: RepoFactory, remotes: Path, testenv_root: Path
-) -> None:
+def test_clone_repo_glob_across_pages(kind: ProviderKind, repo_factory: RepoFactory) -> None:
     repos = [FakeRepo("acme", name) for name in _ACME]
     _make_bare(repo_factory, [r for r in repos if r.name in _RADAR])
-    dest = testenv_root / "cloned"
 
-    with _server(remotes, repos) as server:
-        result = _clone(kind, server, dest, "--include", "acme/radar-*")
+    with _server(repo_factory.remotes, repos) as server:
+        result = _clone(kind, server, "--include", "acme/radar-*")
 
     assert result.exit_code == 0, result.output
-    assert sorted(_cloned(dest, f"{kind.value}.test")) == [f"acme/{name}" for name in _RADAR]
+    assert sorted(_cloned(_dest(server), f"{kind.value}.test")) == [f"acme/{name}" for name in _RADAR]
     assert _carries_token(server.seen.auth_headers, _TOKEN_BY_KIND[kind])
 
 
+@pytest.mark.usefixtures("scm_env")
 @pytest.mark.parametrize("kind", _LISTING_KINDS, ids=lambda k: k.value)
 def test_clone_wildcard_owner_from_memberships_across_pages(
-    kind: ProviderKind, scm_env: None, remotes: Path, testenv_root: Path
+    kind: ProviderKind, repo_factory: RepoFactory
 ) -> None:
     repos = [FakeRepo("acme", name) for name in _ACME] + [FakeRepo("beta", "radar-x")]
     memberships = [("zeta", "member", "active"), ("beta", "member", "active"), ("acme", "admin", "active")]
 
-    with _server(remotes, repos, memberships) as server:
-        result = _clone(kind, server, testenv_root / "cloned", "--include", "*/radar-*", "--dry-run")
+    with _server(repo_factory.remotes, repos, memberships) as server:
+        result = _clone(kind, server, "--include", "*/radar-*", "--dry-run")
 
     assert result.exit_code == 0, result.output
     for name in _RADAR:
@@ -126,9 +136,8 @@ def test_clone_wildcard_owner_from_memberships_across_pages(
     assert "Resolved 4 repositories" in result.output
 
 
-def test_clone_gitlab_subgroups_with_server_side_search(
-    scm_env: None, repo_factory: RepoFactory, remotes: Path, testenv_root: Path
-) -> None:
+@pytest.mark.usefixtures("scm_env")
+def test_clone_gitlab_subgroups_with_server_side_search(repo_factory: RepoFactory) -> None:
     repos = [
         FakeRepo("grp", "radar-top"),
         FakeRepo("grp/sub", "radar-a"),
@@ -136,43 +145,40 @@ def test_clone_gitlab_subgroups_with_server_side_search(
         FakeRepo("grp/sub", "radar-b"),
         FakeRepo("grp/sub/deep", "radar-c"),
     ]
-    _make_bare(repo_factory, [r for r in repos if r.owner == "grp/sub" and r.name.startswith("radar")])
-    dest = testenv_root / "cloned"
+    _make_bare(repo_factory, [r for r in repos if _is_radar_in_sub(r)])
 
-    with _server(remotes, repos) as server:
-        result = _clone(ProviderKind.GITLAB, server, dest, "--include", "grp/sub/radar-*")
+    with _server(repo_factory.remotes, repos) as server:
+        result = _clone(ProviderKind.GITLAB, server, "--include", "grp/sub/radar-*")
 
     assert result.exit_code == 0, result.output
-    assert sorted(_cloned(dest, "gitlab.test")) == ["grp/sub/radar-a", "grp/sub/radar-b"]
+    assert sorted(_cloned(_dest(server), "gitlab.test")) == ["grp/sub/radar-a", "grp/sub/radar-b"]
     listing = [p for p in server.seen.paths if p.startswith("/api/v4/groups/grp/projects")]
-    assert listing and all("search=radar" in p and "include_subgroups=True" in p for p in listing)
+    assert listing
+    assert all(_is_subgroup_search(p) for p in listing)
 
 
-def test_clone_azure_devops_organization(
-    scm_env: None, repo_factory: RepoFactory, remotes: Path, testenv_root: Path
-) -> None:
+@pytest.mark.usefixtures("scm_env")
+def test_clone_azure_devops_organization(repo_factory: RepoFactory) -> None:
     repos = [FakeRepo("acme/web", "frontend"), FakeRepo("acme/svc", "api"), FakeRepo("other/x", "y")]
     _make_bare(repo_factory, repos[:2])
-    dest = testenv_root / "cloned"
 
-    with _server(remotes, repos) as server:
-        result = _clone(ProviderKind.AZURE_DEVOPS, server, dest, url_path="/acme")
+    with _server(repo_factory.remotes, repos) as server:
+        result = _clone(ProviderKind.AZURE_DEVOPS, server, url_path="/acme")
 
     assert result.exit_code == 0, result.output
-    assert sorted(_cloned(dest, "azure-devops.test")) == ["acme/svc/api", "acme/web/frontend"]
+    assert sorted(_cloned(_dest(server), "azure-devops.test")) == ["acme/svc/api", "acme/web/frontend"]
     assert _carries_token(server.seen.auth_headers, "az-secret")
 
 
+@pytest.mark.usefixtures("scm_env")
 def test_clone_github_without_token_uses_paginated_rest(
-    scm_env: None, remotes: Path, testenv_root: Path, monkeypatch: pytest.MonkeyPatch
+    repo_factory: RepoFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(credentials, "resolve", lambda kind, host: None)
     repos = [FakeRepo("acme", name) for name in _ACME]
 
-    with _server(remotes, repos) as server:
-        result = _clone(
-            ProviderKind.GITHUB, server, testenv_root / "cloned", "--include", "acme/radar-*", "--dry-run"
-        )
+    with _server(repo_factory.remotes, repos) as server:
+        result = _clone(ProviderKind.GITHUB, server, "--include", "acme/radar-*", "--dry-run")
 
     assert result.exit_code == 0, result.output
     assert "Resolved 3 repositories" in result.output
