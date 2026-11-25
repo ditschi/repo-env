@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider, missing_extra
+from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider
 from repoenv.domain.scm import ProviderKind
 from repoenv.errors import GitError
 
@@ -30,7 +30,7 @@ class GitLabProvider(ScmProvider):
         try:
             import gitlab
         except ImportError as exc:
-            raise missing_extra("gitlab", self.label) from exc
+            raise self.missing_extra("gitlab") from exc
         # Bearer auth accepts personal, group, project and OAuth tokens alike.
         token = self.credential.secret if self.credential else None
         return gitlab.Gitlab(self.base_url, oauth_token=token, per_page=100)
