@@ -17,6 +17,8 @@ GitLab subgroups (``group/sub/repo``), Bitbucket Server
 The owner of nested layouts keeps its ``/`` (e.g. ``group/sub``, ``org/project``).
 """
 
+# aihealth: disable=primitive_obsession -- URL parsing/building: inputs are raw URL strings by nature
+
 from __future__ import annotations
 
 import re
@@ -52,35 +54,40 @@ def _strip_git_suffix(path: str) -> str:
     return path[: -len(".git")] if path.endswith(".git") else path
 
 
-def _split(raw: str) -> tuple[str, list[str]]:
-    raw = raw.strip()
-    if not raw:
-        raise UsageError("Empty --url value.")
-
+def _host_and_path(raw: str) -> tuple[str, str]:
     if "://" in raw:
         parts = urlsplit(raw)
         if not parts.hostname:
             raise UsageError(f"Invalid --url '{raw}': no host found.")
-        host, path = parts.hostname, parts.path
-    else:
-        match = _SCP_LIKE.match(raw)
-        if not match:
-            raise UsageError(
-                f"Invalid --url '{raw}'.",
-                hint="Use a host URL (https://github.com), an owner URL "
-                "(https://github.com/org), a full repo URL "
-                "(https://github.com/owner/repo), or scp-like syntax "
-                "(git@github.com:owner/repo.git).",
-            )
-        host, path = match.group("host"), match.group("path")
+        return parts.hostname, parts.path
+    match = _SCP_LIKE.match(raw)
+    if not match:
+        raise UsageError(
+            f"Invalid --url '{raw}'.",
+            hint="Use a host URL (https://github.com), an owner URL "
+            "(https://github.com/org), a full repo URL "
+            "(https://github.com/owner/repo), or scp-like syntax "
+            "(git@github.com:owner/repo.git).",
+        )
+    return match.group("host"), match.group("path")
 
-    segments = [unquote(segment) for segment in _strip_git_suffix(path.strip("/")).split("/") if segment]
-    host = host.lower()
+
+def _normalize_azure_host(host: str, segments: list[str]) -> tuple[str, list[str]]:
+    """Map Azure DevOps SSH and legacy ``*.visualstudio.com`` hosts onto ``dev.azure.com``."""
     if host == _AZURE_SSH_HOST:
         return _AZURE_HOST, segments[1:] if segments[:1] == ["v3"] else segments
     if host.endswith(".visualstudio.com"):
         return _AZURE_HOST, [host.split(".", 1)[0], *segments]
     return host, segments
+
+
+def _split(raw: str) -> tuple[str, list[str]]:
+    raw = raw.strip()
+    if not raw:
+        raise UsageError("Empty --url value.")
+    host, path = _host_and_path(raw)
+    segments = [unquote(segment) for segment in _strip_git_suffix(path.strip("/")).split("/") if segment]
+    return _normalize_azure_host(host.lower(), segments)
 
 
 def url_host(raw: str) -> str:
@@ -105,14 +112,19 @@ def _gitlab_segments(segments: list[str]) -> _OwnerRepo:
     return (segments[0] if segments else None), None
 
 
+def _bitbucket_browse_segments(segments: list[str]) -> _OwnerRepo:
+    """``/projects/PROJ[/repos/repo]`` or ``/users/USER[/repos/repo]`` (personal repos get a ``~``)."""
+    owner = segments[1] if len(segments) > 1 else None
+    if owner and segments[0] == "users":
+        owner = f"~{owner}"
+    repo = segments[3] if len(segments) > 3 and segments[2] == "repos" else None
+    return owner, repo
+
+
 def _bitbucket_server_segments(raw: str, segments: list[str]) -> _OwnerRepo:
     head = segments[:1]
     if head in (["projects"], ["users"]):
-        owner = segments[1] if len(segments) > 1 else None
-        if owner and head == ["users"]:
-            owner = f"~{owner}"
-        repo = segments[3] if len(segments) > 3 and segments[2] == "repos" else None
-        return owner, repo
+        return _bitbucket_browse_segments(segments)
     if head == ["scm"]:
         segments = segments[1:]
     if len(segments) > 2:
