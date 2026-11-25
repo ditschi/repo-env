@@ -33,9 +33,10 @@ def patch_typing_eval_type() -> None:
 
     original = eval_type
 
-    def _wrapped(value: Any, globalns: Any, localns: Any, *args: Any, **kwargs: Any) -> Any:
-        # Drop prefer_fwd_module; Python 3.14 removed it from typing._eval_type.
+    def _wrapped(*args: Any, **kwargs: Any) -> Any:
+        # Transparent pass-through: only drop prefer_fwd_module, which Python 3.14
+        # removed from typing._eval_type; every other argument is forwarded as given.
         kwargs.pop("prefer_fwd_module", None)
-        return original(value, globalns, localns, *args, **kwargs)
+        return original(*args, **kwargs)
 
     setattr(typing, "_eval_type", _wrapped)
