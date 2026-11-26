@@ -1,4 +1,5 @@
 """``renv clone`` — clone repositories into the source tree (for later ``renv create``)."""
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
 
 from __future__ import annotations
 
@@ -58,8 +59,15 @@ def _repositories(count: int) -> str:
     return f"{count} repositor{'y' if count == 1 else 'ies'}"
 
 
+def _force_is_pointless(sync: SyncOptions) -> bool:
+    """Return True if ``--force`` was given without anything it could apply to."""
+    if not sync.force:
+        return False
+    return not (sync.update or sync.reset_default)
+
+
 def _validate_flags(sync: SyncOptions, protocol: Optional[str]) -> None:
-    if sync.force and not (sync.update or sync.reset_default):
+    if _force_is_pointless(sync):
         raise UsageError(
             "--force has no effect without --update or --reset-default.",
             hint="Add --update and/or --reset-default, or drop --force.",
