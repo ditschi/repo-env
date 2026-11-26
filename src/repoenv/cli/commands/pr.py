@@ -1,4 +1,5 @@
 """``renv pr`` — create pull requests across an environment's repositories."""
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
 
 from __future__ import annotations
 
@@ -9,19 +10,44 @@ import typer
 
 from repoenv.adapters import state_store
 from repoenv.adapters.scm.pull_requests import PrOptions
-from repoenv.cli.completion_helpers import complete_env_name
+from repoenv.cli import options as cli_options
 from repoenv.cli.resolve import resolve_environment
+from repoenv.domain.models import Environment
 from repoenv.errors import UsageError
 from repoenv.services import pr_service
 from repoenv.ui import console
 
+_IF_EXISTS_CHOICES = ("skip", "fail")
+
+
+def _print_preview(environment: Environment, batch: pr_service.PrBatch) -> None:
+    preview = pr_service.build_pr_preview(environment, batch)
+    console.print_info(f"Dry run: would create PRs for {len(preview)} repo(s):")
+    for item in preview:
+        console.print_info(
+            f"  {item.repo}: title='{item.title}' base='{item.base}' head='{item.head}' "
+            f"draft={batch.options.draft}"
+        )
+
+
+def _print_outcome_json(outcome: pr_service.PrOutcome) -> None:
+    payload = {
+        "created": [{"repo": r.repo, "url": r.url} for r in outcome.created],
+        "skipped": [{"repo": r.repo, "reason": r.reason} for r in outcome.skipped],
+    }
+    console.print_data(json.dumps(payload, indent=2))
+
+
+def _print_outcome_text(outcome: pr_service.PrOutcome) -> None:
+    for result in outcome.created:
+        console.print_info(f"  created  {result.repo}: {result.url}")
+    for result in outcome.skipped:
+        console.print_info(f"  skipped  {result.repo}: {result.reason}")
+    console.print_info(f"Created {len(outcome.created)}, skipped {len(outcome.skipped)}.")
+
 
 def pr_command(
-    env: Optional[str] = typer.Argument(
-        None,
-        help="Environment name or alias ('-' = cwd).",
-        autocompletion=complete_env_name,
-    ),
+    env: Optional[str] = cli_options.env_argument(),
     title: str = typer.Option(..., "--title", "-t", help="PR title. Supports {repo}/{branch}/{env}."),
     body: str = typer.Option("", "--body", "-b", help="PR body. Supports {repo}/{branch}/{env}."),
     base: Optional[str] = typer.Option(None, "--base", help="Base branch for the PRs."),
@@ -38,7 +64,7 @@ def pr_command(
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON to stdout."),
 ) -> None:
     """Bulk-create pull requests. Never pushes unless ``--push`` is given."""
-    if if_exists not in ("skip", "fail"):
+    if if_exists not in _IF_EXISTS_CHOICES:
         raise UsageError("--if-exists must be 'skip' or 'fail'.")
     registry = state_store.load_registry()
     environment = resolve_environment(registry, env)
@@ -56,26 +82,11 @@ def pr_command(
     )
 
     if dry_run:
-        preview = pr_service.build_pr_preview(environment, batch)
-        console.print_info(f"Dry run: would create PRs for {len(preview)} repo(s):")
-        for item in preview:
-            console.print_info(
-                f"  {item.repo}: title='{item.title}' base='{item.base}' head='{item.head}' draft={draft}"
-            )
+        _print_preview(environment, batch)
         return
 
     outcome = pr_service.create_prs(environment, batch)
-
     if as_json:
-        payload = {
-            "created": [{"repo": r.repo, "url": r.url} for r in outcome.created],
-            "skipped": [{"repo": r.repo, "reason": r.reason} for r in outcome.skipped],
-        }
-        console.print_data(json.dumps(payload, indent=2))
-        return
-
-    for result in outcome.created:
-        console.print_info(f"  created  {result.repo}: {result.url}")
-    for result in outcome.skipped:
-        console.print_info(f"  skipped  {result.repo}: {result.reason}")
-    console.print_info(f"Created {len(outcome.created)}, skipped {len(outcome.skipped)}.")
+        _print_outcome_json(outcome)
+    else:
+        _print_outcome_text(outcome)
