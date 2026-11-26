@@ -5,6 +5,8 @@ parse the porcelain output. All functions are thin and side-effect-explicit so
 services can mock this module in unit tests.
 """
 
+# aihealth: disable=primitive_obsession -- thin git CLI wrapper: refs, branches, remotes and URLs are strings
+
 from __future__ import annotations
 
 import os

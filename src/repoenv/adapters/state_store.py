@@ -4,6 +4,8 @@ JSON (not YAML) so ``--json`` output is a zero-transcoding pass-through and the
 schema is a stable typed contract. Writes are atomic and locked.
 """
 
+# aihealth: disable=primitive_obsession -- registry API keyed by env-name strings; raw JSON parsing
+
 from __future__ import annotations
 
 import json

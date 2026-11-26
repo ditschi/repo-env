@@ -6,6 +6,8 @@ hosts -> unauthenticated probes of the host's API (hostname hint first, e.g.
 hostname hint alone when no probe answers.
 """
 
+# aihealth: disable=primitive_obsession -- keyed by hostname/base-URL strings and providers.<host> settings
+
 from __future__ import annotations
 
 from collections.abc import Callable
