@@ -1,8 +1,10 @@
 """``renv init`` — first-run setup wizard (also scriptable via flags)."""
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
 
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +12,38 @@ import typer
 
 from repoenv.adapters import config_store
 from repoenv.ui import console
+
+
+@dataclass(frozen=True)
+class _InitValues:
+    """The defaults ``renv init`` writes (before ``None``-normalising the branch)."""
+
+    source: Path | None
+    dest: Path | None
+    default_branch: str | None
+
+    def with_fallback(self, existing: config_store.UserConfig) -> _InitValues:
+        """Fill every value not given on the command line from the existing config."""
+        return _InitValues(
+            source=self.source if self.source is not None else existing.source,
+            dest=self.dest if self.dest is not None else existing.dest,
+            default_branch=self.default_branch
+            if self.default_branch is not None
+            else existing.default_branch,
+        )
+
+
+def _prompt_for_values(values: _InitValues) -> _InitValues:
+    """Ask for each value (prefilled from *values*); exit with 130 when the user cancels."""
+    try:
+        return _InitValues(
+            source=_ask_path("Source directory of clones", values.source or Path.cwd()),
+            dest=_ask_path("Directory for environments", values.dest or Path.cwd() / "envs"),
+            default_branch=_ask_text("Fallback default branch (blank = auto)", values.default_branch or ""),
+        )
+    except KeyboardInterrupt:
+        console.print_info("Init aborted by user; config not changed.")
+        raise typer.Exit(code=130) from None
 
 
 def init_command(
@@ -23,25 +57,15 @@ def init_command(
 ) -> None:
     """Create the user config, prompting for anything not passed as a flag."""
     interactive = not yes and sys.stdin.isatty() and sys.stdout.isatty()
-    existing = config_store.load_config()
-
-    resolved_source = source if source is not None else existing.source
-    resolved_dest = dest if dest is not None else existing.dest
-    resolved_branch = default_branch if default_branch is not None else existing.default_branch
-
+    given = _InitValues(source=source, dest=dest, default_branch=default_branch)
+    values = given.with_fallback(config_store.load_config())
     if interactive:
-        try:
-            resolved_source = _ask_path("Source directory of clones", resolved_source or Path.cwd())
-            resolved_dest = _ask_path("Directory for environments", resolved_dest or Path.cwd() / "envs")
-            resolved_branch = _ask_text("Fallback default branch (blank = auto)", resolved_branch or "")
-        except KeyboardInterrupt:
-            console.print_info("Init aborted by user; config not changed.")
-            raise typer.Exit(code=130) from None
+        values = _prompt_for_values(values)
 
     config = config_store.UserConfig(
-        source=resolved_source,
-        dest=resolved_dest,
-        default_branch=resolved_branch or None,
+        source=values.source,
+        dest=values.dest,
+        default_branch=values.default_branch or None,
         install_completion=install_completion,
     )
     written = config_store.save_config(config)
