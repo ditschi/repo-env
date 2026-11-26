@@ -1,4 +1,5 @@
 """``renv create`` — create an environment from repos matching a selection."""
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
 
 from __future__ import annotations
 
@@ -12,9 +13,15 @@ import typer
 
 from repoenv import __version__
 from repoenv.adapters import config_store, paths, state_store
-from repoenv.cli.completion_helpers import complete_repo_name
+from repoenv.cli import options as cli_options
+from repoenv.cli.worktree_reporting import (
+    print_activate_hint,
+    print_progress,
+    print_skipped_worktrees,
+    raise_on_failures,
+)
 from repoenv.domain.models import Environment
-from repoenv.errors import PartialFailureError, UsageError
+from repoenv.errors import UsageError
 from repoenv.services import environment_service
 from repoenv.ui import console
 
@@ -49,14 +56,19 @@ def _resolve_create_paths(
     return resolved_source, resolved_dest
 
 
+def _exists_on_disk(env: Environment) -> bool:
+    """Return True if *env*'s directory exists and holds its metadata (or legacy marker) file."""
+    if not env.path.exists():
+        return False
+    return (env.path / paths.ENV_META_FILENAME).exists() or (env.path / paths.ENV_MARKER_FILENAME).exists()
+
+
 def _reconcile_existing_env(name: str) -> None:
     with state_store.registry_transaction() as registry:
         existing = registry.get(name)
         if existing is None:
             return
-        meta = existing.path / paths.ENV_META_FILENAME
-        legacy = existing.path / paths.ENV_MARKER_FILENAME
-        if not existing.path.exists() or not (meta.exists() or legacy.exists()):
+        if not _exists_on_disk(existing):
             registry.remove(name)
             console.print_info(f"Reconciled: removed stale registry entry for '{name}' (missing on disk).")
             return
@@ -128,32 +140,9 @@ def _build_plan(
 
 def _print_plan(name: str, plan: environment_service.CreatePlan) -> None:
     console.print_info(f"Environment '{name}' -> {plan.env_path}")
-    if plan.skipped_worktrees:
-        console.print_info(
-            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
-        )
+    print_skipped_worktrees(plan.skipped_worktrees)
     console.print_info(f"Repositories ({len(plan.repos)}):")
     console.render_repositories(plan.repos)
-
-
-def _print_progress(repo: str, current: int, total: int) -> None:
-    console.print_info(f"  [{current}/{total}] {repo}")
-
-
-def _print_activate_hint(name: str, *, activate: bool, active_set: bool) -> None:
-    if not activate and not active_set:
-        console.print_info(f"Hint: run 'renv activate {name}' to set it as the default.")
-
-
-def _raise_on_failures(env: Environment) -> None:
-    if not environment_service.failed_repos(env):
-        return
-    details = environment_service.failure_details(env)
-    lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
-    raise PartialFailureError(
-        f"Some repositories failed:\n{lines}",
-        hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
-    )
 
 
 def _execute_and_register(
@@ -173,32 +162,18 @@ def create_command(
     name: str = typer.Argument(..., help="Name of the environment to create."),
     source: Optional[Path] = typer.Option(None, "--source", "-s", help="Directory of source clones."),
     dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Where the environment dir is created."),
-    include: list[str] = typer.Option(
-        [], "--include", "-i", help="Glob(s) of repos to include.", autocompletion=complete_repo_name
-    ),
-    exclude: list[str] = typer.Option(
-        [], "--exclude", "-x", help="Glob(s) of repos to exclude.", autocompletion=complete_repo_name
-    ),
-    include_worktrees: bool = typer.Option(
-        False,
-        "--include-worktrees",
-        help="Include git linked worktrees found under the source directory.",
-    ),
-    branch: Optional[str] = typer.Option(
-        None, "--branch", "-b", help="Create and check out this new branch."
-    ),
-    on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
-        environment_service.BranchConflictStrategy.DETACH,
-        "--on-branch-conflict",
-        help="When the target branch is already checked out elsewhere: detach|move|fail.",
-    ),
+    include: list[str] = cli_options.include_option(),
+    exclude: list[str] = cli_options.exclude_option(),
+    include_worktrees: bool = cli_options.include_worktrees_option(),
+    branch: Optional[str] = cli_options.branch_option(),
+    on_branch_conflict: environment_service.BranchConflictStrategy = cli_options.on_branch_conflict_option(),
     default_branch: Optional[str] = typer.Option(
         None, "--default-branch", "-B", help="Fallback default branch when auto-detection fails."
     ),
     alias: Optional[str] = typer.Option(None, "--alias", "-a", help="Short alias for the environment."),
-    preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
-    activate: bool = typer.Option(False, "--activate", help="Mark this environment as the default."),
-    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
+    preserve: bool = cli_options.preserve_option(),
+    activate: bool = cli_options.activate_option(),
+    dry_run: bool = cli_options.dry_run_option(),
 ) -> None:
     """Create a new environment of git worktrees."""
     config = config_store.load_config()
@@ -224,15 +199,15 @@ def create_command(
 
     if dry_run:
         console.print_info("Dry run: no changes made.")
-        _print_activate_hint(name, activate=activate, active_set=active_set)
+        print_activate_hint(name, activate=activate, active_set=active_set)
         return
 
     options = environment_service.ExecuteOptions(
-        preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=_print_progress
+        preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=print_progress
     )
     env = _execute_and_register(plan, options, activate=activate)
     state_store.write_env_metadata(env, marker=_build_create_marker(ctx, env, args))
 
-    _raise_on_failures(env)
-    _print_activate_hint(env.name, activate=activate, active_set=active_set)
+    raise_on_failures(env)
+    print_activate_hint(env.name, activate=activate, active_set=active_set)
     console.print_info(f"Created environment '{name}' with {len(env.repos)} worktree(s).")

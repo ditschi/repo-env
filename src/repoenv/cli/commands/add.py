@@ -1,5 +1,5 @@
 """``renv add`` — add repositories to an existing environment."""
-# aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
 
 from __future__ import annotations
 
@@ -8,20 +8,23 @@ from typing import Optional
 
 import typer
 
-from repoenv.adapters import config_store, state_store
-from repoenv.cli.completion_helpers import complete_env_name, complete_repo_name
+from repoenv.adapters import state_store
+from repoenv.cli import options as cli_options
 from repoenv.cli.resolve import resolve_environment
+from repoenv.cli.worktree_reporting import (
+    expand_selection,
+    print_activate_hint,
+    print_progress,
+    print_skipped_worktrees,
+    raise_on_failures,
+)
 from repoenv.domain.models import Environment
-from repoenv.errors import PartialFailureError
 from repoenv.services import environment_service
 from repoenv.ui import console
 
 
 def _print_add_plan(environment: Environment, plan: environment_service.AddPlan) -> None:
-    if plan.skipped_worktrees:
-        console.print_info(
-            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
-        )
+    print_skipped_worktrees(plan.skipped_worktrees)
     console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
 
 
@@ -35,44 +38,20 @@ def _effective_branch(branch: str | None, environment: Environment) -> str | Non
     return inferred
 
 
-def _print_progress(repo: str, current: int, total: int) -> None:
-    console.print_info(f"  [{current}/{total}] {repo}")
-
-
 def add_command(
-    env: Optional[str] = typer.Argument(
-        None,
-        help="Environment name or alias ('-' = cwd).",
-        autocompletion=complete_env_name,
-    ),
+    env: Optional[str] = cli_options.env_argument(),
     source: Optional[Path] = typer.Option(None, "--source", "-s", help="Directory of source clones."),
-    include: list[str] = typer.Option(
-        [], "--include", "-i", help="Glob(s) of repos to include.", autocompletion=complete_repo_name
-    ),
-    exclude: list[str] = typer.Option(
-        [], "--exclude", "-x", help="Glob(s) of repos to exclude.", autocompletion=complete_repo_name
-    ),
-    branch: Optional[str] = typer.Option(
-        None, "--branch", "-b", help="Create and check out this new branch."
-    ),
-    on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
-        environment_service.BranchConflictStrategy.DETACH,
-        "--on-branch-conflict",
-        help="When the target branch is already checked out elsewhere: detach|move|fail.",
-    ),
-    preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
-    activate: bool = typer.Option(False, "--activate", help="Mark this environment as the default."),
-    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
-    include_worktrees: bool = typer.Option(
-        False,
-        "--include-worktrees",
-        help="Include git linked worktrees found under the source directory.",
-    ),
+    include: list[str] = cli_options.include_option(),
+    exclude: list[str] = cli_options.exclude_option(),
+    branch: Optional[str] = cli_options.branch_option(),
+    on_branch_conflict: environment_service.BranchConflictStrategy = cli_options.on_branch_conflict_option(),
+    preserve: bool = cli_options.preserve_option(),
+    activate: bool = cli_options.activate_option(),
+    dry_run: bool = cli_options.dry_run_option(),
+    include_worktrees: bool = cli_options.include_worktrees_option(),
 ) -> None:
     """Add repositories to an existing environment."""
-    groups = config_store.load_config().groups
-    include = environment_service.expand_repo_groups(include, groups)
-    exclude = environment_service.expand_repo_groups(exclude, groups)
+    include, exclude = expand_selection(include, exclude)
 
     with state_store.registry_transaction() as registry:
         environment = resolve_environment(registry, env)
@@ -93,7 +72,7 @@ def add_command(
             console.print_info("Dry run: no changes made.")
         else:
             options = environment_service.ExecuteOptions(
-                preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=_print_progress
+                preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=print_progress
             )
             environment_service.execute_add_plan(environment, plan, branch=effective_branch, options=options)
             registry.add(environment)
@@ -101,18 +80,9 @@ def add_command(
                 registry.set_active(environment.name)
             state_store.write_env_metadata(environment)
 
-    if not activate and not active_set:
-        console.print_info(f"Hint: run 'renv activate {environment.name}' to set it as the default.")
-
+    print_activate_hint(environment.name, activate=activate, active_set=active_set)
     if dry_run:
         return
 
-    failed = environment_service.failed_repos(environment)
-    if failed:
-        details = environment_service.failure_details(environment)
-        lines = "\n".join(f"  {repo}: {note or 'unknown error'}" for repo, note in details)
-        raise PartialFailureError(
-            f"Some repositories failed:\n{lines}",
-            hint="Run 'renv repair' or 'renv status' to see which worktrees are missing or failed.",
-        )
+    raise_on_failures(environment)
     console.print_info(f"Added {len(plan.repos)} repository(ies) to '{environment.name}'.")

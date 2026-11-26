@@ -1,4 +1,5 @@
 """``renv repair`` — recreate missing or failed worktrees from registry metadata."""
+# aihealth: disable=excess_arguments -- typer CLI boundary: every CLI option is a command parameter
 
 from __future__ import annotations
 
@@ -6,34 +7,25 @@ from typing import Optional
 
 import typer
 
-from repoenv.adapters import config_store, state_store
-from repoenv.cli.completion_helpers import complete_env_name
+from repoenv.adapters import state_store
+from repoenv.cli import options as cli_options
 from repoenv.cli.resolve import resolve_environment
+from repoenv.cli.worktree_reporting import expand_selection
 from repoenv.errors import PartialFailureError
 from repoenv.services import environment_service, lifecycle_service
 from repoenv.ui import console
 
 
 def repair_command(
-    env: Optional[str] = typer.Argument(
-        None,
-        help="Environment name or alias ('-' = cwd).",
-        autocompletion=complete_env_name,
-    ),
+    env: Optional[str] = cli_options.env_argument(),
     include: list[str] = typer.Option([], "--include", "-i", help="Glob(s) of repos to repair."),
     exclude: list[str] = typer.Option([], "--exclude", "-x", help="Glob(s) of repos to skip."),
-    on_branch_conflict: environment_service.BranchConflictStrategy = typer.Option(
-        environment_service.BranchConflictStrategy.DETACH,
-        "--on-branch-conflict",
-        help="When the target branch is already checked out elsewhere: detach|move|fail.",
-    ),
-    preserve: bool = typer.Option(False, "--preserve", help="Skip fetch/update; use source repos as-is."),
-    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without making changes."),
+    on_branch_conflict: environment_service.BranchConflictStrategy = cli_options.on_branch_conflict_option(),
+    preserve: bool = cli_options.preserve_option(),
+    dry_run: bool = cli_options.dry_run_option(),
 ) -> None:
     """Recreate worktrees that are missing or marked failed/stale."""
-    groups = config_store.load_config().groups
-    include = environment_service.expand_repo_groups(include, groups)
-    exclude = environment_service.expand_repo_groups(exclude, groups)
+    include, exclude = expand_selection(include, exclude)
 
     with state_store.registry_transaction() as registry:
         environment = resolve_environment(registry, env)
