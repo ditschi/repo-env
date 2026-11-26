@@ -38,7 +38,7 @@ def resolve_environment(registry: Registry, selector: str | None, *, cwd: Path |
     env = (
         _env_containing(registry, cwd or Path.cwd(), active_name)
         or _env_from_shell(registry)
-        or _env_from_active(registry, active_name)
+        or _env_from_active(registry)
     )
     if env is not None:
         return env
@@ -62,7 +62,9 @@ def _resolve_explicit(registry: Registry, selector: str) -> Environment:
 def _env_containing(registry: Registry, cwd: Path, active_name: str | None) -> Environment | None:
     """Return the environment whose directory contains ``cwd``."""
     env = next((candidate for candidate in registry.list() if _is_within(cwd, candidate.path)), None)
-    if env is not None and active_name and active_name != env.name:
+    if env is None:
+        return None
+    if active_name and active_name != env.name:
         console.print_info(
             f"Using environment '{env.name}' from current directory (active: '{active_name}')."
         )
@@ -75,8 +77,9 @@ def _env_from_shell(registry: Registry) -> Environment | None:
     return _lookup_by_selector(registry, active_env) if active_env else None
 
 
-def _env_from_active(registry: Registry, active_name: str | None) -> Environment | None:
+def _env_from_active(registry: Registry) -> Environment | None:
     """Fall back to persisted active environment (power-user default)."""
+    active_name = registry.get_active()
     return registry.get(active_name) if active_name else None
 
 
