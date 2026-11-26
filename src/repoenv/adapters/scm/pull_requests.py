@@ -4,6 +4,8 @@ GitHub retains the gh CLI integration. Other providers use the shared,
 redirect-safe REST transport and need no optional discovery client libraries.
 """
 
+# aihealth: disable=primitive_obsession -- REST boundary: maps raw provider JSON, query dicts, branch names
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,6 +16,7 @@ from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from repoenv.adapters import gh_adapter, git_adapter
 from repoenv.adapters.scm import detect, rest
 from repoenv.adapters.scm.base import ScmProvider
+from repoenv.adapters.scm.credentials import Credential
 from repoenv.domain.repo_url import parse_url, url_host
 from repoenv.domain.scm import ProviderKind
 from repoenv.errors import GitError, UsageError
@@ -50,6 +53,21 @@ class PrRequest:
     base: str
     head: str
     options: PrOptions = field(default_factory=PrOptions)
+
+
+# Where each provider's PR JSON carries the web URL (Bitbucket Server: see ``_reported_url``).
+_WEB_URL_KEYS: dict[ProviderKind, tuple[str, ...]] = {
+    ProviderKind.GITLAB: ("web_url",),
+    ProviderKind.GITEA: ("html_url",),
+    ProviderKind.BITBUCKET_CLOUD: ("links", "html", "href"),
+    ProviderKind.AZURE_DEVOPS: ("_links", "web", "href"),
+}
+
+# ``Authorization`` scheme per provider; GitLab uses ``PRIVATE-TOKEN`` instead.
+_TOKEN_SCHEMES: dict[ProviderKind, str] = {
+    ProviderKind.AZURE_DEVOPS: "Basic",
+    ProviderKind.GITEA: "token",
+}
 
 
 def _unsupported_flags(kind: ProviderKind, options: PrOptions) -> list[str]:
@@ -97,6 +115,11 @@ class PullRequests:
         return f"{self.provider.host}/{self.owner}/{self.repo}"
 
     @property
+    def _azure_owner_path(self) -> str:
+        """``org/project`` with each segment URL-quoted."""
+        return "/".join(_segment(part) for part in self.owner.split("/"))
+
+    @property
     def _endpoint(self) -> str:
         base = self.provider.base_url
         owner, repo = _segment(self.owner), _segment(self.repo)
@@ -110,8 +133,7 @@ class PullRequests:
         if kind is ProviderKind.BITBUCKET_SERVER:
             return f"{base}/rest/api/1.0/projects/{owner}/repos/{repo}/pull-requests"
         if kind is ProviderKind.AZURE_DEVOPS:
-            path = "/".join(_segment(part) for part in self.owner.split("/"))
-            return f"{base}/{path}/_apis/git/repositories/{repo}/pullrequests"
+            return f"{base}/{self._azure_owner_path}/_apis/git/repositories/{repo}/pullrequests"
         if kind is ProviderKind.GITEA:
             return f"{base}/api/v1/repos/{owner}/{repo}/pulls"
         raise UsageError(f"No REST PR endpoint for {self.provider.label}.")
@@ -125,16 +147,8 @@ class PullRequests:
                 f"{provider.label} PR operations on {provider.host} require authentication.",
                 hint=provider.auth_hint(),
             )
-        scheme = "Basic" if provider.kind is ProviderKind.AZURE_DEVOPS else "Bearer"
-        if provider.kind is ProviderKind.GITEA:
-            scheme = "token"
-        headers = rest.auth_headers(provider.credential, token_scheme=scheme)
-        if provider.kind is ProviderKind.GITLAB:
-            headers = {"PRIVATE-TOKEN": provider.credential.secret}
-        params = dict(query or {})
-        if provider.kind is ProviderKind.AZURE_DEVOPS:
-            params["api-version"] = "7.1"
-        url = self._endpoint + ("?" + urlencode(params) if params else "")
+        headers = self._auth_headers(provider.credential)
+        url = self._endpoint + self._query_string(query)
         method = "POST" if payload is not None else "GET"
         response = rest.send(rest.HttpRequest(url, method=method, payload=payload, headers=headers))
         data = response.json()
@@ -147,29 +161,42 @@ class PullRequests:
             )
         return data, response
 
-    def _url(self, item: dict[str, Any]) -> str:
+    def _auth_headers(self, credential: Credential) -> dict[str, str]:
         kind = self.provider.kind
-        url: Any = None
         if kind is ProviderKind.GITLAB:
-            url = item.get("web_url")
-        elif kind is ProviderKind.GITEA:
-            url = item.get("html_url")
-        elif kind is ProviderKind.BITBUCKET_CLOUD:
-            url = _nested(item, "links", "html", "href")
-        elif kind is ProviderKind.BITBUCKET_SERVER:
-            links = _nested(item, "links", "self")
-            url = _nested(links[0], "href") if isinstance(links, list) and links else None
-        elif kind is ProviderKind.AZURE_DEVOPS:
-            url = _nested(item, "_links", "web", "href")
-            if not url and isinstance(item.get("pullRequestId"), int):
-                path = "/".join(_segment(part) for part in self.owner.split("/"))
-                url = (
-                    f"{self.provider.base_url}/{path}/_git/{_segment(self.repo)}"
-                    f"/pullrequest/{item['pullRequestId']}"
-                )
+            return {"PRIVATE-TOKEN": credential.secret}
+        return rest.auth_headers(credential, token_scheme=_TOKEN_SCHEMES.get(kind, "Bearer"))
+
+    def _query_string(self, query: dict[str, str | int] | None) -> str:
+        params = dict(query or {})
+        if self.provider.kind is ProviderKind.AZURE_DEVOPS:
+            params["api-version"] = "7.1"
+        return "?" + urlencode(params) if params else ""
+
+    def _url(self, item: dict[str, Any]) -> str:
+        url = self._reported_url(item)
         if not isinstance(url, str) or not url.startswith(("https://", "http://")):
             raise GitError(f"{self.provider.label} PR API returned no valid web URL.")
         return url
+
+    def _reported_url(self, item: dict[str, Any]) -> Any:
+        """The web URL as the API reports it (unvalidated); Azure may only report the PR id."""
+        kind = self.provider.kind
+        if kind is ProviderKind.BITBUCKET_SERVER:
+            links = _nested(item, "links", "self")
+            return _nested(links[0], "href") if isinstance(links, list) and links else None
+        keys = _WEB_URL_KEYS.get(kind)
+        url = _nested(item, *keys) if keys else None
+        if url or kind is not ProviderKind.AZURE_DEVOPS:
+            return url
+        return self._azure_web_url(item)
+
+    def _azure_web_url(self, item: dict[str, Any]) -> str | None:
+        pr_id = item.get("pullRequestId")
+        if not isinstance(pr_id, int):
+            return None
+        repo = _segment(self.repo)
+        return f"{self.provider.base_url}/{self._azure_owner_path}/_git/{repo}/pullrequest/{pr_id}"
 
     def _list_query(self, head: str) -> dict[str, str | int]:
         kind = self.provider.kind
@@ -306,6 +333,17 @@ class PullRequests:
         return payload
 
 
+def _strip_context_path(url: str, base_url: str | None) -> str:
+    """Drop a configured context path (e.g. ``/bitbucket``) so the URL parses like a root install."""
+    prefix = urlsplit(base_url).path.rstrip("/") if base_url else ""
+    if not prefix:
+        return url
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https", "ssh") or not parts.path.startswith(prefix + "/"):
+        return url
+    return urlunsplit(parts._replace(path=parts.path[len(prefix) :]))
+
+
 def for_worktree(worktree: Path, remote: str, *, settings: dict[str, str]) -> PullRequests:
     """Resolve the selected remote, including nested owners and configured context paths."""
     raw = git_adapter.remote_url(worktree, remote)
@@ -316,12 +354,7 @@ def for_worktree(worktree: Path, remote: str, *, settings: dict[str, str]) -> Pu
             f"Could not determine which SCM provider serves {host}.",
             hint=f"Run 'renv config providers.{host} <kind>'.",
         )
-    if base_url:
-        parts = urlsplit(raw)
-        prefix = urlsplit(base_url).path.rstrip("/")
-        if parts.scheme in ("http", "https", "ssh") and prefix and parts.path.startswith(prefix + "/"):
-            raw = urlunsplit(parts._replace(path=parts.path[len(prefix) :]))
-    spec = parse_url(raw, kind)
+    spec = parse_url(_strip_context_path(raw, base_url), kind)
     if spec.owner is None or spec.repo is None:
         raise UsageError(f"Remote '{remote}' in {worktree.name} is not a full repository URL.")
     return PullRequests(detect.make_provider(kind, host, base_url=base_url), spec.owner, spec.repo, worktree)
