@@ -101,14 +101,14 @@ def test_creation_payload_and_auth(kind, tmp_path, monkeypatch):
     client = _client(kind, tmp_path)
     calls = []
 
-    def request(url, **kwargs):
-        calls.append((url, kwargs))
+    def request(sent):
+        calls.append(sent)
         return _response(_item(kind), 201)
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     assert client.create(_request()) == URL
-    url, kwargs = calls[0]
-    actual = (url, kwargs["method"], kwargs["payload"], kwargs["headers"])
+    sent = calls[0]
+    actual = (sent.url, sent.method, sent.payload, sent.headers)
     endpoint, payload, headers = _EXPECTED_CREATION[kind]
     assert actual == (endpoint, "POST", payload, headers)
 
@@ -125,11 +125,11 @@ def test_existing_and_empty(kind, tmp_path, monkeypatch):
     replies = iter([_response(listing([_item(kind)])), _response(listing([]))])
     calls = []
 
-    def request(url, **kwargs):
-        calls.append(url)
+    def request(sent):
+        calls.append(sent.url)
         return next(replies)
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     assert client.existing_url(head="feature/x") == URL
     assert client.existing_url(head="feature/x") is None
     query = parse_qs(urlsplit(calls[0]).query)
@@ -158,11 +158,11 @@ def test_draft_payload(kind, tmp_path, monkeypatch):
     client = _client(kind, tmp_path)
     payloads = []
 
-    def request(url, **kwargs):
-        payloads.append(kwargs["payload"])
+    def request(sent):
+        payloads.append(sent.payload)
         return _response(_item(kind))
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     client.create(_request(draft=True))
     assert payloads[0].get("isDraft", payloads[0]["title"] == "Draft: Title") is True
 
@@ -179,7 +179,7 @@ def test_draft_payload(kind, tmp_path, monkeypatch):
     ids=["401-secret", "500-empty", "200-null", "200-string"],
 )
 def test_api_errors_are_not_absence(kind, response, tmp_path, monkeypatch):
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: response)
+    monkeypatch.setattr(rest, "send", lambda *a, **kw: response)
     with pytest.raises(GitError, match=f"HTTP {response.status}") as exc:
         _client(kind, tmp_path).existing_url(head="f")
     assert "secret" not in str(exc.value)
@@ -189,11 +189,11 @@ def test_api_errors_are_not_absence(kind, response, tmp_path, monkeypatch):
 def test_missing_credentials_and_creation_url(kind, tmp_path, monkeypatch):
     client = _client(kind, tmp_path)
     client.provider.credential = None
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: pytest.fail("no unauthenticated request"))
+    monkeypatch.setattr(rest, "send", lambda *a, **kw: pytest.fail("no unauthenticated request"))
     with pytest.raises(GitError, match="require authentication"):
         client.existing_url(head="f")
     client.provider.credential = Credential("secret")
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: _response({}))
+    monkeypatch.setattr(rest, "send", lambda *a, **kw: _response({}))
     with pytest.raises(GitError, match="no valid web URL"):
         client.create(_request())
 
@@ -272,15 +272,15 @@ def test_lookup_paginates_and_filters_head(kind, tmp_path, monkeypatch):
     client = _client(kind, tmp_path)
     calls = []
 
-    def request(url, **kwargs):
-        calls.append(url)
-        page = int(parse_qs(urlsplit(url).query)["page"][0])
+    def request(sent):
+        calls.append(sent.url)
+        page = int(parse_qs(urlsplit(sent.url).query)["page"][0])
         item = _item(kind, "other" if page == 1 else "feature/x")
         return _response(
             [item] if kind is ProviderKind.GITEA else {"values": [item], "next": "https://evil.example/steal"}
         )
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     assert client.existing_url(head="feature/x") == URL
     assert len(calls) == 2
     assert all(url.startswith("https://scm.example/") for url in calls)
@@ -321,7 +321,7 @@ def test_rest_json_write(monkeypatch):
         return Response()
 
     monkeypatch.setattr(rest._OPENER, "open", open_request)
-    response = rest.request("https://scm.example/api", method="POST", payload={"title": "t"})
+    response = rest.send(rest.HttpRequest("https://scm.example/api", method="POST", payload={"title": "t"}))
     sent = seen[0]
     actual = (response.status, sent.method, json.loads(sent.data), sent.get_header("Content-type"))
     assert actual == (201, "POST", {"title": "t"}, "application/json")
@@ -359,7 +359,7 @@ def test_unknown_provider_is_explicit_error(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("kind", API_KINDS)
 def test_malformed_listing(kind, tmp_path, monkeypatch):
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: _response({"unexpected": []}))
+    monkeypatch.setattr(rest, "send", lambda *a, **kw: _response({"unexpected": []}))
     with pytest.raises(GitError, match="invalid listing"):
         _client(kind, tmp_path).existing_url(head="f")
 

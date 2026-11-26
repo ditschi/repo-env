@@ -10,7 +10,8 @@ import base64
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from email.message import Message
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -47,43 +48,47 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirect())
 
 
-def get(url: str, *, headers: dict[str, str] | None = None, timeout: float = 15.0) -> HttpResponse:
-    """GET ``url``. Non-2xx statuses are returned, not raised; connection failures raise ``GitError``."""
-    return request(url, headers=headers, timeout=timeout)
+@dataclass(frozen=True)
+class HttpRequest:
+    """One JSON request: target URL, verb, optional JSON body, extra headers and timeout."""
+
+    url: str
+    method: str = "GET"
+    payload: dict[str, Any] | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    timeout: float = 15.0
+
+    def to_urllib(self) -> urllib.request.Request:
+        headers = {"Accept": "application/json", "User-Agent": "repo-env", **self.headers}
+        data = None
+        if self.payload is not None:
+            headers["Content-Type"] = "application/json"
+            data = json.dumps(self.payload).encode()
+        return urllib.request.Request(  # noqa: S310 - scheme checked by send()
+            self.url, headers=headers, method=self.method, data=data
+        )
 
 
-def request(
-    url: str,
-    *,
-    method: str = "GET",
-    payload: dict[str, Any] | None = None,
-    headers: dict[str, str] | None = None,
-    timeout: float = 15.0,
-) -> HttpResponse:
-    """Send a JSON request without following redirects (including for writes)."""
-    if urlsplit(url).scheme not in ("http", "https"):
-        raise GitError(f"Refusing non-HTTP URL: {url}")
-    request_headers = {"Accept": "application/json", "User-Agent": "repo-env", **(headers or {})}
-    if payload is not None:
-        request_headers["Content-Type"] = "application/json"
-    request = urllib.request.Request(  # noqa: S310 - scheme checked above
-        url,
-        headers=request_headers,
-        method=method,
-        data=json.dumps(payload).encode() if payload is not None else None,
-    )
+def send(request: HttpRequest) -> HttpResponse:
+    """Send ``request`` without following redirects (including for writes).
+
+    Non-2xx statuses are returned, not raised; connection failures raise ``GitError``.
+    """
+    if urlsplit(request.url).scheme not in ("http", "https"):
+        raise GitError(f"Refusing non-HTTP URL: {request.url}")
+    urllib_request = request.to_urllib()
     try:
-        with _OPENER.open(request, timeout=timeout) as response:
-            return HttpResponse(response.status, _lower(response.headers.items()), response.read())
+        with _OPENER.open(urllib_request, timeout=request.timeout) as response:
+            return HttpResponse(response.status, _lower(response.headers), response.read())
     except urllib.error.HTTPError as exc:
-        return HttpResponse(exc.code, _lower(exc.headers.items()), exc.read())
+        return HttpResponse(exc.code, _lower(exc.headers), exc.read())
     except (urllib.error.URLError, OSError, ValueError) as exc:
         reason = getattr(exc, "reason", exc)
-        raise GitError(f"Could not reach {urlsplit(url).netloc}: {reason}") from exc
+        raise GitError(f"Could not reach {urlsplit(request.url).netloc}: {reason}") from exc
 
 
-def _lower(items: Any) -> dict[str, str]:
-    return {key.lower(): value for key, value in items}
+def _lower(headers: Message) -> dict[str, str]:
+    return {key.lower(): value for key, value in headers.items()}
 
 
 def auth_headers(credential: Credential | None, *, token_scheme: str = "Bearer") -> dict[str, str]:

@@ -24,7 +24,8 @@ class AzureDevOpsProvider(ScmProvider):
     def list_repos(self, owner: str, *, name_hint: str | None = None) -> list[RemoteRepo]:
         url = f"{self.base_url}/{quote(owner)}/_apis/git/repositories?api-version=7.1"
         # PATs and Entra tokens both work as the basic-auth password.
-        response = rest.get(url, headers=rest.auth_headers(self.credential, token_scheme="Basic"))
+        headers = rest.auth_headers(self.credential, token_scheme="Basic")
+        response = rest.send(rest.HttpRequest(url, headers=headers))
         payload = response.json()
         if not response.ok or not isinstance(payload, dict):
             raise GitError(

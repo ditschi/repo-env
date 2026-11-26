@@ -135,9 +135,8 @@ class PullRequests:
         if provider.kind is ProviderKind.AZURE_DEVOPS:
             params["api-version"] = "7.1"
         url = self._endpoint + ("?" + urlencode(params) if params else "")
-        response = rest.request(
-            url, method="POST" if payload is not None else "GET", payload=payload, headers=headers
-        )
+        method = "POST" if payload is not None else "GET"
+        response = rest.send(rest.HttpRequest(url, method=method, payload=payload, headers=headers))
         data = response.json()
         if not response.ok or not isinstance(data, (dict, list)):
             # Do not echo response bodies: they may contain credentials or private request data.

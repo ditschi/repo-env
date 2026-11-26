@@ -32,9 +32,8 @@ class GiteaProvider(ScmProvider):
         items: list[dict[str, Any]] = []
         page = 1
         while True:
-            response = rest.get(
-                f"{self.base_url}/api/v1/{path}?limit={_PAGE_SIZE}&page={page}", headers=headers
-            )
+            url = f"{self.base_url}/api/v1/{path}?limit={_PAGE_SIZE}&page={page}"
+            response = rest.send(rest.HttpRequest(url, headers=headers))
             if response.status == 404:
                 return None
             batch = response.json()

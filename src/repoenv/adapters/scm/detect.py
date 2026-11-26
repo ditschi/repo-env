@@ -20,13 +20,11 @@ from repoenv.errors import GitError
 _PROBE_TIMEOUT_S = 5.0
 
 
-def _is_github(base_url: str) -> bool:
-    response = rest.get(f"{base_url}/api/v3/meta", timeout=_PROBE_TIMEOUT_S)
+def _is_github(response: rest.HttpResponse) -> bool:
     return "x-github-request-id" in response.headers or "x-github-enterprise-version" in response.headers
 
 
-def _is_gitlab(base_url: str) -> bool:
-    response = rest.get(f"{base_url}/api/v4/version", timeout=_PROBE_TIMEOUT_S)
+def _is_gitlab(response: rest.HttpResponse) -> bool:
     payload = response.json()
     if "x-gitlab-meta" in response.headers:
         return True
@@ -35,28 +33,29 @@ def _is_gitlab(base_url: str) -> bool:
     )
 
 
-def _is_bitbucket_server(base_url: str) -> bool:
-    payload = rest.get(f"{base_url}/rest/api/1.0/application-properties", timeout=_PROBE_TIMEOUT_S).json()
+def _is_bitbucket_server(response: rest.HttpResponse) -> bool:
+    payload = response.json()
     return isinstance(payload, dict) and payload.get("displayName") == "Bitbucket"
 
 
-def _is_gitea(base_url: str) -> bool:
-    response = rest.get(f"{base_url}/api/v1/version", timeout=_PROBE_TIMEOUT_S)
+def _is_gitea(response: rest.HttpResponse) -> bool:
     payload = response.json()
     return response.ok and isinstance(payload, dict) and set(payload) == {"version"}
 
 
-_PROBES: dict[ProviderKind, Callable[[str], bool]] = {
-    ProviderKind.GITHUB: _is_github,
-    ProviderKind.GITLAB: _is_gitlab,
-    ProviderKind.BITBUCKET_SERVER: _is_bitbucket_server,
-    ProviderKind.GITEA: _is_gitea,
+# Per kind: the API path to GET (unauthenticated) and how to recognise the server's answer.
+_PROBES: dict[ProviderKind, tuple[str, Callable[[rest.HttpResponse], bool]]] = {
+    ProviderKind.GITHUB: ("/api/v3/meta", _is_github),
+    ProviderKind.GITLAB: ("/api/v4/version", _is_gitlab),
+    ProviderKind.BITBUCKET_SERVER: ("/rest/api/1.0/application-properties", _is_bitbucket_server),
+    ProviderKind.GITEA: ("/api/v1/version", _is_gitea),
 }
 
 
 def _safe_probe(kind: ProviderKind, base_url: str) -> bool:
+    path, recognises = _PROBES[kind]
     try:
-        return _PROBES[kind](base_url)
+        return recognises(rest.send(rest.HttpRequest(base_url + path, timeout=_PROBE_TIMEOUT_S)))
     except GitError:
         return False
 
