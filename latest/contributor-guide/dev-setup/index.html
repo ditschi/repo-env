@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -919,6 +919,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../code-health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../commit-convention/" class="md-nav__link">
         
   
@@ -1080,7 +1108,7 @@
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests<span class="w">         </span><span class="c1"># unit tests, all Python versions</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>tests-3.12<span class="w">    </span><span class="c1"># unit tests, specific Python version</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>integration<span class="w">   </span><span class="c1"># integration tests (real temp git repos, mocked provider APIs)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>lint<span class="w">          </span><span class="c1"># ruff + black + flake8 + isort</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>lint<span class="w">          </span><span class="c1"># ruff check + ruff format --check</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>check_types<span class="w">   </span><span class="c1"># mypy</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs<span class="w">          </span><span class="c1"># build docs strict (fails on any warning)</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>nox<span class="w"> </span>-s<span class="w"> </span>docs_serve<span class="w">    </span><span class="c1"># live-reload local docs at http://127.0.0.1:8000</span>
@@ -1123,7 +1151,7 @@
 <h2 id="code-style">Code style<a class="headerlink" href="#code-style" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Line length: <strong>110</strong></li>
-<li>Formatter: <strong>black</strong> (primary) + <strong>isort</strong> (import order) + <strong>ruff --fix</strong> (auto-fixable lint)</li>
+<li>Formatter: <strong>ruff format</strong> (black-compatible) + <strong>ruff check --fix</strong> (import order and auto-fixable lint)</li>
 <li>Type hints required on all public interfaces (enforced by mypy strict)</li>
 <li>Docstrings: Google style (enforced by mkdocstrings rendering)</li>
 </ul>
@@ -1202,7 +1230,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

@@ -16,14 +16,14 @@
         <link rel="prev" href="../dev-setup/">
       
       
-        <link rel="next" href="../commit-convention/">
+        <link rel="next" href="../code-health/">
       
       
         
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -930,6 +930,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../code-health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../commit-convention/" class="md-nav__link">
         
   
@@ -1081,7 +1109,7 @@
 <tr>
 <td>Quality gates</td>
 <td>PR, main</td>
-<td><code>check_syntax</code>, <code>lint</code>, <code>check_types</code>, <code>necessary_imports</code>, <code>dead_code</code>, <code>duplicates</code>, <code>cyclic_imports</code></td>
+<td><code>check_syntax</code>, <code>lint</code>, <code>check_types</code>, <code>necessary_imports</code>, <code>dead_code</code>, <code>duplicates</code>, <code>cyclic_imports</code>, code-health gate (PR only, see below)</td>
 <td>3.12</td>
 </tr>
 <tr>
@@ -1158,9 +1186,9 @@
 </tr>
 <tr>
 <td><code>lint</code></td>
-<td>ruff + black + flake8 + isort</td>
+<td>ruff check + ruff format --check</td>
 <td>3.12</td>
-<td>Style + lint</td>
+<td>Style + lint (pycodestyle, pyflakes, isort rules)</td>
 </tr>
 <tr>
 <td><code>check_types</code></td>
@@ -1193,6 +1221,24 @@
 <td>Circular import detection</td>
 </tr>
 <tr>
+<td><code>code-health</code></td>
+<td>ai-health (profile strict, <code>.aihealth.toml</code>; PR CI steps, local default)</td>
+<td>3.12</td>
+<td>Code health report + <code>delta</code> gate vs merge-base (<a href="../code-health/">details</a>)</td>
+</tr>
+<tr>
+<td><code>code-health-tests</code></td>
+<td>ai-health (<code>tests/.aihealth.toml</code>, Primitive Obsession off)</td>
+<td>3.12</td>
+<td>Same as <code>code-health</code> for <code>tests/</code></td>
+</tr>
+<tr>
+<td><code>code-health-components</code></td>
+<td>ai-health</td>
+<td>3.12</td>
+<td>Component scores (repo, src, tests) must not drop vs merge-base</td>
+</tr>
+<tr>
 <td><code>docs</code></td>
 <td>mkdocs build --strict</td>
 <td>3.12</td>
@@ -1209,7 +1255,7 @@
 <li>Integration and test files: relaxed (no strict)</li>
 </ul>
 <h2 id="line-length">Line length<a class="headerlink" href="#line-length" title="Permanent link">&para;</a></h2>
-<p>110 characters. Configured uniformly in <code>pyproject.toml</code> (black, isort), <code>ruff.toml</code>, and <code>.flake8</code>.</p>
+<p>110 characters, configured in <code>ruff.toml</code>.</p>
 <h2 id="running-a-single-gate">Running a single gate<a class="headerlink" href="#running-a-single-gate" title="Permanent link">&para;</a></h2>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>lint
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>check_types
@@ -1297,7 +1343,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
