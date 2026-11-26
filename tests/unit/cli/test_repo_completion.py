@@ -9,18 +9,14 @@ narrowing for free.
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
-
-import pytest
 
 from repoenv.adapters import config_store, state_store
 from repoenv.cli.completion_helpers import complete_repo_name
 from repoenv.domain.models import Environment
 from tests.integration.support.gitfixtures import RepoFactory
+from tests.unit.cli.completion_support import bash_complete
 
 
 def _make_source_tree(root: Path) -> Path:
@@ -106,39 +102,15 @@ def test_complete_repo_name_at_prefix_after_comma(tmp_path: Path, repoenv_home: 
     assert result == ["github.com/acme/svc-alpha,@backend"]
 
 
-def _bash_complete(*, repoenv_home: Path, cwd: Path, words: str, cword: int, args: list[str]) -> list[str]:
-    renv_exe = shutil.which("renv")
-    if renv_exe is None:
-        pytest.fail("renv console script not on PATH; install the package first.")
-
-    env = os.environ.copy()
-    env["REPOENV_HOME"] = str(repoenv_home)
-    env["_RENV_COMPLETE"] = "complete_bash"
-    env["COMP_WORDS"] = words
-    env["COMP_CWORD"] = str(cword)
-    result = subprocess.run(
-        [renv_exe, *args],
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=str(cwd),
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-    return [line for line in result.stdout.splitlines() if line]
-
-
 def test_bash_completion_suggests_repos_for_create_include(repoenv_home: Path, tmp_path: Path) -> None:
     source = _make_source_tree(tmp_path)
 
     # Forward slashes: COMP_WORDS is shlex-split, which would eat Windows backslashes.
     source_arg = source.as_posix()
-    suggestions = _bash_complete(
+    suggestions = bash_complete(
         repoenv_home=repoenv_home,
         cwd=tmp_path,
         words=f"renv create task --source {source_arg} --include ",
-        cword=6,
-        args=["create", "task", "--source", source_arg, "--include", ""],
     )
 
     assert "github.com/acme/svc-alpha" in suggestions

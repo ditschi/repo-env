@@ -13,6 +13,13 @@ from repoenv.errors import GitError
 _PAGE_SIZE = 50  # Gitea's default maximum page size
 
 
+def _is_last_page(batch: list[Any], fetched: int, total: str | None) -> bool:
+    """An empty page ends paging, as does reaching the ``X-Total-Count`` header value."""
+    if not batch:
+        return True
+    return total is not None and fetched >= int(total)
+
+
 class GiteaProvider(ScmProvider):
     """Gitea and Forgejo."""
 
@@ -37,8 +44,7 @@ class GiteaProvider(ScmProvider):
                     hint=self.auth_hint(),
                 )
             items.extend(batch)
-            total = response.headers.get("x-total-count")
-            if not batch or (total is not None and len(items) >= int(total)):
+            if _is_last_page(batch, len(items), response.headers.get("x-total-count")):
                 return items
             page += 1
 

@@ -27,14 +27,17 @@ jobs:
             code:
               - 'src/**'
               - 'tests/**'
+              - '**/*.py'
+              - '**/*.sh'
               - 'pyproject.toml'
               - 'uv.lock'
               - 'noxfile.py'
               - 'mypy.ini'
               - 'ruff.toml'
-              - '.flake8'
               - 'pylintrc'
               - 'vulture_whitelist.py'
+              - '.aihealth.toml'
+              - 'tests/.aihealth.toml'
               - '.github/workflows/pr.yml'
             docs:
               - 'docs/**'
@@ -79,6 +82,8 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # code-health compares against the PR base commit
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -99,6 +104,22 @@ jobs:
         run: nox -s duplicates
       - name: Cyclic imports
         run: nox -s cyclic_imports
+      - name: Cache tree-sitter grammars (ai-health)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tree-sitter-language-pack
+          key: tree-sitter-language-pack-${{ hashFiles('uv.lock') }}
+      - name: Code health report (ai-health scan)
+        run: |
+          nox -s code-health -- scan . --format markdown --max-findings 20 >> "$GITHUB_STEP_SUMMARY"
+          nox -s code-health-tests -- scan tests --format markdown --max-findings 20 >> "$GITHUB_STEP_SUMMARY"
+      - name: Code health gate (ai-health delta vs PR base)
+        run: |
+          base="$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)"
+          nox -s code-health -- delta --base "$base" --head HEAD
+          nox -s code-health-tests -- delta --base "$base" --head HEAD tests
+      - name: Code health component scores (merge-base vs head)
+        run: nox -s code-health-components -- origin/${{ github.event.pull_request.base.ref }}
   # ── 3. Tests — multi-Python matrix ──────────────────────────────────────────
   tests:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})

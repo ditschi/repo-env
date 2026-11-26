@@ -1,4 +1,5 @@
 """``renv add`` — add repositories to an existing environment."""
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
 
 from __future__ import annotations
 
@@ -10,9 +11,32 @@ import typer
 from repoenv.adapters import config_store, state_store
 from repoenv.cli.completion_helpers import complete_env_name, complete_repo_name
 from repoenv.cli.resolve import resolve_environment
+from repoenv.domain.models import Environment
 from repoenv.errors import PartialFailureError
 from repoenv.services import environment_service
 from repoenv.ui import console
+
+
+def _print_add_plan(environment: Environment, plan: environment_service.AddPlan) -> None:
+    if plan.skipped_worktrees:
+        console.print_info(
+            f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
+        )
+    console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
+
+
+def _effective_branch(branch: str | None, environment: Environment) -> str | None:
+    """Return *branch*, or the task branch the environment already uses when none was given."""
+    if branch is not None:
+        return branch
+    inferred = environment_service.infer_env_branch(environment)
+    if inferred is not None:
+        console.print_info(f"No --branch given; joining existing task branch '{inferred}'.")
+    return inferred
+
+
+def _print_progress(repo: str, current: int, total: int) -> None:
+    console.print_info(f"  [{current}/{total}] {repo}")
 
 
 def add_command(
@@ -61,35 +85,20 @@ def add_command(
             exclude=exclude or None,
             include_worktrees=include_worktrees,
         )
-        if plan.skipped_worktrees:
-            console.print_info(
-                f"Skipped {len(plan.skipped_worktrees)} git worktree(s) (use --include-worktrees to include)."
-            )
-        console.print_info(f"Add to '{environment.name}' ({len(plan.repos)}): {', '.join(plan.repos)}")
-
-        effective_branch = branch
-        if effective_branch is None:
-            effective_branch = environment_service.infer_env_branch(environment)
-            if effective_branch is not None:
-                console.print_info(f"No --branch given; joining existing task branch '{effective_branch}'.")
-
+        _print_add_plan(environment, plan)
+        effective_branch = _effective_branch(branch, environment)
         active_set = registry.get_active() is not None
 
         if dry_run:
             console.print_info("Dry run: no changes made.")
         else:
-            environment_service.execute_add_plan(
-                environment,
-                plan,
-                branch=effective_branch,
-                preserve=preserve,
-                on_branch_conflict=on_branch_conflict,
-                on_repo_start=lambda repo, cur, tot: console.print_info(f"  [{cur}/{tot}] {repo}"),
+            options = environment_service.ExecuteOptions(
+                preserve=preserve, on_branch_conflict=on_branch_conflict, on_repo_start=_print_progress
             )
+            environment_service.execute_add_plan(environment, plan, branch=effective_branch, options=options)
             registry.add(environment)
             if activate:
                 registry.set_active(environment.name)
-                active_set = True
             state_store.write_env_metadata(environment)
 
     if not activate and not active_set:

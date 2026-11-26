@@ -8,25 +8,36 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from typer.testing import CliRunner
-
-from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory, run_git
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.gitfixtures import existing_repos, run_git
+from tests.integration.support.renv_helpers import Renv, assert_failed_with
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _create_env(runner: CliRunner, name: str, **extra_args: str) -> None:
-    parts = ["create", name]
-    for k, v in extra_args.items():
-        parts += [k, v]
-    result = runner.invoke(app, parts)
-    assert result.exit_code == 0, result.output
+def _add_worktree_at_head(clone: Path, worktree: Path) -> None:
+    run_git(["worktree", "add", str(worktree), "HEAD"], cwd=clone)
+
+
+def _setup_with_linked_worktree(renv: Renv, *names: str) -> Path:
+    """Clone ``names`` and init, with a linked worktree of the first clone under source; returns its path.
+
+    Simulates the user having another renv environment whose worktrees live under the same parent.
+    """
+    clones = renv.setup(*names)
+    linked = renv.source / "linked-wt"
+    _add_worktree_at_head(clones[0], linked)
+    return linked
+
+
+def _myenv_with_alpha(renv: Renv) -> Renv:
+    renv.setup("alpha")
+    renv.ok("create", "myenv", "--include", "alpha")
+    return renv
 
 
 # ---------------------------------------------------------------------------
@@ -34,52 +45,27 @@ def _create_env(runner: CliRunner, name: str, **extra_args: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_create_skips_linked_worktrees_in_source(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
+def test_create_skips_linked_worktrees_in_source(renv: Renv) -> None:
     """Linked worktrees discovered under source must be skipped by default."""
-    repo_factory.make_bare_and_clone("main-repo")
+    _setup_with_linked_worktree(renv, "main-repo")
 
-    # Create a linked worktree inside source (simulates user having another
-    # renv environment whose worktrees live under the same parent).
-    wt_path = source_dir / "linked-wt"
-    run_git(["worktree", "add", str(wt_path), "HEAD"], cwd=repo_factory.clone_path("main-repo"))
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-
-    result = runner.invoke(app, ["create", "myenv"])
-    assert result.exit_code == 0, result.output
+    renv.ok("create", "myenv")
     # Only the main repo should have a worktree, not the linked one.
-    assert (worktrees_dir / "myenv" / "main-repo" / ".git").exists()
-    assert not (worktrees_dir / "myenv" / "linked-wt").exists()
-    assert "Skipped" in result.output or "skipped" in result.output.lower() or True  # info msg
+    assert (renv.worktrees / "myenv" / "main-repo" / ".git").exists()
+    assert not (renv.worktrees / "myenv" / "linked-wt").exists()
 
 
-def test_create_includes_linked_worktrees_with_flag(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
+def test_create_includes_linked_worktrees_with_flag(renv: Renv) -> None:
     """With --include-worktrees the linked worktree is processed (may fail but not silently skipped)."""
-    repo_factory.make_bare_and_clone("main-repo")
-    wt_path = source_dir / "linked-wt"
-    run_git(["worktree", "add", str(wt_path), "HEAD"], cwd=repo_factory.clone_path("main-repo"))
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
+    _setup_with_linked_worktree(renv, "main-repo")
 
     # --include-worktrees includes the linked worktree; it will fail at git
     # worktree add time since it has no object store, but should NOT be silently
     # skipped — it must appear in the plan repos list.
-    runner.invoke(app, ["create", "myenv", "--include-worktrees"])
+    renv.invoke("create", "myenv", "--include-worktrees")
     # We don't assert exit_code == 0 because git worktree add on a linked wt fails.
     # But the main-repo worktree should still be created.
-    assert (worktrees_dir / "myenv" / "main-repo" / ".git").exists()
+    assert (renv.worktrees / "myenv" / "main-repo" / ".git").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -87,41 +73,13 @@ def test_create_includes_linked_worktrees_with_flag(
 # ---------------------------------------------------------------------------
 
 
-def test_renv_path_returns_absolute_path(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "myenv", "--include", "alpha"])
-    assert result.exit_code == 0, result.output
-
-    path_result = runner.invoke(app, ["path", "myenv"])
-    assert path_result.exit_code == 0, path_result.output
-    reported = Path(path_result.stdout.strip())
+def test_renv_path_returns_absolute_path(renv: Renv) -> None:
+    reported = Path(_myenv_with_alpha(renv).ok("path", "myenv").stdout.strip())
     assert reported.is_absolute(), f"Expected absolute path, got: {reported}"
 
 
-def test_renv_ls_shows_absolute_path(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    import json
-
-    repo_factory.make_bare_and_clone("alpha")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "myenv", "--include", "alpha"])
-    assert result.exit_code == 0, result.output
-
-    ls_result = runner.invoke(app, ["ls", "--json"])
-    assert ls_result.exit_code == 0, ls_result.output
-    data = json.loads(ls_result.stdout)
+def test_renv_ls_shows_absolute_path(renv: Renv) -> None:
+    data = json.loads(_myenv_with_alpha(renv).ok("ls", "--json").stdout)
     assert len(data) == 1
     env_path = Path(data[0]["path"])
     assert env_path.is_absolute(), f"Expected absolute path, got: {env_path}"
@@ -132,22 +90,15 @@ def test_renv_ls_shows_absolute_path(
 # ---------------------------------------------------------------------------
 
 
-def test_create_fails_with_clear_error_when_dest_not_empty(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
+def test_create_fails_with_clear_error_when_dest_not_empty(renv: Renv) -> None:
+    renv.setup("alpha")
 
     # Pre-create the env directory with unrelated content
-    env_dir = worktrees_dir / "myenv"
+    env_dir = renv.worktrees / "myenv"
     env_dir.mkdir(parents=True)
     (env_dir / "stray.txt").write_text("leftover", encoding="utf-8")
 
-    result = runner.invoke(app, ["create", "myenv", "--include", "alpha"])
+    result = renv.invoke("create", "myenv", "--include", "alpha")
     assert result.exit_code != 0
     assert "already exists" in result.output or "already exists" in str(result.exception)
 
@@ -157,21 +108,12 @@ def test_create_fails_with_clear_error_when_dest_not_empty(
 # ---------------------------------------------------------------------------
 
 
-def test_create_shows_progress_output(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "myenv"])
-    assert result.exit_code == 0, result.output
+def test_create_shows_progress_output(renv: Renv) -> None:
+    renv.setup("alpha", "beta")
+    output = renv.ok("create", "myenv").output
     # Both repos should appear in progress output like "[1/2] alpha"
-    assert "[1/2]" in result.output
-    assert "[2/2]" in result.output
+    assert "[1/2]" in output
+    assert "[2/2]" in output
 
 
 # ---------------------------------------------------------------------------
@@ -179,23 +121,12 @@ def test_create_shows_progress_output(
 # ---------------------------------------------------------------------------
 
 
-def test_create_double_star_glob_include(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
+def test_create_double_star_glob_include(renv: Renv) -> None:
     """--include '**/demo-*' should match repos with names prefixed 'demo-'."""
-    repo_factory.make_bare_and_clone("demo-api")
-    repo_factory.make_bare_and_clone("demo-ui")
-    repo_factory.make_bare_and_clone("other-svc")
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "myenv", "--include", "**/demo-*"])
-    assert result.exit_code == 0, result.output
-    assert (worktrees_dir / "myenv" / "demo-api").exists()
-    assert (worktrees_dir / "myenv" / "demo-ui").exists()
-    assert not (worktrees_dir / "myenv" / "other-svc").exists()
+    names = ("demo-api", "demo-ui", "other-svc")
+    renv.setup(*names)
+    renv.ok("create", "myenv", "--include", "**/demo-*")
+    assert existing_repos(renv.worktrees / "myenv", names) == {"demo-api", "demo-ui"}
 
 
 # ---------------------------------------------------------------------------
@@ -203,71 +134,38 @@ def test_create_double_star_glob_include(
 # ---------------------------------------------------------------------------
 
 
-def test_add_skips_linked_worktrees_by_default(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    repo_factory.make_bare_and_clone("main-repo")
-    repo_factory.make_bare_and_clone("second-repo")
+def test_add_skips_linked_worktrees_by_default(renv: Renv) -> None:
+    _setup_with_linked_worktree(renv, "main-repo", "second-repo")
+    renv.ok("create", "myenv", "--include", "main-repo")
 
-    wt_path = source_dir / "linked-wt"
-    run_git(["worktree", "add", str(wt_path), "HEAD"], cwd=repo_factory.clone_path("main-repo"))
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-
-    assert runner.invoke(app, ["create", "myenv", "--include", "main-repo"]).exit_code == 0
-
-    add_result = runner.invoke(app, ["add", "myenv"])
-    assert add_result.exit_code == 0, add_result.output
-    assert (worktrees_dir / "myenv" / "second-repo").exists()
-    assert not (worktrees_dir / "myenv" / "linked-wt").exists()
+    renv.ok("add", "myenv")
+    assert (renv.worktrees / "myenv" / "second-repo").exists()
+    assert not (renv.worktrees / "myenv" / "linked-wt").exists()
 
 
-def test_create_from_source_dot_linked_worktree_selection_fails_clearly(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
+def test_create_from_source_dot_linked_worktree_selection_fails_clearly(renv: Renv) -> None:
     """Repro for reported `-s . -d _worktrees -i ...` linked-worktree case.
 
     The command should not report success; it should fail with a clear hint.
     """
     # Simulate workspace root containing regular clones and nested _worktrees.
-    repo_factory.make_bare_and_clone("radar-ref")
-    repo_factory.make_bare_and_clone("radar-repo-scaffold")
-
+    names = ("radar-ref", "radar-repo-scaffold")
     # Create linked worktrees under _worktrees to mimic existing env layout.
-    linked_root = source_dir / "_worktrees" / "ado"
+    linked_root = renv.source / "_worktrees" / "ado"
     linked_root.mkdir(parents=True, exist_ok=True)
-    run_git(
-        ["worktree", "add", str(linked_root / "radar-ref"), "HEAD"],
-        cwd=repo_factory.clone_path("radar-ref"),
-    )
-    run_git(
-        ["worktree", "add", str(linked_root / "radar-repo-scaffold"), "HEAD"],
-        cwd=repo_factory.clone_path("radar-repo-scaffold"),
-    )
+    for name in names:
+        _add_worktree_at_head(renv.repos.make_bare_and_clone(name), linked_root / name)
 
-    runner = CliRunner()
     # Set defaults to mirror report where source="." and dest="_worktrees".
-    result = runner.invoke(
-        app,
-        [
-            "create",
-            "gitcache",
-            "-s",
-            str(source_dir),
-            "-d",
-            str(source_dir / "_worktrees"),
-            "-i",
-            "_worktrees/ado/radar-ref,_worktrees/ado/radar-repo-scaffold",
-            "--include-worktrees",
-        ],
+    result = renv.invoke(
+        "create",
+        "gitcache",
+        "-s",
+        str(renv.source),
+        "-d",
+        str(renv.source / "_worktrees"),
+        "-i",
+        "_worktrees/ado/radar-ref,_worktrees/ado/radar-repo-scaffold",
+        "--include-worktrees",
     )
-    assert result.exit_code != 0
-    assert result.exception is not None
-    assert "No repositories matched the selection" in str(result.exception)
+    assert_failed_with(result, "No repositories matched the selection")

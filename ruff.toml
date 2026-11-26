@@ -1,16 +1,25 @@
+# ruff is the single Python linter and formatter (replaces black, isort and flake8).
+# Structural/complexity rules (C90, PLR09xx) are intentionally off: code health smells
+# have exactly one source, ai-health (see .aihealth.toml).
 target-version = "py310"
 line-length = 110
-
-exclude = [
+extend-exclude = [
     "**/resources/**",
     ".devcontainer",
     ".github",
     ".pipeline",
     ".test_env",
+    "tests/fixtures",
+    "src/repoenv/_version.py",
+    "*.md",  # newer ruff versions also format Python code blocks in Markdown
 ]
 
 [lint]
-select = ["C90"]
+# E/W = pycodestyle and F = pyflakes (the former flake8 defaults), I = isort.
+select = ["E", "W", "F", "I"]
 
-[lint.mccabe]
-max-complexity = 10
+[lint.isort]
+known-first-party = ["repoenv", "tests"]
+
+[format]
+# black-compatible defaults

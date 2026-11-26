@@ -2,256 +2,132 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from typer.testing import CliRunner
+from typer.testing import Result
 
 from repoenv.adapters import state_store
-from repoenv.cli.app import app
 from repoenv.domain.models import RepoStatus
-from tests.integration.support.gitfixtures import RepoFactory
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support import gitfixtures
+from tests.integration.support.renv_helpers import (
+    Renv,
+    assert_failed_with,
+    create_batch_with_branch_conflict,
+    env_meta,
+)
 
 
-def _assert_partial_failure(result) -> None:
-    assert result.exit_code != 0
-    assert isinstance(result.exception, Exception)
-    assert "Some repositories failed" in str(result.exception)
+def _create_feat_alpha(renv: Renv, *opts: str) -> Result:
+    """``renv create feat --include alpha <opts>``; returns the result without checking it."""
+    return renv.invoke("create", "feat", "--include", "alpha", *opts)
 
 
-def _load_env_meta(worktrees: Path, name: str) -> dict:
-    return json.loads((worktrees / name / ".repoenv.json").read_text(encoding="utf-8"))
+def _alpha_in_source_on(renv: Renv, branch: str) -> Path:
+    """Clone ``alpha`` with ``branch`` checked out in the source clone, then init."""
+    (clone,) = renv.setup("alpha")
+    gitfixtures.checkout_branch_in_source(clone, branch)
+    return clone
 
 
-def test_create_no_conflict_new_branch(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "feat", "--branch", "feature/new"])
-    assert result.exit_code == 0, result.output
-    assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
-    assert RepoFactory.current_branch(worktrees_dir / "feat" / "alpha") == "feature/new"
+def test_create_no_conflict_new_branch(renv: Renv) -> None:
+    renv.setup("alpha", "beta")
+    renv.ok("create", "feat", "--branch", "feature/new")
+    alpha = renv.worktrees / "feat" / "alpha"
+    assert (alpha / ".git").exists()
+    assert gitfixtures.current_branch(alpha) == "feature/new"
 
 
-def test_create_attaches_existing_unused_branch(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    RepoFactory.create_local_branch(clone, "feature/exists", checkout=False)
+def test_create_attaches_existing_unused_branch(renv: Renv) -> None:
+    (clone,) = renv.setup("alpha")
+    gitfixtures.run_git(["branch", "feature/exists"], cwd=clone)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(app, ["create", "feat", "--branch", "feature/exists", "--include", "alpha"])
-    assert result.exit_code == 0, result.output
-    wt = worktrees_dir / "feat" / "alpha"
-    assert RepoFactory.current_branch(wt) == "feature/exists"
-    assert RepoFactory.is_detached(wt) is False
+    renv.ok("create", "feat", "--branch", "feature/exists", "--include", "alpha")
+    wt = renv.worktrees / "feat" / "alpha"
+    assert gitfixtures.current_branch(wt) == "feature/exists"
+    assert gitfixtures.is_detached(wt) is False
 
 
-def test_create_branch_checked_out_in_source_detach_default(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    RepoFactory.checkout_branch_in_source(clone, "feature/in-source")
+def test_create_branch_checked_out_in_source_detach_default(renv: Renv) -> None:
+    _alpha_in_source_on(renv, "feature/in-source")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        ["create", "feat", "--branch", "feature/in-source", "--include", "alpha"],
-    )
-    assert result.exit_code == 0, result.output
-    wt = worktrees_dir / "feat" / "alpha"
+    assert _create_feat_alpha(renv, "--branch", "feature/in-source").exit_code == 0
+    wt = renv.worktrees / "feat" / "alpha"
     assert wt.exists()
-    assert RepoFactory.is_detached(wt) is True
+    assert gitfixtures.is_detached(wt) is True
 
-    meta = _load_env_meta(worktrees_dir, "feat")
-    note = meta["environment"]["repos"][0]["note"]
+    note = env_meta(renv.worktrees / "feat")["environment"]["repos"][0]["note"]
     assert note is not None
     assert "detached worktree" in note
 
 
-def test_create_branch_checked_out_in_source_fail(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    RepoFactory.checkout_branch_in_source(clone, "feature/in-source")
+def test_create_branch_checked_out_in_source_fail(renv: Renv) -> None:
+    _alpha_in_source_on(renv, "feature/in-source")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        [
-            "create",
-            "feat",
-            "--branch",
-            "feature/in-source",
-            "--include",
-            "alpha",
-            "--on-branch-conflict",
-            "fail",
-        ],
-    )
-    _assert_partial_failure(result)
+    result = _create_feat_alpha(renv, "--branch", "feature/in-source", "--on-branch-conflict", "fail")
+    assert_failed_with(result, "Some repositories failed")
 
 
-def test_create_branch_checked_out_in_source_move_with_dirty_file(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    RepoFactory.checkout_branch_in_source(clone, "feature/move")
-    RepoFactory.write_file(clone, "local-only.txt", "keep-me")
+def test_create_branch_checked_out_in_source_move_with_dirty_file(renv: Renv) -> None:
+    clone = _alpha_in_source_on(renv, "feature/move")
+    (clone / "local-only.txt").write_text("keep-me", encoding="utf-8")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        [
-            "create",
-            "feat",
-            "--branch",
-            "feature/move",
-            "--include",
-            "alpha",
-            "--on-branch-conflict",
-            "move",
-        ],
-    )
+    result = _create_feat_alpha(renv, "--branch", "feature/move", "--on-branch-conflict", "move")
     assert result.exit_code == 0, result.output
-    wt = worktrees_dir / "feat" / "alpha"
-    assert RepoFactory.current_branch(wt) == "feature/move"
+    wt = renv.worktrees / "feat" / "alpha"
+    assert gitfixtures.current_branch(wt) == "feature/move"
     assert (wt / "local-only.txt").read_text(encoding="utf-8") == "keep-me"
-    assert RepoFactory.current_branch(clone) == "main"
+    assert gitfixtures.current_branch(clone) == "main"
 
 
-def test_create_branch_checked_out_in_foreign_worktree_move(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    testenv_root: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    foreign = testenv_root / "foreign" / "alpha"
-    RepoFactory.create_foreign_worktree(clone, foreign, "feature/foreign")
+def test_create_branch_checked_out_in_foreign_worktree_move(renv: Renv) -> None:
+    (clone,) = renv.setup("alpha")
+    foreign = renv.repos.root / "foreign" / "alpha"
+    gitfixtures.create_foreign_worktree(clone, foreign, "feature/foreign")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        [
-            "create",
-            "feat",
-            "--branch",
-            "feature/foreign",
-            "--include",
-            "alpha",
-            "--on-branch-conflict",
-            "move",
-        ],
-    )
+    result = _create_feat_alpha(renv, "--branch", "feature/foreign", "--on-branch-conflict", "move")
     assert result.exit_code == 0, result.output
-    wt = worktrees_dir / "feat" / "alpha"
-    assert RepoFactory.current_branch(wt) == "feature/foreign"
-    assert RepoFactory.is_detached(foreign) is True
+    assert gitfixtures.current_branch(renv.worktrees / "feat" / "alpha") == "feature/foreign"
+    assert gitfixtures.is_detached(foreign) is True
 
 
-def test_create_orphaned_worktree_auto_heals(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    testenv_root: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    orphan_path = testenv_root / "orphan" / "alpha"
-    RepoFactory.simulate_orphaned_worktree(clone, orphan_path, branch="feature/orphan")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        ["create", "feat", "--branch", "feature/orphan", "--include", "alpha"],
+def test_create_orphaned_worktree_auto_heals(renv: Renv) -> None:
+    (clone,) = renv.setup("alpha")
+    gitfixtures.simulate_orphaned_worktree(
+        clone, renv.repos.root / "orphan" / "alpha", branch="feature/orphan"
     )
-    assert result.exit_code == 0, result.output
-    assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
+
+    assert _create_feat_alpha(renv, "--branch", "feature/orphan").exit_code == 0
+    assert (renv.worktrees / "feat" / "alpha" / ".git").exists()
 
 
-def test_create_stray_directory_clear_error(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    RepoFactory.leave_stray_directory(worktrees_dir / "feat" / "alpha")
+def test_create_stray_directory_clear_error(renv: Renv) -> None:
+    renv.setup("alpha")
+    gitfixtures.leave_stray_directory(renv.worktrees / "feat" / "alpha")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        ["create", "feat", "--branch", "feature/x", "--include", "alpha"],
-    )
+    result = _create_feat_alpha(renv, "--branch", "feature/x")
     assert result.exit_code != 0
     assert result.exception is not None
     assert "already exists and is not empty" in str(result.exception)
 
 
-def test_add_branch_conflict_detach(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
-    RepoFactory.checkout_branch_in_source(clone, "feature/add")
+def test_add_branch_conflict_detach(renv: Renv) -> None:
+    clone, _ = renv.setup("alpha", "beta")
+    gitfixtures.checkout_branch_in_source(clone, "feature/add")
+    renv.ok("create", "env", "--include", "beta")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "env", "--include", "beta"]).exit_code == 0
-
-    result = runner.invoke(
-        app,
-        ["add", "env", "--include", "alpha", "--branch", "feature/add"],
-    )
-    assert result.exit_code == 0, result.output
-    wt = worktrees_dir / "env" / "alpha"
+    renv.ok("add", "env", "--include", "alpha", "--branch", "feature/add")
+    wt = renv.worktrees / "env" / "alpha"
     assert wt.exists()
-    assert RepoFactory.is_detached(wt) is True
+    assert gitfixtures.is_detached(wt) is True
 
 
-def test_partial_failure_saves_env_and_status_shows_note(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    ok_clone = repo_factory.make_bare_and_clone("alpha")
-    fail_clone = repo_factory.make_bare_and_clone("beta")
-    _ = ok_clone
-    RepoFactory.checkout_branch_in_source(fail_clone, "feature/shared")
+def test_partial_failure_saves_env_and_status_shows_note(renv: Renv) -> None:
+    assert_failed_with(create_batch_with_branch_conflict(renv), "Some repositories failed")
+    assert (renv.worktrees / "batch" / "alpha" / ".git").exists()
+    assert not (renv.worktrees / "batch" / "beta" / ".git").exists()
+    assert "batch" in state_store.load_registry()
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    result = runner.invoke(
-        app,
-        [
-            "create",
-            "batch",
-            "--branch",
-            "feature/shared",
-            "--on-branch-conflict",
-            "fail",
-        ],
-    )
-    _assert_partial_failure(result)
-    assert (worktrees_dir / "batch" / "alpha" / ".git").exists()
-    assert not (worktrees_dir / "batch" / "beta" / ".git").exists()
-
-    registry = state_store.load_registry()
-    assert "batch" in registry
-
-    status = runner.invoke(app, ["status", "batch", "--json"])
-    assert status.exit_code == 0
-    payload = json.loads(status.stdout)
-    by_repo = {item["repo"]: item for item in payload["repos"]}
+    by_repo = renv.status("batch")
     assert by_repo["alpha"]["present"] is True
     assert by_repo["beta"]["status"] == RepoStatus.FAILED.value
     assert by_repo["beta"]["note"] is not None

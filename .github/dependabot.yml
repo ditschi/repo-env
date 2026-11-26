@@ -14,7 +14,7 @@ updates:
       include: "scope"
     groups:
       dev-tools:
-        patterns: ["nox", "pytest*", "ruff", "black", "mypy", "isort", "flake8*", "pylint", "vulture", "fawltydeps", "commitizen"]
+        patterns: ["nox", "pytest*", "ruff", "mypy", "pylint", "vulture", "fawltydeps", "commitizen"]
       docs:
         patterns: ["mkdocs*", "mike"]
       runtime:

@@ -6,6 +6,7 @@ redirect-safe REST transport and need no optional discovery client libraries.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
@@ -30,6 +31,41 @@ def _nested(item: Any, *keys: str) -> Any:
     return item
 
 
+@dataclass(frozen=True)
+class PrOptions:
+    """Optional PR metadata; not every provider supports every option."""
+
+    draft: bool = False
+    reviewers: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    assignees: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PrRequest:
+    """One fully rendered pull request to create."""
+
+    title: str
+    body: str
+    base: str
+    head: str
+    options: PrOptions = field(default_factory=PrOptions)
+
+
+def _unsupported_flags(kind: ProviderKind, options: PrOptions) -> list[str]:
+    """Return the CLI flags a non-GitHub provider cannot honour."""
+    unsupported = []
+    if options.draft and kind not in (ProviderKind.GITLAB, ProviderKind.AZURE_DEVOPS):
+        unsupported.append("--draft")
+    metadata = (
+        ("--reviewer", options.reviewers),
+        ("--label", options.labels),
+        ("--assignee", options.assignees),
+    )
+    unsupported.extend(flag for flag, values in metadata if values)
+    return unsupported
+
+
 class PullRequests:
     """PR operations for one fully resolved remote repository."""
 
@@ -39,9 +75,7 @@ class PullRequests:
         self.repo = repo
         self.worktree = worktree
 
-    def validate_options(
-        self, *, draft: bool, reviewers: list[str], labels: list[str], assignees: list[str]
-    ) -> None:
+    def validate_options(self, options: PrOptions) -> None:
         """Reject unsupported options before lookup, creation, or a caller's push."""
         kind = self.provider.kind
         if kind is ProviderKind.GITHUB:
@@ -51,12 +85,7 @@ class PullRequests:
                     hint="Install gh and run 'gh auth login' for GitHub/GHES pull requests.",
                 )
             return
-        unsupported = []
-        if draft and kind not in (ProviderKind.GITLAB, ProviderKind.AZURE_DEVOPS):
-            unsupported.append("--draft")
-        for flag, values in (("--reviewer", reviewers), ("--label", labels), ("--assignee", assignees)):
-            if values:
-                unsupported.append(flag)
+        unsupported = _unsupported_flags(kind, options)
         if unsupported:
             raise UsageError(
                 f"{self.provider.label} PR creation does not support: {', '.join(unsupported)}.",
@@ -216,34 +245,31 @@ class PullRequests:
                 return None
             page += 1
 
-    def create(
-        self,
-        *,
-        title: str,
-        body: str,
-        base: str,
-        head: str,
-        draft: bool,
-        reviewers: list[str],
-        labels: list[str],
-        assignees: list[str],
-    ) -> str:
+    def create(self, request: PrRequest) -> str:
         """Create a PR; no method in this adapter pushes git branches."""
-        self.validate_options(draft=draft, reviewers=reviewers, labels=labels, assignees=assignees)
-        kind = self.provider.kind
-        if kind is ProviderKind.GITHUB:
-            return gh_adapter.create_pr(
-                self.worktree,
-                title=title,
-                body=body,
-                base=base,
-                head=head,
-                draft=draft,
-                reviewers=reviewers,
-                labels=labels,
-                assignees=assignees,
-                repository=self._github_repo,
+        options = request.options
+        self.validate_options(options)
+        if self.provider.kind is ProviderKind.GITHUB:
+            pull_request = gh_adapter.GhPullRequest(
+                title=request.title,
+                body=request.body,
+                head=request.head,
+                base=request.base,
+                draft=options.draft,
+                reviewers=options.reviewers,
+                labels=options.labels,
+                assignees=options.assignees,
             )
+            return gh_adapter.create_pr(self.worktree, pull_request, repository=self._github_repo)
+        data, _ = self._request(payload=self._payload(request))
+        if not isinstance(data, dict):
+            raise GitError(f"{self.provider.label} PR API returned an invalid creation result.")
+        return self._url(data)
+
+    def _payload(self, request: PrRequest) -> dict[str, Any]:
+        title, body, base, head = request.title, request.body, request.base, request.head
+        draft = request.options.draft
+        kind = self.provider.kind
         payload: dict[str, Any]
         if kind is ProviderKind.GITLAB:
             payload = {
@@ -278,10 +304,7 @@ class PullRequests:
             }
         else:
             payload = {"title": title, "body": body, "head": head, "base": base}
-        data, _ = self._request(payload=payload)
-        if not isinstance(data, dict):
-            raise GitError(f"{self.provider.label} PR API returned an invalid creation result.")
-        return self._url(data)
+        return payload
 
 
 def for_worktree(worktree: Path, remote: str, *, settings: dict[str, str]) -> PullRequests:

@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from repoenv.adapters import state_store
+from repoenv.adapters.scm.pull_requests import PrOptions
 from repoenv.cli.completion_helpers import complete_env_name
 from repoenv.cli.resolve import resolve_environment
 from repoenv.errors import UsageError
@@ -42,15 +43,20 @@ def pr_command(
     registry = state_store.load_registry()
     environment = resolve_environment(registry, env)
 
+    batch = pr_service.PrBatch(
+        title=title,
+        body=body,
+        base=base,
+        options=PrOptions(draft=draft, reviewers=reviewer, labels=label, assignees=assignee),
+        push=push,
+        skip_no_diff=skip_no_diff,
+        if_exists=if_exists,
+        include=include or None,
+        exclude=exclude or None,
+    )
+
     if dry_run:
-        preview = pr_service.build_pr_preview(
-            environment,
-            title=title,
-            body=body,
-            base=base,
-            include=include or None,
-            exclude=exclude or None,
-        )
+        preview = pr_service.build_pr_preview(environment, batch)
         console.print_info(f"Dry run: would create PRs for {len(preview)} repo(s):")
         for item in preview:
             console.print_info(
@@ -58,21 +64,7 @@ def pr_command(
             )
         return
 
-    outcome = pr_service.create_prs(
-        environment,
-        title=title,
-        body=body,
-        base=base,
-        draft=draft,
-        reviewers=reviewer,
-        labels=label,
-        assignees=assignee,
-        push=push,
-        skip_no_diff=skip_no_diff,
-        if_exists=if_exists,
-        include=include or None,
-        exclude=exclude or None,
-    )
+    outcome = pr_service.create_prs(environment, batch)
 
     if as_json:
         payload = {

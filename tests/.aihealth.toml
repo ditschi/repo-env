@@ -1,0 +1,19 @@
+# ai-health configuration for the TEST component (tests/), used via --config.
+# Same profile "strict" as the repo-root .aihealth.toml — ai-health has no config inheritance,
+# so keep [thresholds]/[score]/[delta] in sync with it. Only difference (owner decision Q18.1):
+# Primitive Obsession is off in test code. Type hints are never weakened to dodge a smell.
+
+[thresholds]
+large_file = 600
+primitive_obsession = 0.3
+
+[weights]
+primitive_obsession = 0     # off in tests (Q18.1); stays at 0.3 for production code
+
+[score]
+decay = 8
+symbol_cap = 4
+density_loc = 100000
+
+[delta]
+tolerance = 0.0

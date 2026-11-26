@@ -6,7 +6,7 @@ All gates run via `nox`. They also run in CI on every PR and push to `main`.
 
 | Job | Workflow(s) | Nox session(s) | Python |
 |-----|-------------|----------------|--------|
-| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports` | 3.12 |
+| Quality gates | PR, main | `check_syntax`, `lint`, `check_types`, `necessary_imports`, `dead_code`, `duplicates`, `cyclic_imports`, code-health gate (PR only, see below) | 3.12 |
 | Unit tests | PR, main | `tests` | 3.12, 3.13, 3.14, 3.15 (matrix) |
 | Integration tests | PR, main | `integration` | 3.12 |
 | Performance budgets | PR | `performance` | 3.12 |
@@ -31,12 +31,15 @@ CI uses **3.12** for integration — the same primary version as lint, types, an
 | `tests` | pytest + pytest-cov + pytest-xdist | 3.12, 3.13, 3.14, 3.15 | Unit tests with coverage |
 | `integration` | pytest | 3.12 | Real temp git repos + mocked provider APIs |
 | `performance` | pytest | 3.12 | CLI cold-start latency budgets (help + bash completion) |
-| `lint` | ruff + black + flake8 + isort | 3.12 | Style + lint |
+| `lint` | ruff check + ruff format --check | 3.12 | Style + lint (pycodestyle, pyflakes, isort rules) |
 | `check_types` | mypy | 3.12 | Static type checking |
 | `necessary_imports` | fawltydeps | 3.12 | Undeclared / unused dependencies |
 | `dead_code` | vulture | 3.12 | Unused code |
 | `duplicates` | pylint R0801 | 3.12 | Duplicate code blocks |
 | `cyclic_imports` | pylint R0401 | 3.12 | Circular import detection |
+| `code-health` | ai-health (profile strict, `.aihealth.toml`; PR CI steps, local default) | 3.12 | Code health report + `delta` gate vs merge-base ([details](code-health.md)) |
+| `code-health-tests` | ai-health (`tests/.aihealth.toml`, Primitive Obsession off) | 3.12 | Same as `code-health` for `tests/` |
+| `code-health-components` | ai-health | 3.12 | Component scores (repo, src, tests) must not drop vs merge-base |
 | `docs` | mkdocs build --strict | 3.12 | Docs build with zero warnings |
 
 ## Coverage
@@ -52,7 +55,7 @@ mypy is configured in `mypy.ini`. Key settings:
 
 ## Line length
 
-110 characters. Configured uniformly in `pyproject.toml` (black, isort), `ruff.toml`, and `.flake8`.
+110 characters, configured in `ruff.toml`.
 
 ## Running a single gate
 

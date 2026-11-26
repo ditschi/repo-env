@@ -51,24 +51,23 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     # Split on **; adjacent / around ** are stripped so "a/**/b", "**/b", and
     # "a/**" all produce clean segments to join.
     raw_segs = re.split(r"\*\*", pattern)
-    regex_segs: list[str] = []
-    for i, seg in enumerate(raw_segs):
-        if i > 0 and seg.startswith("/"):
-            seg = seg[1:]
-        if i < len(raw_segs) - 1 and seg.endswith("/"):
-            seg = seg[:-1]
-        regex_segs.append(re.escape(seg).replace(r"\*", "[^/]*").replace(r"\?", "[^/]"))
-
-    if len(regex_segs) == 1:
-        body = regex_segs[0]
-    else:
-        # Between every pair of segments, "(?:.*/)?" allows zero or more path
-        # components (the optional trailing slash keeps "org/" working too).
-        body = regex_segs[0]
-        for seg in regex_segs[1:]:
-            body += "(?:.*/)?" + seg
-
+    last = len(raw_segs) - 1
+    regex_segs = [
+        _segment_to_regex(seg, strip_start=i > 0, strip_end=i < last) for i, seg in enumerate(raw_segs)
+    ]
+    # Between every pair of segments, "(?:.*/)?" allows zero or more path
+    # components (the optional trailing slash keeps "org/" working too).
+    body = "(?:.*/)?".join(regex_segs)
     return re.compile("^" + body + "$")
+
+
+def _segment_to_regex(seg: str, *, strip_start: bool, strip_end: bool) -> str:
+    """Translate one ``**``-free glob segment, trimming the ``/`` that touches a ``**``."""
+    if strip_start and seg.startswith("/"):
+        seg = seg[1:]
+    if strip_end and seg.endswith("/"):
+        seg = seg[:-1]
+    return re.escape(seg).replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
 
 
 def _match_pattern(name: str, pattern: str) -> bool:

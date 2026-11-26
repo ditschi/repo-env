@@ -1,12 +1,15 @@
 """Nox sessions for repo-env.
 
 Uses uv backend, Python 3.10 default, and quality gates
-(ruff/black/flake8/isort/pylint/mypy/vulture/fawltydeps).
+(ruff/pylint/mypy/vulture/fawltydeps/ai-health code-health).
 """
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import tempfile
 
 import nox
 
@@ -18,6 +21,11 @@ CI_PYTHON = "3.12"  # primary CI version for single-version sessions (integratio
 PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 PACKAGE = "repoenv"
 SRC = "src/repoenv"
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+AIHEALTH_CONFIG = os.path.join(_ROOT, ".aihealth.toml")  # production code (excludes tests/)
+AIHEALTH_TESTS_CONFIG = os.path.join(_ROOT, "tests", ".aihealth.toml")  # tests: Primitive Obsession off
+# Components whose ai-health project score must not drop between merge-base and HEAD.
+AIHEALTH_COMPONENTS = {".": AIHEALTH_CONFIG, "src": AIHEALTH_CONFIG, "tests": AIHEALTH_TESTS_CONFIG}
 GENERATED_VERSION_FILE = "src/repoenv/_version.py"
 
 
@@ -67,7 +75,10 @@ _CI_DEFAULT = [
     "duplicates",
     "cyclic_imports",
 ]
-nox.options.sessions = _CI_DEFAULT if is_ci() else (["format"] + _CI_DEFAULT)
+# Locally the ai-health delta (working tree vs HEAD) is useful; on a clean CI checkout it checks
+# nothing, so CI runs the code-health gate as explicit PR steps instead (.github/workflows/pr.yml).
+_LOCAL_DEFAULT = ["format", *_CI_DEFAULT, "code-health", "code-health-tests"]
+nox.options.sessions = _CI_DEFAULT if is_ci() else _LOCAL_DEFAULT
 
 
 @nox.session(python=PYTHON_VERSIONS, tags=["unit", "tests"])
@@ -159,21 +170,18 @@ def check_types(session: nox.Session) -> None:
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "lint"])
 def lint(session: nox.Session) -> None:
-    """Run ruff, black --check, flake8, isort --check."""
+    """Run ruff lint (pycodestyle, pyflakes, isort rules) and ruff format --check."""
     session.install("-e", ".[lint]")
-    session.run("ruff", "check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("black", "--check", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("isort", "--check-only", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("flake8", "--exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("ruff", "check", SRC, "tests", "noxfile.py")
+    session.run("ruff", "format", "--check", SRC, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON, tags=["quality", "format"])
 def format(session: nox.Session) -> None:  # noqa: A001 - keep conventional session name
-    """Auto-format with black, isort, and ruff --fix (local only)."""
+    """Auto-fix with ruff (incl. import order) and format with ruff format (local only)."""
     session.install("-e", ".[lint]")
-    session.run("isort", "--skip", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("black", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
-    session.run("ruff", "check", "--fix", "--extend-exclude", GENERATED_VERSION_FILE, SRC, "tests")
+    session.run("ruff", "check", "--fix", SRC, "tests", "noxfile.py")
+    session.run("ruff", "format", SRC, "tests", "noxfile.py")
 
 
 @nox.session(python=DEFAULT_PYTHON)
@@ -190,12 +198,10 @@ def necessary_imports(session: nox.Session) -> None:
         "--deps-parser-choice",
         "pyproject.toml",
         "--ignore-unused",
+        "aihealth",
         "vulture",
-        "black",
         "commitizen",
         "fawltydeps",
-        "flake8",
-        "isort",
         "mike",
         "mkdocs",
         "mkdocs-material",
@@ -236,6 +242,80 @@ def cyclic_imports(session: nox.Session) -> None:
     """Detect cyclic imports (pylint R0401)."""
     session.install("-e", ".[code-quality]")
     session.run("pylint", "--disable=all", "--enable=R0401", SRC)
+
+
+def _run_aihealth(session: nox.Session, config: str, default: list[str]) -> None:
+    _install_aihealth(session)
+    command, *rest = session.posargs or default
+    # Explicit --config: `scan <subdir>` would otherwise read <subdir>/.aihealth.toml (silently
+    # falling back to defaults), and tests use their own config. Other subcommands reject it.
+    options = ("--config", config) if command in ("scan", "delta") else ()
+    session.run("aihealth", command, *options, *rest)
+
+
+@nox.session(name="code-health", python=CI_PYTHON, tags=["quality"])
+def code_health(session: nox.Session) -> None:
+    """Run ai-health on production code (``.aihealth.toml``); arguments go straight to ``aihealth``.
+
+    Default: ``delta`` (working tree vs HEAD). Examples: ``nox -s code-health -- scan .``,
+    ``nox -s code-health -- delta --base origin/main --format json``.
+    See docs/contributor-guide/code-health.md.
+    """
+    _run_aihealth(session, AIHEALTH_CONFIG, ["delta"])
+
+
+@nox.session(name="code-health-tests", python=CI_PYTHON, tags=["quality"])
+def code_health_tests(session: nox.Session) -> None:
+    """Run ai-health on tests/ (``tests/.aihealth.toml``); default: ``delta tests``."""
+    _run_aihealth(session, AIHEALTH_TESTS_CONFIG, ["delta", "tests"])
+
+
+def _install_aihealth(session: nox.Session) -> None:
+    """Install exactly the locked ``code-health`` dependency group (the single ai-health pin)."""
+    session.run_install(
+        "uv",
+        "sync",
+        "--frozen",
+        "--only-group",
+        "code-health",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+
+
+def _component_scores(session: nox.Session) -> dict[str, float]:
+    scores = {}
+    for component, config in AIHEALTH_COMPONENTS.items():
+        out = session.run("aihealth", "scan", component, "--config", config, "--format", "json", silent=True)
+        scores[component] = json.loads(str(out))["score"]
+    return scores
+
+
+@nox.session(name="code-health-components", python=CI_PYTHON, tags=["quality"])
+def code_health_components(session: nox.Session) -> None:
+    """Fail when an ai-health component score (repo, src, tests) drops vs the merge-base.
+
+    ai-health compares files (``delta``) but not component scores between two commits, so the
+    base commit is exported and scanned with the same profile. Base ref defaults to origin/main.
+    """
+    _install_aihealth(session)
+    ref = session.posargs[0] if session.posargs else "origin/main"
+    base = subprocess.run(["git", "merge-base", ref, "HEAD"], capture_output=True, text=True, check=False)
+    if base.returncode != 0:
+        session.error(f"git merge-base {ref} HEAD failed: {base.stderr.strip()}")
+    head_scores = _component_scores(session)
+    with tempfile.TemporaryDirectory(prefix="aihealth-base-") as tmp:
+        archive = subprocess.run(["git", "archive", base.stdout.strip()], capture_output=True, check=True)
+        subprocess.run(["tar", "-x", "-C", tmp], input=archive.stdout, check=True)
+        with session.chdir(tmp):
+            base_scores = _component_scores(session)
+    dropped = []
+    for component in AIHEALTH_COMPONENTS:
+        before, after = base_scores[component], head_scores[component]
+        session.log(f"component {component}: {before:.2f} -> {after:.2f}")
+        if after < before:
+            dropped.append(component)
+    if dropped:
+        session.error(f"component score dropped: {', '.join(dropped)}")
 
 
 @nox.session(python=DEFAULT_PYTHON, venv_backend="none")

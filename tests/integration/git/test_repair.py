@@ -2,249 +2,139 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
 from repoenv.adapters import state_store
-from repoenv.cli.app import app
 from repoenv.domain.models import RepoStatus
-from tests.integration.support.gitfixtures import RepoFactory
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support import gitfixtures
+from tests.integration.support.renv_helpers import (
+    Renv,
+    assert_failed_with,
+    create_batch_with_branch_conflict,
+    repos_by_name,
+)
 
 
-def _assert_partial_failure(result) -> None:
-    assert result.exit_code != 0
-    assert isinstance(result.exception, Exception)
-    assert "Failed to repair" in str(result.exception)
+def _feat_with_alpha_deleted(renv: Renv, *create_opts: str) -> Path:
+    """Create env ``feat`` with ``alpha``, then delete the worktree by hand; returns its path."""
+    renv.setup("alpha")
+    renv.ok("create", "feat", *create_opts, "--include", "alpha")
+    worktree = renv.worktrees / "feat" / "alpha"
+    shutil.rmtree(worktree)
+    return worktree
 
 
-def test_repair_restores_deleted_worktree(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_repair_restores_deleted_worktree(renv: Renv) -> None:
+    renv.setup("alpha", "beta")
+    renv.ok("create", "feat", "--branch", "feature/repair")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "feat", "--branch", "feature/repair"]).exit_code == 0
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    repair = runner.invoke(app, ["repair", "feat"])
-    assert repair.exit_code == 0, repair.output
-    assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
-    assert RepoFactory.current_branch(worktrees_dir / "feat" / "alpha") == "feature/repair"
+    alpha = renv.worktrees / "feat" / "alpha"
+    shutil.rmtree(alpha)
+    renv.ok("repair", "feat")
+    assert (alpha / ".git").exists()
+    assert gitfixtures.current_branch(alpha) == "feature/repair"
 
 
-def test_repair_partial_failure_retry(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    ok_clone = repo_factory.make_bare_and_clone("alpha")
-    fail_clone = repo_factory.make_bare_and_clone("beta")
-    _ = ok_clone
-    RepoFactory.checkout_branch_in_source(fail_clone, "feature/shared")
+def test_repair_partial_failure_retry(renv: Renv) -> None:
+    batch = renv.worktrees / "batch"
+    assert create_batch_with_branch_conflict(renv).exit_code != 0
+    assert (batch / "alpha" / ".git").exists()
+    assert not (batch / "beta" / ".git").exists()
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    create = runner.invoke(
-        app,
-        ["create", "batch", "--branch", "feature/shared", "--on-branch-conflict", "fail"],
-    )
-    assert create.exit_code != 0
-    assert (worktrees_dir / "batch" / "alpha" / ".git").exists()
-    assert not (worktrees_dir / "batch" / "beta" / ".git").exists()
-
-    repair = runner.invoke(app, ["repair", "batch", "--on-branch-conflict", "detach"])
-    assert repair.exit_code == 0, repair.output
-    assert (worktrees_dir / "batch" / "beta" / ".git").exists()
+    renv.ok("repair", "batch", "--on-branch-conflict", "detach")
+    assert (batch / "beta" / ".git").exists()
 
 
-def test_repair_orphaned_worktree_metadata(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    testenv_root: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-) -> None:
-    clone = repo_factory.make_bare_and_clone("alpha")
-    orphan_path = worktrees_dir / "feat" / "alpha"
-    RepoFactory.simulate_orphaned_worktree(clone, orphan_path, branch="feature/orphan")
+def test_repair_orphaned_worktree_metadata(renv: Renv) -> None:
+    orphan_path = renv.worktrees / "feat" / "alpha"
+    clone = renv.repos.make_bare_and_clone("alpha")
+    gitfixtures.simulate_orphaned_worktree(clone, orphan_path, branch="feature/orphan")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "feat", "--branch", "feature/orphan", "--include", "alpha"]).exit_code
-        == 0
-    )
-
+    renv.setup()
+    renv.ok("create", "feat", "--branch", "feature/orphan", "--include", "alpha")
     shutil.rmtree(orphan_path)
-    repair = runner.invoke(app, ["repair", "feat"])
-    assert repair.exit_code == 0, repair.output
+    renv.ok("repair", "feat")
     assert (orphan_path / ".git").exists()
 
 
-def test_repair_stray_directory_clear_error(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_repair_stray_directory_clear_error(renv: Renv) -> None:
+    worktree = _feat_with_alpha_deleted(renv, "--branch", "feature/x")
+    gitfixtures.leave_stray_directory(worktree)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "feat", "--branch", "feature/x", "--include", "alpha"]).exit_code == 0
-    )
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    RepoFactory.leave_stray_directory(worktrees_dir / "feat" / "alpha")
-
-    repair = runner.invoke(app, ["repair", "feat"])
-    _assert_partial_failure(repair)
+    assert_failed_with(renv.invoke("repair", "feat"), "Failed to repair")
 
 
-def test_repair_dry_run_lists_candidates(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_repair_dry_run_lists_candidates(renv: Renv) -> None:
+    worktree = _feat_with_alpha_deleted(renv)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "feat", "--include", "alpha"]).exit_code == 0
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    dry = runner.invoke(app, ["repair", "feat", "--dry-run"])
-    assert dry.exit_code == 0, dry.output
+    dry = renv.ok("repair", "feat", "--dry-run")
     assert "alpha" in dry.output
-    assert not (worktrees_dir / "feat" / "alpha").exists()
+    assert not worktree.exists()
 
 
-def test_create_reconciles_deleted_env_directory(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_create_reconciles_deleted_env_directory(renv: Renv) -> None:
+    renv.setup("alpha")
+    renv.ok("create", "ado", "--include", "alpha")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "ado", "--include", "alpha"]).exit_code == 0
-
-    shutil.rmtree(worktrees_dir / "ado")
-    recreate = runner.invoke(app, ["create", "ado", "--include", "alpha"])
-    assert recreate.exit_code == 0, recreate.output
+    shutil.rmtree(renv.worktrees / "ado")
+    recreate = renv.ok("create", "ado", "--include", "alpha")
     assert "Reconciled" in recreate.output
-    assert (worktrees_dir / "ado" / "alpha" / ".git").exists()
+    assert (renv.worktrees / "ado" / "alpha" / ".git").exists()
 
 
-def test_repair_noop_when_all_worktrees_healthy(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_repair_noop_when_all_worktrees_healthy(renv: Renv) -> None:
+    renv.setup("alpha")
+    renv.ok("create", "feat", "--include", "alpha")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "feat", "--include", "alpha"]).exit_code == 0
-
-    repair = runner.invoke(app, ["repair", "feat"])
-    assert repair.exit_code == 0, repair.output
-    assert "No worktrees need repair" in repair.output
+    assert "No worktrees need repair" in renv.ok("repair", "feat").output
 
 
-def test_repair_include_repairs_subset_only(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_repair_include_repairs_subset_only(renv: Renv) -> None:
+    renv.setup("alpha", "beta")
+    renv.ok("create", "feat", "--branch", "feature/subset")
+    feat = renv.worktrees / "feat"
+    shutil.rmtree(feat / "alpha")
+    shutil.rmtree(feat / "beta")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "feat", "--branch", "feature/subset"]).exit_code == 0
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    shutil.rmtree(worktrees_dir / "feat" / "beta")
-
-    repair = runner.invoke(app, ["repair", "feat", "--include", "alpha"])
-    assert repair.exit_code == 0, repair.output
-    assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
-    assert not (worktrees_dir / "feat" / "beta").exists()
+    renv.ok("repair", "feat", "--include", "alpha")
+    assert (feat / "alpha" / ".git").exists()
+    assert not (feat / "beta").exists()
 
 
-def test_repair_status_workflow_shows_missing_then_ok(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_repair_status_workflow_shows_missing_then_ok(renv: Renv) -> None:
+    _feat_with_alpha_deleted(renv, "--branch", "feature/status")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert (
-        runner.invoke(app, ["create", "feat", "--branch", "feature/status", "--include", "alpha"]).exit_code
-        == 0
-    )
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-
-    before = runner.invoke(app, ["status", "feat", "--json"])
-    assert before.exit_code == 0, before.output
-    payload_before = json.loads(before.stdout)
-    by_repo = {item["repo"]: item for item in payload_before["repos"]}
-    assert by_repo["alpha"]["present"] is False
+    before = renv.ok("status", "feat", "--json")
+    assert repos_by_name(before)["alpha"]["present"] is False
     assert "repair" in before.output.lower()
 
-    repair = runner.invoke(app, ["repair", "feat"])
-    assert repair.exit_code == 0, repair.output
+    renv.ok("repair", "feat")
 
-    after = runner.invoke(app, ["status", "feat", "--json"])
-    assert after.exit_code == 0, after.output
-    payload_after = json.loads(after.stdout)
-    by_repo_after = {item["repo"]: item for item in payload_after["repos"]}
-    assert by_repo_after["alpha"]["present"] is True
-    assert by_repo_after["alpha"]["status"] == RepoStatus.OK.value
+    after = renv.status("feat")["alpha"]
+    assert after["present"] is True
+    assert after["status"] == RepoStatus.OK.value
 
 
-def test_repair_resolves_environment_from_cwd(
-    repo_factory: RepoFactory,
-    repoenv_home: Path,
-    source_dir: Path,
-    worktrees_dir: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
+def test_repair_resolves_environment_from_cwd(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
+    worktree = _feat_with_alpha_deleted(renv)
+    monkeypatch.chdir(worktree.parent)
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "feat", "--include", "alpha"]).exit_code == 0
-
-    shutil.rmtree(worktrees_dir / "feat" / "alpha")
-    monkeypatch.chdir(worktrees_dir / "feat")
-
-    repair = runner.invoke(app, ["repair"])
-    assert repair.exit_code == 0, repair.output
-    assert (worktrees_dir / "feat" / "alpha" / ".git").exists()
+    renv.ok("repair")
+    assert (worktree / ".git").exists()
 
 
-def test_repair_after_partial_failure_updates_registry_status(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    ok_clone = repo_factory.make_bare_and_clone("alpha")
-    fail_clone = repo_factory.make_bare_and_clone("beta")
-    _ = ok_clone
-    RepoFactory.checkout_branch_in_source(fail_clone, "feature/shared")
+def test_repair_after_partial_failure_updates_registry_status(renv: Renv) -> None:
+    assert create_batch_with_branch_conflict(renv).exit_code != 0
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    create = runner.invoke(
-        app,
-        ["create", "batch", "--branch", "feature/shared", "--on-branch-conflict", "fail"],
-    )
-    assert create.exit_code != 0
+    renv.ok("repair", "batch", "--on-branch-conflict", "detach")
 
-    repair = runner.invoke(app, ["repair", "batch", "--on-branch-conflict", "detach"])
-    assert repair.exit_code == 0, repair.output
-
-    registry = state_store.load_registry()
-    batch = registry.get("batch")
+    batch = state_store.load_registry().get("batch")
     assert batch is not None
-    by_repo = {entry.repo: entry for entry in batch.repos}
-    assert by_repo["alpha"].status == RepoStatus.OK
-    assert by_repo["beta"].status == RepoStatus.OK
-    assert (worktrees_dir / "batch" / "beta" / ".git").exists()
+    assert {entry.repo: entry.status for entry in batch.repos} == {
+        "alpha": RepoStatus.OK,
+        "beta": RepoStatus.OK,
+    }
+    assert (renv.worktrees / "batch" / "beta" / ".git").exists()

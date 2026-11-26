@@ -48,9 +48,9 @@ def _seed_registry(home: Path, *, count: int = 12) -> None:
 @pytest.mark.performance
 def test_help_cold_start_within_budget(renv_exe: str, isolated_home: Path) -> None:
     elapsed = median_cold_start(renv_exe, ["--help"], env=subprocess_env(home=isolated_home))
-    assert (
-        elapsed < HELP_BUDGET_S
-    ), f"renv --help cold start too slow: {elapsed:.3f}s (budget {HELP_BUDGET_S}s)"
+    assert elapsed < HELP_BUDGET_S, (
+        f"renv --help cold start too slow: {elapsed:.3f}s (budget {HELP_BUDGET_S}s)"
+    )
 
 
 @pytest.mark.performance
@@ -64,9 +64,9 @@ def test_bash_completion_command_list_within_budget(renv_exe: str, isolated_home
             extra=bash_completion_env(words="renv ", cword=1),
         ),
     )
-    assert (
-        elapsed < COMPLETION_COMMAND_BUDGET_S
-    ), f"command completion cold start too slow: {elapsed:.3f}s (budget {COMPLETION_COMMAND_BUDGET_S}s)"
+    assert elapsed < COMPLETION_COMMAND_BUDGET_S, (
+        f"command completion cold start too slow: {elapsed:.3f}s (budget {COMPLETION_COMMAND_BUDGET_S}s)"
+    )
 
 
 @pytest.mark.performance
@@ -81,6 +81,6 @@ def test_bash_completion_env_names_within_budget(renv_exe: str, isolated_home: P
             extra=bash_completion_env(words="renv status ", cword=2),
         ),
     )
-    assert (
-        elapsed < COMPLETION_ENV_BUDGET_S
-    ), f"env-name completion cold start too slow: {elapsed:.3f}s (budget {COMPLETION_ENV_BUDGET_S}s)"
+    assert elapsed < COMPLETION_ENV_BUDGET_S, (
+        f"env-name completion cold start too slow: {elapsed:.3f}s (budget {COMPLETION_ENV_BUDGET_S}s)"
+    )

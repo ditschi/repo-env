@@ -34,9 +34,45 @@ def _base_monkeypatches(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _p: False)
 
 
+def _assert_linked_worktree_skipped(
+    plan: environment_service.CreatePlan | environment_service.AddPlan,
+) -> None:
+    """The main repo is planned; the linked worktree is reported as skipped instead."""
+    assert "main-repo" in plan.repos
+    assert "linked-wt" not in plan.repos
+    assert "linked-wt" in plan.skipped_worktrees
+
+
 # ---------------------------------------------------------------------------
 # Linked-worktree filtering
 # ---------------------------------------------------------------------------
+
+
+def _discover_main_repo_and_linked_worktree(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Discovery finds ``main-repo`` and ``linked-wt``; only the latter is a linked worktree."""
+    monkeypatch.setattr(
+        environment_service.git_adapter,
+        "discover_repos",
+        lambda _: ["main-repo", "linked-wt"],
+    )
+    monkeypatch.setattr(
+        environment_service.git_adapter,
+        "is_linked_worktree",
+        lambda path: path.name == "linked-wt",
+    )
+
+
+def _plan_env(source: Path, dest: Path, *, include_worktrees: bool) -> environment_service.CreatePlan:
+    """Plan an env ``env`` from ``source`` into ``dest``."""
+    return environment_service.build_create_plan(
+        environment_service.CreateRequest(
+            name="env",
+            source=source,
+            dest=dest,
+            default_branch="main",
+            include_worktrees=include_worktrees,
+        )
+    )
 
 
 def test_build_create_plan_skips_linked_worktrees_by_default(
@@ -47,33 +83,11 @@ def test_build_create_plan_skips_linked_worktrees_by_default(
     wt = source / "linked-wt"
     wt.mkdir()
     (wt / ".git").write_text("gitdir: /main/.git/worktrees/linked-wt\n")
+    _discover_main_repo_and_linked_worktree(monkeypatch)
 
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "discover_repos",
-        lambda _: ["main-repo", "linked-wt"],
-    )
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "is_linked_worktree",
-        lambda path: path.name == "linked-wt",
-    )
+    plan = _plan_env(source, tmp_path / "dest", include_worktrees=False)
 
-    plan = environment_service.build_create_plan(
-        name="env",
-        source=source,
-        dest=tmp_path / "dest",
-        include=None,
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
-        include_worktrees=False,
-    )
-
-    assert "main-repo" in plan.repos
-    assert "linked-wt" not in plan.repos
-    assert "linked-wt" in plan.skipped_worktrees
+    _assert_linked_worktree_skipped(plan)
 
 
 def test_build_create_plan_includes_linked_worktrees_when_flag_set(
@@ -81,29 +95,9 @@ def test_build_create_plan_includes_linked_worktrees_when_flag_set(
 ) -> None:
     source = tmp_path / "source"
     source.mkdir()
+    _discover_main_repo_and_linked_worktree(monkeypatch)
 
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "discover_repos",
-        lambda _: ["main-repo", "linked-wt"],
-    )
-    monkeypatch.setattr(
-        environment_service.git_adapter,
-        "is_linked_worktree",
-        lambda path: path.name == "linked-wt",
-    )
-
-    plan = environment_service.build_create_plan(
-        name="env",
-        source=source,
-        dest=tmp_path / "dest",
-        include=None,
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
-        include_worktrees=True,
-    )
+    plan = _plan_env(source, tmp_path / "dest", include_worktrees=True)
 
     assert "linked-wt" in plan.repos
     assert plan.skipped_worktrees == []
@@ -161,9 +155,7 @@ def test_build_add_plan_skips_linked_worktrees_by_default(
 
     plan = environment_service.build_add_plan(env=env, include=None, exclude=None)
 
-    assert "main-repo" in plan.repos
-    assert "linked-wt" not in plan.repos
-    assert "linked-wt" in plan.skipped_worktrees
+    _assert_linked_worktree_skipped(plan)
 
 
 # ---------------------------------------------------------------------------
@@ -171,23 +163,21 @@ def test_build_add_plan_skips_linked_worktrees_by_default(
 # ---------------------------------------------------------------------------
 
 
+def _single_repo_plan(
+    monkeypatch: pytest.MonkeyPatch, source: Path, dest: Path
+) -> environment_service.CreatePlan:
+    """Plan an env ``myenv`` from a source containing one ordinary repo."""
+    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
+    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
+    request = environment_service.CreateRequest(name="myenv", source=source, dest=dest, default_branch="main")
+    return environment_service.build_create_plan(request)
+
+
 def test_build_create_plan_stores_absolute_env_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
 
-    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
-    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
-
-    plan = environment_service.build_create_plan(
-        name="myenv",
-        source=source,
-        dest=tmp_path / "dest",
-        include=None,
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
-    )
+    plan = _single_repo_plan(monkeypatch, source, tmp_path / "dest")
 
     assert plan.env_path.is_absolute()
     assert plan.source.is_absolute()
@@ -200,20 +190,8 @@ def test_build_create_plan_resolves_relative_dest(monkeypatch: pytest.MonkeyPatc
     dest = tmp_path / "dest"
     dest.mkdir()
 
-    monkeypatch.setattr(environment_service.git_adapter, "discover_repos", lambda _: ["repo-a"])
-    monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
-
     # Use a real Path — resolve() inside build_create_plan makes it absolute.
-    plan = environment_service.build_create_plan(
-        name="myenv",
-        source=source,
-        dest=dest,
-        include=None,
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
-    )
+    plan = _single_repo_plan(monkeypatch, source, dest)
 
     assert plan.env_path.is_absolute()
     assert plan.env_path == (dest / "myenv").resolve()
@@ -224,23 +202,23 @@ def test_build_create_plan_resolves_relative_dest(monkeypatch: pytest.MonkeyPatc
 # ---------------------------------------------------------------------------
 
 
-def test_execute_create_plan_raises_when_dest_exists_with_content(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-    env_path.mkdir(parents=True)
-    (env_path / "stray-file.txt").write_text("leftover", encoding="utf-8")
-
-    plan = environment_service.CreatePlan(
+def _myenv_create_plan(tmp_path: Path, repos: list[str]) -> environment_service.CreatePlan:
+    """Plan for env ``myenv`` at ``tmp_path/envs/myenv`` from ``tmp_path/source``."""
+    return environment_service.CreatePlan(
         name="myenv",
-        env_path=env_path,
-        source=source,
+        env_path=tmp_path / "envs" / "myenv",
+        source=tmp_path / "source",
         base_branch="main",
         new_branch=None,
         alias=None,
-        repos=["repo-a"],
+        repos=repos,
     )
+
+
+def test_execute_create_plan_raises_when_dest_exists_with_content(tmp_path: Path) -> None:
+    plan = _myenv_create_plan(tmp_path, ["repo-a"])
+    plan.env_path.mkdir(parents=True)
+    (plan.env_path / "stray-file.txt").write_text("leftover", encoding="utf-8")
 
     with pytest.raises(UsageError, match="already exists and is not empty"):
         environment_service.execute_create_plan(plan)
@@ -250,20 +228,9 @@ def test_execute_create_plan_does_not_raise_when_dest_has_renv_marker(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A directory that already has a .repoenv.json is a resumed env, not a conflict."""
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-    env_path.mkdir(parents=True)
-    (env_path / ".repoenv.json").write_text("{}", encoding="utf-8")
-
-    plan = environment_service.CreatePlan(
-        name="myenv",
-        env_path=env_path,
-        source=source,
-        base_branch="main",
-        new_branch=None,
-        alias=None,
-        repos=[],  # nothing to do
-    )
+    plan = _myenv_create_plan(tmp_path, [])  # nothing to do
+    plan.env_path.mkdir(parents=True)
+    (plan.env_path / ".repoenv.json").write_text("{}", encoding="utf-8")
 
     _base_monkeypatches(monkeypatch)
     env = environment_service.execute_create_plan(plan)
@@ -275,25 +242,21 @@ def test_execute_create_plan_does_not_raise_when_dest_has_renv_marker(
 # ---------------------------------------------------------------------------
 
 
-def test_execute_create_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    source = tmp_path / "source"
-    env_path = tmp_path / "envs" / "myenv"
-
-    plan = environment_service.CreatePlan(
-        name="myenv",
-        env_path=env_path,
-        source=source,
-        base_branch="main",
-        new_branch=None,
-        alias=None,
-        repos=["alpha", "beta"],
+def _progress_recorder() -> tuple[list[tuple[str, int, int]], environment_service.ExecuteOptions]:
+    """Execute options whose progress callback records ``(repo, index, total)`` calls."""
+    calls: list[tuple[str, int, int]] = []
+    options = environment_service.ExecuteOptions(
+        on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
     )
+    return calls, options
+
+
+def test_execute_create_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    plan = _myenv_create_plan(tmp_path, ["alpha", "beta"])
 
     _base_monkeypatches(monkeypatch)
-    calls: list[tuple[str, int, int]] = []
-    environment_service.execute_create_plan(
-        plan, on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
-    )
+    calls, options = _progress_recorder()
+    environment_service.execute_create_plan(plan, options=options)
 
     assert calls == [("alpha", 1, 2), ("beta", 2, 2)]
 
@@ -307,10 +270,8 @@ def test_execute_add_plan_calls_progress_callback(monkeypatch: pytest.MonkeyPatc
     )
 
     _base_monkeypatches(monkeypatch)
-    calls: list[tuple[str, int, int]] = []
-    environment_service.execute_add_plan(
-        env, plan, on_repo_start=lambda name, cur, tot: calls.append((name, cur, tot))
-    )
+    calls, options = _progress_recorder()
+    environment_service.execute_add_plan(env, plan, options=options)
 
     assert calls == [("gamma", 1, 2), ("delta", 2, 2)]
 
@@ -337,14 +298,13 @@ def test_build_create_plan_expands_tilde_in_include(monkeypatch: pytest.MonkeyPa
     # After relativising to source (tmp_path/source): demo-*
     pattern = "~/source/demo-*"
     plan = environment_service.build_create_plan(
-        name="env",
-        source=source,
-        dest=tmp_path / "dest",
-        include=[pattern],
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
+        environment_service.CreateRequest(
+            name="env",
+            source=source,
+            dest=tmp_path / "dest",
+            include=[pattern],
+            default_branch="main",
+        )
     )
 
     assert plan.repos == ["demo-repo"]
@@ -367,14 +327,13 @@ def test_build_create_plan_double_star_include(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr(environment_service.git_adapter, "is_linked_worktree", lambda _: False)
 
     plan = environment_service.build_create_plan(
-        name="env",
-        source=source,
-        dest=tmp_path / "dest",
-        include=["**/demo-*"],
-        exclude=None,
-        branch=None,
-        alias=None,
-        default_branch="main",
+        environment_service.CreateRequest(
+            name="env",
+            source=source,
+            dest=tmp_path / "dest",
+            include=["**/demo-*"],
+            default_branch="main",
+        )
     )
 
     assert plan.repos == ["org/demo-api", "org/demo-ui"]

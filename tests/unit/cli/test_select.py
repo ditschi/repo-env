@@ -24,6 +24,28 @@ def _seed_environment(repoenv_home: Path, name: str = "demo") -> Environment:
     return env
 
 
+@pytest.fixture
+def demo_env(repoenv_home: Path) -> Environment:
+    return _seed_environment(repoenv_home)
+
+
+def _fake_interactive_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pretend stdin and stdout are a terminal (call inside the test, after capture is set up)."""
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+
+
+def _choose(monkeypatch: pytest.MonkeyPatch, env: Environment, action: str) -> None:
+    """Run interactively and answer the environment/action prompts with ``env`` and ``action``."""
+    _fake_interactive_terminal(monkeypatch)
+    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
+    monkeypatch.setattr(select_module, "_ask_action", lambda: action)
+
+
+def _answer_confirm(monkeypatch: pytest.MonkeyPatch, answer: bool) -> None:
+    monkeypatch.setattr("questionary.confirm", lambda *_a, **_k: _FakeConfirm(answer))
+
+
 class _FakeConfirm:
     def __init__(self, answer: bool) -> None:
         self._answer = answer
@@ -38,86 +60,64 @@ def test_select_requires_interactive_terminal(repoenv_home: Path) -> None:
     assert isinstance(result.exception, UsageError)
 
 
-def test_select_no_environments(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-
+@pytest.mark.usefixtures("repoenv_home")
+def test_select_no_environments(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    _fake_interactive_terminal(monkeypatch)
     select_module.select_command()
 
     assert "No environments yet" in capsys.readouterr().err
 
 
-def test_select_dispatches_to_status(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
-    env = _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
-    monkeypatch.setattr(select_module, "_ask_action", lambda: "status")
+def test_select_dispatches_to_status(demo_env: Environment, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    _choose(monkeypatch, demo_env, "status")
 
     select_module.select_command()
 
-    assert f"Environment '{env.name}'" in capsys.readouterr().err
+    assert f"Environment '{demo_env.name}'" in capsys.readouterr().err
 
 
-def test_select_dispatches_to_activate(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    env = _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
-    monkeypatch.setattr(select_module, "_ask_action", lambda: "activate")
+def test_select_dispatches_to_activate(demo_env: Environment, monkeypatch: pytest.MonkeyPatch) -> None:
+    _choose(monkeypatch, demo_env, "activate")
 
     select_module.select_command()
 
-    assert state_store.load_registry().get_active() == env.name
+    assert state_store.load_registry().get_active() == demo_env.name
 
 
-def test_select_dispatches_to_path(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
-    env = _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
-    monkeypatch.setattr(select_module, "_ask_action", lambda: "path")
+def test_select_dispatches_to_path(demo_env: Environment, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    _choose(monkeypatch, demo_env, "path")
 
     select_module.select_command()
 
-    assert capsys.readouterr().out.strip() == str(env.path)
+    assert capsys.readouterr().out.strip() == str(demo_env.path)
 
 
-def test_select_rm_confirmed_removes_environment(repoenv_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    env = _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
-    monkeypatch.setattr(select_module, "_ask_action", lambda: "rm")
-    monkeypatch.setattr("questionary.confirm", lambda *_a, **_k: _FakeConfirm(True))
+def test_select_rm_confirmed_removes_environment(
+    demo_env: Environment, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _choose(monkeypatch, demo_env, "rm")
+    _answer_confirm(monkeypatch, True)
 
     select_module.select_command()
 
-    assert state_store.load_registry().get(env.name) is None
+    assert state_store.load_registry().get(demo_env.name) is None
 
 
 def test_select_rm_declined_keeps_environment(
-    repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    demo_env: Environment, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
-    env = _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(select_module, "_ask_environment", lambda _envs: env.name)
-    monkeypatch.setattr(select_module, "_ask_action", lambda: "rm")
-    monkeypatch.setattr("questionary.confirm", lambda *_a, **_k: _FakeConfirm(False))
+    _choose(monkeypatch, demo_env, "rm")
+    _answer_confirm(monkeypatch, False)
 
     select_module.select_command()
 
-    assert state_store.load_registry().get(env.name) is not None
+    assert state_store.load_registry().get(demo_env.name) is not None
     assert "Cancelled" in capsys.readouterr().err
 
 
-def test_select_cancel_on_environment_prompt_aborts(
-    repoenv_home: Path, monkeypatch: pytest.MonkeyPatch, capsys
-) -> None:
-    _seed_environment(repoenv_home)
-    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+@pytest.mark.usefixtures("demo_env")
+def test_select_cancel_on_environment_prompt_aborts(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    _fake_interactive_terminal(monkeypatch)
     monkeypatch.setattr(
         select_module, "_ask_environment", lambda _envs: (_ for _ in ()).throw(KeyboardInterrupt())
     )

@@ -10,7 +10,6 @@ from repoenv.domain.models import Environment, RepoEntry, RepoStatus
 from repoenv.domain.selection import resolve_selection
 from repoenv.errors import GitError, NothingMatchedError
 from repoenv.services import environment_service
-from repoenv.services.environment_service import BranchConflictStrategy
 
 
 @dataclass
@@ -152,12 +151,15 @@ def list_repair_candidates(
 def repair_environment(
     env: Environment,
     *,
-    preserve: bool = False,
-    on_branch_conflict: BranchConflictStrategy = BranchConflictStrategy.DETACH,
+    options: environment_service.ExecuteOptions | None = None,
     include: list[str] | None = None,
     exclude: list[str] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """Recreate missing or failed worktrees from registry metadata."""
+    """Recreate missing or failed worktrees from registry metadata.
+
+    Only ``options.preserve`` and ``options.on_branch_conflict`` are used.
+    """
+    options = options or environment_service.ExecuteOptions()
     candidates = set(list_repair_candidates(env, include=include, exclude=exclude))
     repaired: list[str] = []
     failed: list[str] = []
@@ -171,21 +173,22 @@ def repair_environment(
         repo_path = env.source / entry.repo
         try:
             environment_service._ensure_worktree_path_is_clean(entry.worktree_path)
-            note = environment_service._create_or_attach_worktree(
+            request = environment_service.WorktreeRequest(
                 repo_path=repo_path,
                 worktree_path=entry.worktree_path,
                 remote=entry.remote,
                 base=entry.base,
                 target_branch=entry.branch,
                 create_branch=entry.branch_created,
-                preserve=preserve,
-                on_branch_conflict=on_branch_conflict,
+                preserve=options.preserve,
+                on_branch_conflict=options.on_branch_conflict,
                 move_context=f"{env.name}/{entry.repo}/{entry.branch}",
             )
+            note = environment_service._create_or_attach_worktree(request)
             entry.status = RepoStatus.OK
             entry.note = note
             entry.source_sha = environment_service._resolve_source_sha(
-                repo_path, remote=entry.remote, base=entry.base, preserve=preserve
+                repo_path, remote=entry.remote, base=entry.base, preserve=options.preserve
             )
             repaired.append(entry.repo)
         except Exception as exc:  # noqa: BLE001 - per-repo robustness

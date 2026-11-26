@@ -16,7 +16,7 @@ Tooling is managed with **uv** (package manager) and **nox** (task runner). See
   `source .venv/bin/activate`, or via `uv run <tool>`.
 
 ### Common commands
-- Lint: `nox -s lint` (ruff + black --check + isort --check + flake8)
+- Lint: `nox -s lint` (ruff check + ruff format --check)
 - Types: `nox -s check_types` (mypy)
 - Unit tests: `nox -s tests` (parametrized 3.10–3.14) or `.venv/bin/pytest tests/unit/`
 - Integration tests: `.venv/bin/pytest -m integration tests/integration/`
@@ -39,3 +39,28 @@ Tooling is managed with **uv** (package manager) and **nox** (task runner). See
 
 A [devcontainer](.devcontainer/) also exists (VS Code / GitHub Codespaces) with the same
 tooling plus `asciinema`/`agg` for regenerating `docs/assets/casts/*.gif`.
+
+## Code Health (required before every commit)
+
+Code health is measured by **ai-health** (pinned in the `code-health` dependency group, profile
+"strict" in `.aihealth.toml` for production code and `tests/.aihealth.toml` for tests, where
+Primitive Obsession is off; docs `docs/contributor-guide/code-health.md`). Goal: 10, i.e. no
+findings; 9.5 is only the minimum.
+
+- Run `nox -s code-health -- delta --format json` and `nox -s code-health-tests -- delta tests --format json`
+  **before every commit** (the pre-commit hooks run `aihealth delta --staged` per config). No file may get worse, and new files must have no findings. CI also
+  checks against the merge-base and compares the component scores (repo, `src`, `tests`).
+- **Fix findings instead of suppressing them.** Extract shared helpers instead of duplicating code
+  (also in tests), use parameter objects or dataclasses, flatten nesting with guard clauses, and use
+  `@pytest.mark.usefixtures` for fixtures that are only needed for their side effects.
+- Suppressions are file-wide only and need a reason after ` -- `, for example
+  `# aihealth: disable=primitive_obsession -- typer CLI boundary`. Use them only where an interface
+  imposes the signature.
+- Refactorings must keep behaviour unchanged, and the tests must stay green.
+- Do not change `.aihealth.toml` or `tests/.aihealth.toml` to make the gate pass; keep their shared
+  profile values in sync.
+- **Never remove or weaken type hints** (and never add purely cosmetic type aliases) to dodge
+  Primitive Obsession or any other smell. Fix it with parameter objects/dataclasses where that
+  improves the code; otherwise leave the finding, or add a file-wide suppression with a real reason.
+- A formatter change alters physical line counts and therefore scores: format in its own commit
+  first, then refactor affected files in the same PR until no file and no component is below `main`.

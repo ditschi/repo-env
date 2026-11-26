@@ -34,26 +34,14 @@ def test_create_prs_renders_template(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     captured: dict[str, str] = {}
 
-    def fake_create(worktree, *, title, body, base, head, draft, reviewers, labels, assignees, repository):
-        captured["title"] = title
+    def fake_create(worktree, pull_request, *, repository):
+        captured["title"] = pull_request.title
         assert repository == "github.com/o/r"
         return "https://example/pr/1"
 
     monkeypatch.setattr("repoenv.adapters.gh_adapter.create_pr", fake_create)
 
-    outcome = pr_service.create_prs(
-        env,
-        title="Fix {repo} on {env}",
-        body="body",
-        base=None,
-        draft=False,
-        reviewers=[],
-        labels=[],
-        assignees=[],
-        push=False,
-        skip_no_diff=False,
-        if_exists="skip",
-    )
+    outcome = pr_service.create_prs(env, pr_service.PrBatch(title="Fix {repo} on {env}", body="body"))
     assert captured["title"] == "Fix r0 on e"
     assert len(outcome.created) == 1
 
@@ -63,19 +51,7 @@ def test_create_prs_skips_existing(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("repoenv.adapters.git_adapter.current_branch", lambda wt: "feature")
     monkeypatch.setattr("repoenv.adapters.gh_adapter.existing_pr_url", lambda wt, **kwargs: "https://x/1")
 
-    outcome = pr_service.create_prs(
-        env,
-        title="t",
-        body="b",
-        base=None,
-        draft=False,
-        reviewers=[],
-        labels=[],
-        assignees=[],
-        push=False,
-        skip_no_diff=False,
-        if_exists="skip",
-    )
+    outcome = pr_service.create_prs(env, pr_service.PrBatch(title="t", body="b"))
     assert outcome.created == []
     assert outcome.skipped[0].reason == "exists"
 
@@ -85,19 +61,7 @@ def test_create_prs_skip_no_diff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("repoenv.adapters.git_adapter.current_branch", lambda wt: "feature")
     monkeypatch.setattr("repoenv.adapters.git_adapter.has_diff", lambda wt, base_ref: False)
 
-    outcome = pr_service.create_prs(
-        env,
-        title="t",
-        body="b",
-        base=None,
-        draft=False,
-        reviewers=[],
-        labels=[],
-        assignees=[],
-        push=False,
-        skip_no_diff=True,
-        if_exists="skip",
-    )
+    outcome = pr_service.create_prs(env, pr_service.PrBatch(title="t", body="b", skip_no_diff=True))
     assert outcome.created == []
     assert outcome.skipped[0].reason == "no diff"
 
@@ -117,17 +81,5 @@ def test_skip_no_diff_uses_base_override(tmp_path: Path, monkeypatch: pytest.Mon
         return False
 
     monkeypatch.setattr("repoenv.adapters.git_adapter.has_diff", has_diff)
-    pr_service.create_prs(
-        _env(tmp_path),
-        title="t",
-        body="",
-        base="release",
-        draft=False,
-        reviewers=[],
-        labels=[],
-        assignees=[],
-        push=False,
-        skip_no_diff=True,
-        if_exists="skip",
-    )
+    pr_service.create_prs(_env(tmp_path), pr_service.PrBatch(title="t", base="release", skip_no_diff=True))
     assert seen == ["origin/release"]

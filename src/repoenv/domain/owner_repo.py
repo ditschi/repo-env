@@ -51,7 +51,7 @@ def validate_owner_repo_pattern(pattern: str) -> tuple[str, str]:
         )
 
     owner_glob, _, repo_glob = pattern.rpartition("/")
-    if not owner_glob or not repo_glob or "" in owner_glob.split("/"):
+    if "" in (repo_glob, *owner_glob.split("/")):  # empty repo, empty owner or empty owner segment
         raise UsageError(
             f"Invalid owner/repo pattern '{pattern}'.",
             hint="Both the owner and repo side of the pattern must be non-empty.",

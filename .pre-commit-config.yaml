@@ -72,29 +72,33 @@ repos:
   # on host-installed executables or a shared .venv.
   - repo: local
     hooks:
-      - id: isort
-        name: isort
-        entry: uv run --isolated --extra lint isort
-        language: system
-        types: [python]
-        args: [--profile, black, --line-length, "110"]
-      - id: black
-        name: black
-        entry: uv run --isolated --extra lint black
-        language: system
-        types: [python]
-        args: [--line-length, "110"]
       - id: ruff
         name: ruff
         entry: uv run --isolated --extra lint ruff
         language: system
         types: [python]
         args: [check, --fix]
-      - id: flake8
-        name: flake8
-        entry: uv run --isolated --extra lint flake8
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --isolated --extra lint ruff
         language: system
         types: [python]
+        args: [format]
+      - id: code-health
+        name: code-health (ai-health delta of staged changes)
+        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --config .aihealth.toml --staged
+        language: system
+        pass_filenames: false
+      - id: code-health-tests
+        name: code-health tests (ai-health delta of staged test changes, Primitive Obsession off)
+        entry: uv run --isolated --frozen --only-group code-health --python 3.12 aihealth delta --config tests/.aihealth.toml --staged tests
+        language: system
+        pass_filenames: false
+      - id: aihealth-suppression-reason
+        name: "ai-health suppressions need a reason (# aihealth: disable=<smell> -- <why>)"
+        language: pygrep
+        entry: 'aihealth:[ \t]*disable=(?![\w, \t]+-- .{10})'
+        types_or: [python, shell, makefile]
       - id: mypy
         name: mypy
         entry: uv run --isolated --extra type-check mypy

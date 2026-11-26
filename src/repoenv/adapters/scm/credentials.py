@@ -57,12 +57,9 @@ def env_vars_for(kind: ProviderKind, host: str) -> tuple[str, ...]:
 
 def resolve(kind: ProviderKind, host: str) -> Credential | None:
     """Return the first credential found for ``host``, or ``None`` for anonymous access."""
-    for name in env_vars_for(kind, host):
-        value = os.environ.get(name, "").strip()
-        if value:
-            username_var = _USERNAME_ENV_VARS.get(kind)
-            username = os.environ.get(username_var, "").strip() if username_var else ""
-            return Credential(value, username or None)
+    credential = _from_env(kind, host)
+    if credential is not None:
+        return credential
     if not _VALID_HOST.match(host):
         return None
     if kind is ProviderKind.GITHUB:
@@ -70,6 +67,20 @@ def resolve(kind: ProviderKind, host: str) -> Credential | None:
         if credential is not None:
             return credential
     return _from_git_credential(host)
+
+
+def _from_env(kind: ProviderKind, host: str) -> Credential | None:
+    for name in env_vars_for(kind, host):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return Credential(value, _env_username(kind))
+    return None
+
+
+def _env_username(kind: ProviderKind) -> str | None:
+    username_var = _USERNAME_ENV_VARS.get(kind)
+    username = os.environ.get(username_var, "").strip() if username_var else ""
+    return username or None
 
 
 def _from_gh_cli(host: str) -> Credential | None:

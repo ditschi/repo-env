@@ -8,34 +8,18 @@ git operations behave correctly against real worktrees.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from repoenv.adapters import git_adapter
-from repoenv.cli.app import app
-from tests.integration.support.gitfixtures import RepoFactory, run_git
-from tests.integration.support.renv_helpers import init_renv
+from tests.integration.support.gitfixtures import run_git, worktree_listing
+from tests.integration.support.renv_helpers import Renv
 
 
-def test_sync_fetches_remote_without_touching_worktree(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    alpha = repo_factory.make_bare_and_clone("alpha")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--branch", "feature/x", "--include", "alpha"]).exit_code == 0
-
-    wt = worktrees_dir / "web" / "alpha"
-    (wt / "local-change.txt").write_text("uncommitted\n", encoding="utf-8")
-
-    # A colleague pushes new work to the shared remote after we cloned.
-    other_clone = source_dir.parent / "other-clone"
-    run_git(
-        ["clone", "-q", str(alpha.parent.parent / "remotes" / "alpha.git"), str(other_clone)],
-        cwd=source_dir.parent,
-    )
+def _push_colleague_commit(renv: Renv) -> None:
+    """A colleague pushes new work to alpha's shared remote after we cloned."""
+    other_clone = renv.repos.root / "other-clone"
+    run_git(["clone", "-q", str(renv.repos.remotes / "alpha.git"), str(other_clone)], cwd=renv.repos.root)
     run_git(["config", "user.email", "other@example.com"], cwd=other_clone)
     run_git(["config", "user.name", "Other"], cwd=other_clone)
     (other_clone / "new-file.txt").write_text("from colleague\n", encoding="utf-8")
@@ -43,89 +27,66 @@ def test_sync_fetches_remote_without_touching_worktree(
     run_git(["commit", "-q", "-m", "colleague change"], cwd=other_clone)
     run_git(["push", "-q", "origin", "HEAD:main"], cwd=other_clone)
 
-    before = run_git(["rev-parse", "origin/main"], cwd=alpha).stdout.strip()
-    result = runner.invoke(app, ["sync", "web"])
-    assert result.exit_code == 0, result.output
-    after = run_git(["rev-parse", "origin/main"], cwd=alpha).stdout.strip()
+
+def _rev_parse(repo: Path, *args: str) -> str:
+    return run_git(["rev-parse", *args], cwd=repo).stdout.strip()
+
+
+def test_sync_fetches_remote_without_touching_worktree(renv: Renv) -> None:
+    (alpha,) = renv.setup("alpha")
+    renv.ok("create", "web", "--branch", "feature/x", "--include", "alpha")
+
+    wt = renv.worktrees / "web" / "alpha"
+    (wt / "local-change.txt").write_text("uncommitted\n", encoding="utf-8")
+    _push_colleague_commit(renv)
+
+    before = _rev_parse(alpha, "origin/main")
+    renv.ok("sync", "web")
+    after = _rev_parse(alpha, "origin/main")
 
     assert before != after, "origin/main should have advanced after sync"
     # sync only fetches; it must not touch the worktree's own branch or files.
     assert (wt / "local-change.txt").exists()
-    assert run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=wt).stdout.strip() == "feature/x"
+    assert _rev_parse(wt, "--abbrev-ref", "HEAD") == "feature/x"
 
 
-def test_prune_clears_stale_worktree_metadata_after_manual_deletion(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--include", "alpha"]).exit_code == 0
-
-    wt = worktrees_dir / "web" / "alpha"
-    source_repo = source_dir / "alpha"
-
-    listing_before = run_git(["worktree", "list", "--porcelain"], cwd=source_repo).stdout
-    assert str(wt) in listing_before
+def test_prune_clears_stale_worktree_metadata_after_manual_deletion(renv: Renv, web_env: Path) -> None:
+    wt = web_env / "alpha"
+    source_repo = renv.source / "alpha"
+    assert str(wt) in worktree_listing(source_repo)
 
     # Bypass renv entirely: delete the worktree directory by hand.
-    import shutil
-
     shutil.rmtree(wt)
 
-    result = runner.invoke(app, ["prune", "web"])
-    assert result.exit_code == 0, result.output
-
-    listing_after = run_git(["worktree", "list", "--porcelain"], cwd=source_repo).stdout
-    assert str(wt) not in listing_after
+    renv.ok("prune", "web")
+    assert str(wt) not in worktree_listing(source_repo)
 
     # With the stale metadata cleared, recreating no longer hits a conflict.
-    recreate = runner.invoke(app, ["repair", "web"])
-    assert recreate.exit_code == 0, recreate.output
+    renv.ok("repair", "web")
     assert wt.exists()
 
 
-def test_rm_refuses_real_dirty_worktree_then_force_removes_it(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    assert runner.invoke(app, ["create", "web", "--include", "alpha"]).exit_code == 0
-
-    wt = worktrees_dir / "web" / "alpha"
+def test_rm_refuses_real_dirty_worktree_then_force_removes_it(renv: Renv, web_env: Path) -> None:
+    wt = web_env / "alpha"
     (wt / "README.md").write_text("uncommitted edit\n", encoding="utf-8")
 
-    refused = runner.invoke(app, ["rm", "web"])
-    assert refused.exit_code != 0
+    assert renv.invoke("rm", "web").exit_code != 0
     assert wt.exists()
 
-    forced = runner.invoke(app, ["rm", "web", "--force"])
-    assert forced.exit_code == 0, forced.output
+    renv.ok("rm", "web", "--force")
     assert not wt.exists()
 
 
-def test_rm_partial_with_delete_branches_real(
-    repo_factory: RepoFactory, repoenv_home: Path, source_dir: Path, worktrees_dir: Path
-) -> None:
-    repo_factory.make_bare_and_clone("alpha")
-    repo_factory.make_bare_and_clone("beta")
+def test_rm_partial_with_delete_branches_real(renv: Renv) -> None:
+    alpha, beta = renv.setup("alpha", "beta")
+    renv.ok("create", "web", "-b", "task/x", "--include", "alpha", "--include", "beta")
 
-    runner = CliRunner()
-    init_renv(runner, source=source_dir, worktrees=worktrees_dir)
-    created = runner.invoke(app, ["create", "web", "-b", "task/x", "--include", "alpha", "--include", "beta"])
-    assert created.exit_code == 0, created.output
-
-    removed = runner.invoke(app, ["rm", "web", "-i", "beta", "--delete-branches"])
-    assert removed.exit_code == 0, removed.output
-    assert not (worktrees_dir / "web" / "beta").exists()
-    assert (worktrees_dir / "web" / "alpha").exists()
-    assert not git_adapter.branch_exists(source_dir / "beta", "task/x")
-    assert git_adapter.branch_exists(source_dir / "alpha", "task/x")
+    renv.ok("rm", "web", "-i", "beta", "--delete-branches")
+    assert not (renv.worktrees / "web" / "beta").exists()
+    assert (renv.worktrees / "web" / "alpha").exists()
+    assert not git_adapter.branch_exists(beta, "task/x")
+    assert git_adapter.branch_exists(alpha, "task/x")
 
     # Whole-env removal with --delete-branches cleans the rest.
-    full = runner.invoke(app, ["rm", "web", "--delete-branches"])
-    assert full.exit_code == 0, full.output
-    assert not git_adapter.branch_exists(source_dir / "alpha", "task/x")
+    renv.ok("rm", "web", "--delete-branches")
+    assert not git_adapter.branch_exists(alpha, "task/x")

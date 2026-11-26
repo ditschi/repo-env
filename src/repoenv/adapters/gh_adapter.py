@@ -9,7 +9,7 @@ Repository discovery for ``renv clone`` lives in ``adapters.scm`` instead.
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from repoenv.errors import GitError
@@ -62,33 +62,40 @@ def existing_pr_url(worktree: Path, *, head: str, repository: str | None = None)
     return url or None
 
 
-def create_pr(
-    worktree: Path,
-    *,
-    title: str,
-    body: str,
-    base: str | None,
-    head: str,
-    draft: bool,
-    reviewers: list[str],
-    labels: list[str],
-    assignees: list[str],
-    repository: str | None = None,
-) -> str:
+@dataclass(frozen=True)
+class GhPullRequest:
+    """Arguments for ``gh pr create``."""
+
+    title: str
+    body: str
+    head: str
+    base: str | None = None
+    draft: bool = False
+    reviewers: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    assignees: list[str] = field(default_factory=list)
+
+    def argv(self) -> list[str]:
+        argv = ["pr", "create", "--title", self.title, "--body", self.body, "--head", self.head]
+        if self.base:
+            argv += ["--base", self.base]
+        if self.draft:
+            argv.append("--draft")
+        for flag, values in (
+            ("--reviewer", self.reviewers),
+            ("--label", self.labels),
+            ("--assignee", self.assignees),
+        ):
+            for value in values:
+                argv += [flag, value]
+        return argv
+
+
+def create_pr(worktree: Path, pull_request: GhPullRequest, *, repository: str | None = None) -> str:
     """Create a pull request and return its URL. Raises ``GitError`` on failure."""
-    argv = ["pr", "create", "--title", title, "--body", body, "--head", head]
+    argv = pull_request.argv()
     if repository:
         argv += ["--repo", repository]
-    if base:
-        argv += ["--base", base]
-    if draft:
-        argv.append("--draft")
-    for reviewer in reviewers:
-        argv += ["--reviewer", reviewer]
-    for label in labels:
-        argv += ["--label", label]
-    for assignee in assignees:
-        argv += ["--assignee", assignee]
 
     result = _run(argv, cwd=worktree)
     if result.returncode != 0:
