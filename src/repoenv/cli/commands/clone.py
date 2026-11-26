@@ -1,5 +1,5 @@
 """``renv clone`` — clone repositories into the source tree (for later ``renv create``)."""
-# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: every CLI option is a command parameter  # noqa: E501
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 

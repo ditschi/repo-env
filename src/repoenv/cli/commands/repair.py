@@ -1,5 +1,5 @@
 """``renv repair`` — recreate missing or failed worktrees from registry metadata."""
-# aihealth: disable=excess_arguments -- typer CLI boundary: every CLI option is a command parameter
+# aihealth: disable=excess_arguments -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 

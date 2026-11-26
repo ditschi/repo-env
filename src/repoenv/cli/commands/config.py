@@ -1,5 +1,5 @@
 """``renv config`` — inspect and edit configuration/state."""
-# aihealth: disable=primitive_obsession -- typer CLI boundary: every CLI option is a command parameter
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 

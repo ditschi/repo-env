@@ -1,5 +1,5 @@
 """``renv rm`` — remove an environment (delete files by default)."""
-# aihealth: disable=excess_arguments -- typer CLI boundary: every CLI option is a command parameter
+# aihealth: disable=excess_arguments -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 
