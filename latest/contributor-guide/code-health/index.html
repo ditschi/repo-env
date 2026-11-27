@@ -1352,12 +1352,12 @@ reason of at least 10 characters.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>cli/commands/{add,clone,create,init,merge,pr,run}.py</code></td>
+<td><code>cli/commands/{add,clone,create,merge,pr,run}.py</code></td>
 <td>primitive_obsession, excess_arguments</td>
 <td>typer: every CLI option is a command parameter</td>
 </tr>
 <tr>
-<td><code>cli/commands/{repair,rm}.py</code></td>
+<td><code>cli/commands/{init,repair,rm}.py</code></td>
 <td>excess_arguments</td>
 <td>same</td>
 </tr>
@@ -1399,6 +1399,12 @@ reason of at least 10 characters.</p>
 </tbody>
 </table>
 <p>All other smells (complex methods, conditionals, duplication, nesting) were fixed, not suppressed.</p>
+<p><strong>Trade-off of the six module-wide Primitive Obsession suppressions</strong> (<code>git_adapter</code>, <code>pull_requests</code>,
+<code>detect</code>, <code>state_store</code>, <code>repo_url</code>, <code>selection</code>): no interface imposes these signatures; the modules
+work on strings (refs, raw JSON, hostnames, env names, URLs, globs) by nature, and wrapping them in
+value objects would be churn without clearer code. The cost is that a file-wide suppression also hides
+future primitive-heavy helpers in these files. Review new helpers there with that in mind;
+<code>pull_requests</code> (owner/repo/branch) is the most likely candidate for a small value object later.</p>
 <h3 id="one-source-per-smell">One source per smell<a class="headerlink" href="#one-source-per-smell" title="Permanent link">&para;</a></h3>
 <p>Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
 pylint has its design checks (too-many-*, too-many-lines) disabled and no <code>fail-under</code> score gate.
