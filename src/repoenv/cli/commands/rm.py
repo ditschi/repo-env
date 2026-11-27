@@ -78,7 +78,7 @@ def rm_command(
 
         scope = _describe_scope(environment, target, request)
         console.print_info(
-            f"Remove {scope} (delete_files={request.delete_files}, delete_branches={delete_branches})"
+            f"Remove {scope} (delete_files={request.delete_files}, delete_branches={request.delete_branches})"
         )
         if dry_run:
             console.print_info("Dry run: no changes made.")

@@ -82,8 +82,8 @@ Current suppressions (16, all in `src/`, none in tests):
 
 | Where | Smells | Reason |
 |---|---|---|
-| `cli/commands/{add,clone,create,init,merge,pr,run}.py` | primitive_obsession, excess_arguments | typer: every CLI option is a command parameter |
-| `cli/commands/{repair,rm}.py` | excess_arguments | same |
+| `cli/commands/{add,clone,create,merge,pr,run}.py` | primitive_obsession, excess_arguments | typer: every CLI option is a command parameter |
+| `cli/commands/{init,repair,rm}.py` | excess_arguments | same |
 | `cli/commands/config.py` | primitive_obsession | same (str/bool options, string parsers) |
 | `adapters/git_adapter.py` | primitive_obsession | thin git CLI wrapper: refs, branches, remotes, URLs are strings |
 | `adapters/scm/pull_requests.py` | primitive_obsession | REST boundary: raw provider JSON, query dicts, branch names |
@@ -93,6 +93,13 @@ Current suppressions (16, all in `src/`, none in tests):
 | `domain/selection.py` | primitive_obsession | glob matching/set operations on repo-name strings |
 
 All other smells (complex methods, conditionals, duplication, nesting) were fixed, not suppressed.
+
+**Trade-off of the six module-wide Primitive Obsession suppressions** (`git_adapter`, `pull_requests`,
+`detect`, `state_store`, `repo_url`, `selection`): no interface imposes these signatures; the modules
+work on strings (refs, raw JSON, hostnames, env names, URLs, globs) by nature, and wrapping them in
+value objects would be churn without clearer code. The cost is that a file-wide suppression also hides
+future primitive-heavy helpers in these files. Review new helpers there with that in mind;
+`pull_requests` (owner/repo/branch) is the most likely candidate for a small value object later.
 
 ### One source per smell
 
