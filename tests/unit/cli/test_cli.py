@@ -72,6 +72,7 @@ def test_ls_reconcile_removes_stale_entries(repoenv_home: Path) -> None:
 
 
 def test_path_prints_stdout_only(repoenv_home: Path) -> None:
+    """Contract: `cd "$(renv path demo)"` relies on stdout holding only the path."""
     registry = state_store.Registry()
     env = Environment(name="demo", path=Path("/tmp/demo"), source=Path("/tmp/src"))
     registry.add(env)

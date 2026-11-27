@@ -13,6 +13,28 @@ from repoenv.errors import NothingMatchedError, UsageError
 from repoenv.ui import console
 
 
+def _repo_entry(worktree: Path) -> RepoEntry:
+    """Describe the checked-out *worktree* as an adopted (not renv-created) repo entry."""
+    sha = git_adapter.rev_parse(worktree, "HEAD")
+    branch = git_adapter.current_branch(worktree)
+    return RepoEntry(
+        repo=worktree.name,
+        worktree_path=worktree,
+        remote="origin",
+        base=branch or sha,
+        branch=branch or f"detached@{sha[:12]}",
+        branch_created=False,
+        source_sha=sha,
+        status=RepoStatus.OK,
+    )
+
+
+def _scan_worktrees(directory: Path) -> list[RepoEntry]:
+    """Return an entry for every git repository directly below *directory*, sorted by path."""
+    children = sorted(p for p in directory.iterdir() if p.is_dir())
+    return [_repo_entry(child) for child in children if git_adapter.is_git_repo(child)]
+
+
 def import_command(
     directory: Path = typer.Argument(..., help="Existing environment directory to adopt."),
     name: Optional[str] = typer.Option(None, "--name", help="Name to register (defaults to dir name)."),
@@ -31,25 +53,7 @@ def import_command(
                 f"Environment '{env_name}' already exists.", hint="Pass --name to choose another."
             )
 
-        entries: list[RepoEntry] = []
-        for child in sorted(p for p in directory.iterdir() if p.is_dir()):
-            if not git_adapter.is_git_repo(child):
-                continue
-            sha = git_adapter.rev_parse(child, "HEAD")
-            branch = git_adapter.current_branch(child)
-            entries.append(
-                RepoEntry(
-                    repo=child.name,
-                    worktree_path=child,
-                    remote="origin",
-                    base=branch or sha,
-                    branch=branch or f"detached@{sha[:12]}",
-                    branch_created=False,
-                    source_sha=sha,
-                    status=RepoStatus.OK,
-                )
-            )
-
+        entries = _scan_worktrees(directory)
         if not entries:
             raise NothingMatchedError(
                 f"No git worktrees found under {directory}.",

@@ -131,6 +131,11 @@ class _Selection:
     role: Role
     role_explicit: bool
 
+    @property
+    def may_fall_back(self) -> bool:
+        """True when an empty membership result may be retried with ``--role any``."""
+        return not self.role_explicit and self.role is not Role.ANY
+
 
 def _filter_memberships(memberships: list[OrgMembership], role: Role) -> list[OrgMembership]:
     if role is Role.OWNER:
@@ -153,7 +158,7 @@ def _resolve_candidate_owners(
     memberships = ctx.provider().list_memberships()
     selected = _filter_memberships(memberships, role)
     fell_back = False
-    if not selected and not selection.role_explicit and role is not Role.ANY:
+    if not selected and selection.may_fall_back:
         selected = _filter_memberships(memberships, Role.ANY)
         fell_back = True
     if not selected:
@@ -234,6 +239,18 @@ def _split_by_root(patterns: list[_Pattern], found: _Discovery) -> list[_Pattern
     return wildcard_root
 
 
+def _matches_root(login: str, patterns: list[_Pattern]) -> bool:
+    """True when ``login`` matches the top-level owner glob of any of ``patterns``."""
+    return any(fnmatch(login, root_owner(owner_glob)) for owner_glob, _ in patterns)
+
+
+def _add_member_root(found: _Discovery, login: str, wildcard_root: list[_Pattern]) -> None:
+    """Add the wildcard-owner patterns whose top-level owner glob matches ``login`` to ``found.roots``."""
+    for owner_glob, repo_glob in wildcard_root:
+        if fnmatch(login, root_owner(owner_glob)):
+            found.roots.setdefault(login, []).append((owner_glob, repo_glob))
+
+
 def _discovery_roots(ctx: _HostContext, patterns: list[_Pattern], selection: _Selection) -> _Discovery:
     """Group wildcard patterns by the top-level owner whose repos must be listed."""
     found = _Discovery()
@@ -249,13 +266,11 @@ def _discovery_roots(ctx: _HostContext, patterns: list[_Pattern], selection: _Se
         )
     selected_logins = {m.login for m in selected}
     for login in sorted(selected_logins):
-        for owner_glob, repo_glob in wildcard_root:
-            if fnmatch(login, root_owner(owner_glob)):
-                found.roots.setdefault(login, []).append((owner_glob, repo_glob))
+        _add_member_root(found, login, wildcard_root)
     found.skipped_owners = sorted(
         m.login
         for m in memberships
-        if m.login not in selected_logins and any(fnmatch(m.login, root_owner(o)) for o, _ in wildcard_root)
+        if m.login not in selected_logins and _matches_root(m.login, wildcard_root)
     )
     return found
 

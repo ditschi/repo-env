@@ -125,9 +125,9 @@ def test_auth_headers(credential: Credential | None, scheme: str, expected: dict
 
 
 def _fake_get(responses: dict[str, rest.HttpResponse]):
-    def _get(url: str, *, headers=None, timeout=15.0) -> rest.HttpResponse:
+    def _get(request: rest.HttpRequest) -> rest.HttpResponse:
         for suffix, response in responses.items():
-            if url.endswith(suffix):
+            if request.url.endswith(suffix):
                 return response
         return rest.HttpResponse(404, {}, b"")
 
@@ -161,7 +161,7 @@ def test_probe_identifies_server(
     monkeypatch: pytest.MonkeyPatch, responses: dict[str, rest.HttpResponse], expected: ProviderKind | None
 ) -> None:
     detect.probe.cache_clear()
-    monkeypatch.setattr(rest, "get", _fake_get(responses))
+    monkeypatch.setattr(rest, "send", _fake_get(responses))
 
     assert detect.probe("scm.corp.example") == expected
 
@@ -169,10 +169,10 @@ def test_probe_identifies_server(
 def test_probe_treats_unreachable_host_as_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
     detect.probe.cache_clear()
 
-    def _unreachable(url, **kwargs):
+    def _unreachable(request):
         raise detect.GitError("Could not reach")
 
-    monkeypatch.setattr(rest, "get", _unreachable)
+    monkeypatch.setattr(rest, "send", _unreachable)
 
     assert detect.probe("offline.corp.example") is None
 

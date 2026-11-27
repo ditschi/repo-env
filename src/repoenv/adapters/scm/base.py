@@ -95,16 +95,15 @@ class ScmProvider(ABC):
         """Wrap a client-library failure without leaking request details such as tokens."""
         return GitError(f"{self.label} API error on {self.host} while {action}: {exc}", hint=self.auth_hint())
 
-
-def missing_extra(extra: str, label: str) -> UsageError:
-    """Error for a provider whose optional client library isn't installed."""
-    return UsageError(
-        f"{label} support is not installed.",
-        hint=(
-            f"Install the extra: uv tool install --reinstall 'repo-env[{extra}]' "
-            f"(or pip install 'repo-env[{extra}]')."
-        ),
-    )
+    def missing_extra(self, extra: str) -> UsageError:
+        """Error for a provider whose optional client library (``repo-env[<extra>]``) isn't installed."""
+        return UsageError(
+            f"{self.label} support is not installed.",
+            hint=(
+                f"Install the extra: uv tool install --reinstall 'repo-env[{extra}]' "
+                f"(or pip install 'repo-env[{extra}]')."
+            ),
+        )
 
 
 def strip_userinfo(url: str) -> str:

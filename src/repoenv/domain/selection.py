@@ -6,9 +6,12 @@ across path separators (like ``**`` in shell extended-glob and Python 3.12+
 :meth:`pathlib.PurePath.full_match`).
 """
 
+# aihealth: disable=primitive_obsession -- glob matching/set ops work on plain repo-name strings
+
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from enum import Enum
 from fnmatch import fnmatch
 
@@ -108,20 +111,34 @@ def resolve_selection(
     return result
 
 
+def _union(left: list[str], right: list[str]) -> list[str]:
+    left_set = set(left)
+    return [*left, *(name for name in right if name not in left_set)]
+
+
+def _intersect(left: list[str], right: list[str]) -> list[str]:
+    right_set = set(right)
+    return [name for name in left if name in right_set]
+
+
+def _difference(left: list[str], right: list[str]) -> list[str]:
+    right_set = set(right)
+    return [name for name in left if name not in right_set]
+
+
+_SET_OPERATIONS: dict[SetOp, Callable[[list[str], list[str]], list[str]]] = {
+    SetOp.UNION: _union,
+    SetOp.INTERSECT: _intersect,
+    SetOp.DIFFERENCE: _difference,
+}
+
+
 def set_combine(left: list[str], right: list[str], op: SetOp) -> list[str]:
     """Combine two ordered name lists with a set operation, preserving order.
 
     Order follows ``left`` first, then any new names from ``right`` (for union).
     """
-    right_set = set(right)
-    left_set = set(left)
-
-    if op is SetOp.UNION:
-        ordered = list(left)
-        ordered.extend(name for name in right if name not in left_set)
-        return ordered
-    if op is SetOp.INTERSECT:
-        return [name for name in left if name in right_set]
-    if op is SetOp.DIFFERENCE:
-        return [name for name in left if name not in right_set]
-    raise ValueError(f"unknown set operation: {op!r}")
+    operation = _SET_OPERATIONS.get(op)
+    if operation is None:
+        raise ValueError(f"unknown set operation: {op!r}")
+    return operation(left, right)

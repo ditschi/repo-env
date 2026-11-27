@@ -45,9 +45,17 @@ class PrBatch:
     exclude: list[str] | None = None
 
 
-def _render(template: str, *, repo: str, branch: str, env: str) -> str:
-    """Expand simple ``{repo}``/``{branch}``/``{env}`` placeholders."""
-    return template.format(repo=repo, branch=branch, env=env)
+@dataclass(frozen=True)
+class _Placeholders:
+    """Values for the ``{repo}``/``{branch}``/``{env}`` placeholders of a PR title/body."""
+
+    repo: str
+    branch: str
+    env: str
+
+    def render(self, template: str) -> str:
+        """Expand the placeholders in ``template``."""
+        return template.format(repo=self.repo, branch=self.branch, env=self.env)
 
 
 def _select_entries(env: Environment, batch: PrBatch) -> list[RepoEntry]:
@@ -63,12 +71,13 @@ def _current_branch(entry: RepoEntry) -> str:
 
 
 def _plan_item(env: Environment, entry: RepoEntry, batch: PrBatch, head: str) -> PrPlanItem:
+    placeholders = _Placeholders(repo=entry.repo, branch=head, env=env.name)
     return PrPlanItem(
         repo=entry.repo,
         head=head,
         base=batch.base or entry.base,
-        title=_render(batch.title, repo=entry.repo, branch=head, env=env.name),
-        body=_render(batch.body, repo=entry.repo, branch=head, env=env.name),
+        title=placeholders.render(batch.title),
+        body=placeholders.render(batch.body),
     )
 
 
@@ -82,8 +91,13 @@ def build_pr_preview(env: Environment, batch: PrBatch) -> list[PrPlanItem]:
     return [_plan_item(env, entry, batch, _current_branch(entry)) for entry in _select_entries(env, batch)]
 
 
-def _skipped(repo: str, url: str, reason: str) -> gh_adapter.PrResult:
-    return gh_adapter.PrResult(repo, url, created=False, skipped=True, reason=reason)
+def _skipped(entry: RepoEntry, url: str, reason: str) -> gh_adapter.PrResult:
+    return gh_adapter.PrResult(entry.repo, url, created=False, skipped=True, reason=reason)
+
+
+def _lacks_diff(entry: RepoEntry, batch: PrBatch) -> bool:
+    """True when the worktree has no changes against the PR base branch."""
+    return not git_adapter.has_diff(entry.worktree_path, f"{entry.remote}/{batch.base or entry.base}")
 
 
 def _create_one(
@@ -92,16 +106,14 @@ def _create_one(
     """Create (or skip) the PR for one repo, pushing first only when asked to."""
     worktree = entry.worktree_path
     branch = _current_branch(entry)
-    if batch.skip_no_diff and not git_adapter.has_diff(
-        worktree, f"{entry.remote}/{batch.base or entry.base}"
-    ):
-        return _skipped(entry.repo, "", "no diff")
+    if batch.skip_no_diff and _lacks_diff(entry, batch):
+        return _skipped(entry, "", "no diff")
 
     existing = client.existing_url(head=branch)
     if existing and batch.if_exists == "fail":
         raise GitError(f"An open PR already exists for {entry.repo} on {branch}: {existing}")
     if existing:
-        return _skipped(entry.repo, existing, "exists")
+        return _skipped(entry, existing, "exists")
 
     if batch.push:
         git_adapter.push(worktree, remote=entry.remote, branch=branch)

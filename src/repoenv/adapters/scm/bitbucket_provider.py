@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider, missing_extra, strip_userinfo
+from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider, strip_userinfo
 from repoenv.domain.scm import ProviderKind
 
 
@@ -36,7 +36,7 @@ class BitbucketCloudProvider(ScmProvider):
         try:
             from atlassian.bitbucket import Cloud
         except ImportError as exc:
-            raise missing_extra("bitbucket", self.label) from exc
+            raise self.missing_extra("bitbucket") from exc
         api_url = "https://api.bitbucket.org" if self.base_url == "https://bitbucket.org" else self.base_url
         return Cloud(url=api_url, **_auth_kwargs(self))
 
@@ -74,7 +74,7 @@ class BitbucketServerProvider(ScmProvider):
         try:
             from atlassian import Bitbucket
         except ImportError as exc:
-            raise missing_extra("bitbucket", self.label) from exc
+            raise self.missing_extra("bitbucket") from exc
         return Bitbucket(url=self.base_url, **_auth_kwargs(self))
 
     def list_repos(self, owner: str, *, name_hint: str | None = None) -> list[RemoteRepo]:

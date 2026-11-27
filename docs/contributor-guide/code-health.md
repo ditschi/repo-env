@@ -78,8 +78,21 @@ reason of at least 10 characters.
 # aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters
 ```
 
-Current suppressions (primitive_obsession): `src/repoenv/cli/commands/add.py` and `merge.py` (typer CLI
-boundary).
+Current suppressions (16, all in `src/`, none in tests):
+
+| Where | Smells | Reason |
+|---|---|---|
+| `cli/commands/{add,clone,create,init,merge,pr,run}.py` | primitive_obsession, excess_arguments | typer: every CLI option is a command parameter |
+| `cli/commands/{repair,rm}.py` | excess_arguments | same |
+| `cli/commands/config.py` | primitive_obsession | same (str/bool options, string parsers) |
+| `adapters/git_adapter.py` | primitive_obsession | thin git CLI wrapper: refs, branches, remotes, URLs are strings |
+| `adapters/scm/pull_requests.py` | primitive_obsession | REST boundary: raw provider JSON, query dicts, branch names |
+| `adapters/scm/detect.py` | primitive_obsession | keyed by hostnames/base URLs and `providers.<host>` settings |
+| `adapters/state_store.py` | primitive_obsession | registry API keyed by env-name strings, raw JSON |
+| `domain/repo_url.py` | primitive_obsession | URL parsing/building on raw URL strings |
+| `domain/selection.py` | primitive_obsession | glob matching/set operations on repo-name strings |
+
+All other smells (complex methods, conditionals, duplication, nesting) were fixed, not suppressed.
 
 ### One source per smell
 
@@ -158,33 +171,20 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 - **Ratchet:** ai-health braucht keine Baseline-Datei. Das `delta` gegen die Basis ist die Ratsche.
 - **Suppressions:**
   - nur dateiweit als `# aihealth: disable=<smell> -- <Grund>`;
-  - aktuell 2, beide `primitive_obsession` an der typer-CLI-Grenze: `cli/commands/add.py` und `merge.py`.
+  - aktuell 16, alle in `src/`: 10 an der typer-CLI-Grenze (jede CLI-Option ist ein Parameter), 6 für Primitive Obsession in Modulen, die von Natur aus mit Strings arbeiten (Git-Wrapper, REST/JSON, Hostnamen, Registry-Namen, URL- und Glob-Verarbeitung). Liste und Begründungen: siehe „Suppressions“ oben.
 
 ### 7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
 
-| Komponente | `main` (ai-health strict) | Branch |
-|---|---|---|
-| Repo, ohne Tests (`.aihealth.toml`) | 7.47 | **8.75** |
-| `src` | 7.32 | **8.66** |
-| `tests` (`tests/.aihealth.toml`) | 6.47 | **9.95** |
+| Komponente | `main` vor der Einführung | nach Welle 1 (#34) | nach Welle 2 |
+|---|---|---|---|
+| Produktivcode (`.`, ohne Tests) | 7.47 | 8.77 | **10.00** |
+| `src` | 7.32 | 8.69 | **10.00** |
+| `tests` (`tests/.aihealth.toml`) | 6.47 | 9.95 | **10.00** |
 
-Werte mit der aufgeteilten Konfiguration (Tests ohne Primitive Obsession); mit nur einer Config für alles lag das Repo bei 6.87 → 9.32.
-
-- **Gate:** `delta` gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.
-- **Welle 1 (Tests):** fertig. 2 Testdateien haben noch Funde, alle übrigen stehen bei 10.
+- **Alle Dateien stehen bei 10.00**, es gibt keine Funde mehr. Schlechteste Datei: keine.
+- **Welle 1 (Tests)** und **Welle 2 (`src`)** sind abgeschlossen. Echt behoben wurden alle komplexen Methoden, Bedingungen, Verschachtelungen und Duplikate.
+- **Suppressions:** 16, nur Primitive Obsession bzw. Excess Arguments an Grenzen, wo Strings oder typer-Parameter vorgegeben sind (siehe oben).
 - **Eigener Checker:** wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).
-- **Schlechteste Dateien (ai-health strict),** alle in `src`:
-  - `cli/commands/pr.py` 6.08, `add.py` 6.46, `repair.py` 6.63, `create.py` 6.74;
-  - `domain/repo_url.py` 6.78.
-- **Verbleibende Funde,** fast alle in `src` (30 Dateien):
-  - Primitive Obsession 18×;
-  - Complex Method 15×;
-  - Complex Conditional 11×;
-  - Excess Arguments 10×;
-  - Duplikate 5×;
-  - Cognitive Complexity 1×.
-- **Suppressions:** 2, `primitive_obsession` in `add.py` und `merge.py` (typer-CLI-Grenze).
-- Welle 2 (`src`) braucht die Freigabe des Owners.
 
 ### 8. Skills: geprüfte und übernommene Skills
 

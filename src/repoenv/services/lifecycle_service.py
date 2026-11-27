@@ -64,6 +64,13 @@ def select_repo_entries(
     return [entry for entry in env.repos if entry.repo in chosen]
 
 
+def _has_created_branch(entry: RepoEntry, repo_path: Path) -> bool:
+    """True when renv created ``entry``'s branch and it still exists in the source repo."""
+    if not entry.branch_created or not entry.branch:
+        return False
+    return repo_path.exists() and git_adapter.branch_exists(repo_path, entry.branch)
+
+
 def delete_created_branches(env: Environment, *, force: bool) -> tuple[list[str], list[str]]:
     """Delete branches renv created for ``env``'s entries; return (deleted, warnings).
 
@@ -74,9 +81,7 @@ def delete_created_branches(env: Environment, *, force: bool) -> tuple[list[str]
     warnings: list[str] = []
     for entry in env.repos:
         repo_path = env.source / entry.repo
-        if not entry.branch_created or not entry.branch or not repo_path.exists():
-            continue
-        if not git_adapter.branch_exists(repo_path, entry.branch):
+        if not _has_created_branch(entry, repo_path):
             continue
         try:
             git_adapter.delete_branch(repo_path, entry.branch, force=force)
@@ -148,6 +153,29 @@ def list_repair_candidates(
     return [entry.repo for entry in env.repos if entry.repo in allowed and not _is_healthy_worktree(entry)]
 
 
+def _repair_entry(env: Environment, entry: RepoEntry, options: environment_service.ExecuteOptions) -> None:
+    """Recreate (or re-attach) one entry's worktree and mark it OK; raises on failure."""
+    repo_path = env.source / entry.repo
+    environment_service._ensure_worktree_path_is_clean(entry.worktree_path)
+    request = environment_service.WorktreeRequest(
+        repo_path=repo_path,
+        worktree_path=entry.worktree_path,
+        remote=entry.remote,
+        base=entry.base,
+        target_branch=entry.branch,
+        create_branch=entry.branch_created,
+        preserve=options.preserve,
+        on_branch_conflict=options.on_branch_conflict,
+        move_context=f"{env.name}/{entry.repo}/{entry.branch}",
+    )
+    note = environment_service._create_or_attach_worktree(request)
+    entry.status = RepoStatus.OK
+    entry.note = note
+    entry.source_sha = environment_service._resolve_source_sha(
+        repo_path, remote=entry.remote, base=entry.base, preserve=options.preserve
+    )
+
+
 def repair_environment(
     env: Environment,
     *,
@@ -170,31 +198,14 @@ def repair_environment(
         if _is_healthy_worktree(entry):
             continue
 
-        repo_path = env.source / entry.repo
         try:
-            environment_service._ensure_worktree_path_is_clean(entry.worktree_path)
-            request = environment_service.WorktreeRequest(
-                repo_path=repo_path,
-                worktree_path=entry.worktree_path,
-                remote=entry.remote,
-                base=entry.base,
-                target_branch=entry.branch,
-                create_branch=entry.branch_created,
-                preserve=options.preserve,
-                on_branch_conflict=options.on_branch_conflict,
-                move_context=f"{env.name}/{entry.repo}/{entry.branch}",
-            )
-            note = environment_service._create_or_attach_worktree(request)
-            entry.status = RepoStatus.OK
-            entry.note = note
-            entry.source_sha = environment_service._resolve_source_sha(
-                repo_path, remote=entry.remote, base=entry.base, preserve=options.preserve
-            )
-            repaired.append(entry.repo)
+            _repair_entry(env, entry, options)
         except Exception as exc:  # noqa: BLE001 - per-repo robustness
             failed.append(entry.repo)
             entry.status = RepoStatus.FAILED
             entry.note = f"failed: {exc}"
+        else:
+            repaired.append(entry.repo)
 
     if repaired or failed:
         env.touch()

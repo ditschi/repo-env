@@ -14,8 +14,9 @@ from tests.integration.support.gitfixtures import run_git
 from tests.integration.support.renv_helpers import Renv
 
 
-def _api_request(url, *, method, payload, headers):
-    if method == "GET":
+def _api_request(request):
+    url, payload = request.url, request.payload
+    if request.method == "GET":
         data = [] if "/api/v" in url else {"values": [], "value": []}
     elif "gitlab.com" in url:
         assert payload["source_branch"] == "feature/x"
@@ -78,7 +79,7 @@ def _forbid_push(monkeypatch: pytest.MonkeyPatch) -> None:
 def _assert_preflight_blocks_unsupported_draft(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch.context() as guard:
         guard.setattr(git_adapter, "push", lambda *a, **kw: pytest.fail("preflight must precede every push"))
-        guard.setattr(rest, "request", lambda *a, **kw: pytest.fail("preflight must precede every API call"))
+        guard.setattr(rest, "send", lambda *a, **kw: pytest.fail("preflight must precede every API call"))
         result = renv.invoke("pr", "env", "--title", "t", "--draft", "--push")
         assert result.exit_code != 0
         assert "does not support: --draft" in str(result.exception)
@@ -104,9 +105,9 @@ def test_mixed_providers(renv: Renv, monkeypatch: pytest.MonkeyPatch, push: bool
     monkeypatch.setattr(gh_adapter, "is_available", lambda: True)
     calls = []
 
-    def request(url, *, method, payload, headers):
-        calls.append((url, method, payload))
-        return _api_request(url, method=method, payload=payload, headers=headers)
+    def request(sent):
+        calls.append((sent.url, sent.method, sent.payload))
+        return _api_request(sent)
 
     def gh_run(argv, **kwargs):
         calls.append(("gh", argv[1], None))
@@ -115,7 +116,7 @@ def test_mixed_providers(renv: Renv, monkeypatch: pytest.MonkeyPatch, push: bool
             argv, 0, "" if argv[1] == "list" else "https://github.com/pr/1", ""
         )
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     monkeypatch.setattr(gh_adapter, "_run", gh_run)
     _assert_preflight_blocks_unsupported_draft(renv, monkeypatch)
     push_opts = ["--push"] if push else []
@@ -128,7 +129,7 @@ def test_mixed_providers(renv: Renv, monkeypatch: pytest.MonkeyPatch, push: bool
 def test_unsupported_options_prevent_push(renv: Renv, monkeypatch: pytest.MonkeyPatch) -> None:
     _alpha_env_with_origin(renv, "git@bitbucket.org:o/r.git")
     _forbid_push(monkeypatch)
-    monkeypatch.setattr(rest, "request", lambda *a, **kw: pytest.fail("must not call API"))
+    monkeypatch.setattr(rest, "send", lambda *a, **kw: pytest.fail("must not call API"))
     monkeypatch.setattr(gh_adapter, "is_available", lambda: False)
     result = renv.invoke("pr", "env", "--title", "t", "--reviewer", "alice", "--push")
     assert result.exit_code != 0
@@ -147,14 +148,14 @@ def _gitlab_without_gh(renv: Renv, monkeypatch: pytest.MonkeyPatch, lookup_statu
     _forbid_push(monkeypatch)
     calls: list[str] = []
 
-    def request(url, *, method, payload, headers):
-        calls.append(method)
-        assert headers == {"PRIVATE-TOKEN": "test-token"}
-        if method == "GET":
+    def request(sent):
+        calls.append(sent.method)
+        assert sent.headers == {"PRIVATE-TOKEN": "test-token"}
+        if sent.method == "GET":
             return rest.HttpResponse(lookup_status, {}, b"[]")
         return rest.HttpResponse(201, {}, b'{"web_url":"https://gitlab.com/pr/1"}')
 
-    monkeypatch.setattr(rest, "request", request)
+    monkeypatch.setattr(rest, "send", request)
     return calls
 
 

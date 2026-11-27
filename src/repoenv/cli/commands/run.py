@@ -1,4 +1,5 @@
 """``renv run`` — run a command across an environment's worktrees."""
+# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 

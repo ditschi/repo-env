@@ -44,6 +44,18 @@ def _is_under_nested_renv_root(source: Path, candidate_path: Path) -> bool:
     return False
 
 
+def _outside_dest(source: Path, dest: Path | None) -> Callable[[str], bool]:
+    """Predicate rejecting candidates that live under *dest*.
+
+    Avoids matching previously created worktrees when *dest* is a
+    subdirectory of *source*; accepts everything otherwise.
+    """
+    if dest is None or not dest.is_relative_to(source):
+        return lambda _candidate: True
+    dest_rel = dest.relative_to(source).as_posix()
+    return lambda candidate: candidate != dest_rel and not candidate.startswith(dest_rel + "/")
+
+
 def _filter_candidates(
     *,
     source: Path,
@@ -57,13 +69,8 @@ def _filter_candidates(
     (not main repos). They are omitted unless *include_worktrees* is True,
     because ``git worktree add`` cannot target a linked worktree.
     """
-    filtered = list(candidates)
-
-    # Exclude any candidates that live under dest to avoid matching previously
-    # created worktrees when dest is a subdirectory of source.
-    if dest is not None and dest.is_relative_to(source):
-        dest_rel = dest.relative_to(source).as_posix()
-        filtered = [c for c in filtered if c != dest_rel and not c.startswith(dest_rel + "/")]
+    outside_dest = _outside_dest(source, dest)
+    filtered = [c for c in candidates if outside_dest(c)]
 
     skipped_worktrees: list[str] = []
 

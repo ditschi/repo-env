@@ -12,7 +12,7 @@ import shutil
 from typing import TYPE_CHECKING, Any
 
 from repoenv.adapters import gh_adapter
-from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider, missing_extra
+from repoenv.adapters.scm.base import OrgMembership, RemoteRepo, ScmProvider
 from repoenv.domain.scm import ProviderKind
 from repoenv.errors import GitError
 
@@ -46,7 +46,7 @@ class GitHubProvider(ScmProvider):
         try:
             from github import Auth, Github
         except ImportError as exc:
-            raise missing_extra("github", self.label) from exc
+            raise self.missing_extra("github") from exc
         auth = Auth.Token(self.credential.secret) if self.credential else None
         # GraphQL reads are POSTs, which PyGithub would otherwise throttle as writes (1s apart).
         return Github(

@@ -4,12 +4,14 @@ JSON (not YAML) so ``--json`` output is a zero-transcoding pass-through and the
 schema is a stable typed contract. Writes are atomic and locked.
 """
 
+# aihealth: disable=primitive_obsession -- registry API keyed by env-name strings; raw JSON parsing
+
 from __future__ import annotations
 
 import json
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 from filelock import FileLock
 from pydantic import ValidationError
@@ -71,35 +73,42 @@ def load_registry(path: Path | None = None) -> Registry:
     registry_path = path or paths.registry_path()
     if not registry_path.exists():
         return Registry()
+    raw = _read_registry_json(registry_path)
+    environments = {env.name: env for env in map(_validated_environment, raw.get("environments", []))}
+    return Registry(environments, active=_active_name(raw.get("active"), environments))
 
+
+def _read_registry_json(registry_path: Path) -> Any:
     try:
-        raw = json.loads(registry_path.read_text(encoding="utf-8"))
+        return json.loads(registry_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise ConfigError(
             f"Could not read registry at {registry_path}: {exc}",
             hint="Run 'renv repair' to restore missing worktrees, or 'renv status' for details.",
         ) from exc
 
-    environments: dict[str, Environment] = {}
-    for item in raw.get("environments", []):
-        try:
-            env = Environment.model_validate(item)
-        except ValidationError as exc:
-            raise ConfigError(
-                f"Registry entry is invalid:\n{exc}",
-                hint="Run 'renv repair' or fix the registry entry manually.",
-            ) from exc
-        environments[env.name] = env
-    active = raw.get("active")
-    if active is not None and not isinstance(active, str):
+
+def _validated_environment(item: Any) -> Environment:
+    try:
+        return Environment.model_validate(item)
+    except ValidationError as exc:
+        raise ConfigError(
+            f"Registry entry is invalid:\n{exc}",
+            hint="Run 'renv repair' or fix the registry entry manually.",
+        ) from exc
+
+
+def _active_name(active: object, environments: dict[str, Environment]) -> str | None:
+    """The registry's ``active`` field, or ``None`` when unset or naming a missing environment."""
+    if active is None:
+        return None
+    if not isinstance(active, str):
         raise ConfigError(
             f"Registry field 'active' must be a string or null, not {type(active).__name__}.",
             hint="Remove or fix the 'active' field in the registry JSON.",
         )
-    if active is not None and active not in environments:
-        # Don't fail hard: an env may have been removed manually.
-        active = None
-    return Registry(environments, active=active)
+    # Don't fail hard on an unknown name: an env may have been removed manually.
+    return active if active in environments else None
 
 
 def save_registry(registry: Registry, path: Path | None = None) -> Path:

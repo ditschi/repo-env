@@ -1,11 +1,12 @@
 """``renv config`` — inspect and edit configuration/state."""
+# aihealth: disable=primitive_obsession -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import typer
 
@@ -40,7 +41,6 @@ def _snapshot(cfg: config_store.UserConfig, reg: state_store.Registry) -> dict[s
 
 
 _DICT_PREFIXES = ("aliases", "groups", "providers")
-_SCALAR_KEYS = ("source", "dest", "default_branch", "install_completion", "autocorrect")
 _TRUE_WORDS = ("1", "true", "yes", "on")
 _FALSE_WORDS = ("0", "false", "no", "off")
 
@@ -54,12 +54,21 @@ class _KeyOperation:
     unset: bool
 
 
-def _handle_dict_key(cfg: config_store.UserConfig, op: _KeyOperation, *, prefix: str) -> bool:
+def _validate_provider_value(op: _KeyOperation) -> None:
+    """Reject an invalid ``providers.<host>`` value before anything is saved."""
+    if op.unset or op.value is None:
+        return
+    parse_provider_setting(op.value)
+
+
+def _handle_dict_key(cfg: config_store.UserConfig, op: _KeyOperation) -> bool:
     """Return True if handled as a '<prefix>.<name>' operation (aliases./groups./providers.)."""
-    if not op.key.startswith(f"{prefix}."):
+    prefix, separator, sub_key = op.key.partition(".")
+    if not separator or prefix not in _DICT_PREFIXES:
         return False
+    if prefix == "providers":
+        _validate_provider_value(op)
     target: dict[str, str] = getattr(cfg, prefix)
-    sub_key = op.key.split(".", 1)[1]
     if not sub_key:
         raise UsageError(f"Invalid key '{prefix}.'", hint=f"Use e.g. '{prefix}.web'.")
     if op.unset:
@@ -91,19 +100,22 @@ def _parse_float(value: str) -> float:
         raise UsageError(f"Invalid float: {value!r}", hint="Use a number of seconds.") from exc
 
 
-def _set_typed_value(cfg: config_store.UserConfig, key: str, value: str) -> None:
-    if key in ("source", "dest"):
-        setattr(cfg, key, Path(value).expanduser())
-    elif key == "install_completion":
-        setattr(cfg, key, _parse_bool(value))
-    elif key == "autocorrect":
-        cfg.autocorrect = _parse_float(value)
-    else:  # default_branch
-        cfg.default_branch = value
+def _parse_path(value: str) -> Path:
+    return Path(value).expanduser()
+
+
+# Scalar config keys and how a VALUE string is converted for each.
+_SCALAR_PARSERS: dict[str, Callable[[str], object]] = {
+    "source": _parse_path,
+    "dest": _parse_path,
+    "default_branch": str,
+    "install_completion": _parse_bool,
+    "autocorrect": _parse_float,
+}
 
 
 def _handle_scalar_key(cfg: config_store.UserConfig, op: _KeyOperation) -> None:
-    if op.key not in _SCALAR_KEYS:
+    if op.key not in _SCALAR_PARSERS:
         raise UsageError(
             f"Unknown key '{op.key}'.",
             hint=(
@@ -121,7 +133,7 @@ def _handle_scalar_key(cfg: config_store.UserConfig, op: _KeyOperation) -> None:
         console.print_data(_as_text(getattr(cfg, op.key)))
         return
 
-    _set_typed_value(cfg, op.key, op.value)
+    setattr(cfg, op.key, _SCALAR_PARSERS[op.key](op.value))
     config_store.save_config(cfg)
 
 
@@ -143,8 +155,6 @@ def config_command(
         return
 
     op = _KeyOperation(key=key, value=value, unset=unset)
-    if key.startswith("providers.") and value is not None and not unset:
-        parse_provider_setting(value)
-    if any(_handle_dict_key(cfg, op, prefix=prefix) for prefix in _DICT_PREFIXES):
+    if _handle_dict_key(cfg, op):
         return
     _handle_scalar_key(cfg, op)
