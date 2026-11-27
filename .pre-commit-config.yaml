@@ -58,7 +58,8 @@ repos:
        exclude: |
          (?x)^(
            .*\.(svg|drawio|yml)$|
-           .*tools/sca/.*
+           .*tools/sca/.*|
+           \.claude/skills/.*
          )$
 
   - repo: https://github.com/google/yamlfmt

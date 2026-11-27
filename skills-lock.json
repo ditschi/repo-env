@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "skills": {
+    "git-commit": {
+      "source": "github/awesome-copilot",
+      "commit": "93fc8b9ee3ef56b9b5e7261e6ce92d314cb2c1cf",
+      "sourceType": "github",
+      "skillPath": "skills/git-commit/SKILL.md",
+      "computedHash": "90716f49501831c6c0679509b295495021eae83923d6a39035ce7c2d9cd2e8f2",
+      "installMode": "copy"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "commit": "bbadaa631c37af594e5a05c9cefacd9956136b18",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "ab1acb9fbd9eaee03da254abb8a8de228d1e7a07475fe959da4a5eefa34ea4b9",
+      "installMode": "copy"
+    },
+    "grilling": {
+      "source": "mattpocock/skills",
+      "commit": "bbadaa631c37af594e5a05c9cefacd9956136b18",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grilling/SKILL.md",
+      "computedHash": "485451958784497cd4c4dbea13cb5bbb579da58fac0d0e45f3bcb310fab68ac7",
+      "installMode": "copy"
+    },
+    "py-complexity": {
+      "source": "l-mb/python-refactoring-skills",
+      "commit": "b08357109fe81821decc100c8ea73ea2e3add08b",
+      "sourceType": "github",
+      "skillPath": "skills/py-complexity/SKILL.md",
+      "computedHash": "e37683d8bb329a55a83ac0cd82f3d83beede7960eb25506e0fbf473d5f0162c5",
+      "installMode": "copy"
+    },
+    "receiving-code-review": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/receiving-code-review/SKILL.md",
+      "computedHash": "528d336858d6f7d22cfcb887a249409ce682cb7d37a939cb15a82f2576a35876",
+      "installMode": "copy"
+    },
+    "security-review": {
+      "source": "getsentry/skills",
+      "commit": "a582c51ee29d0f35e6ac321340796f77d43da733",
+      "sourceType": "github",
+      "skillPath": "skills/security-review/SKILL.md",
+      "computedHash": "4af8c6b37142b46cbbca40d5f5e6c505699b8785486a7306faf1b79dcce7ff47",
+      "installMode": "copy"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "79ff0583175346e39431b0dc713b223edd1bd7a7ea2b6c8b78b2fb9a3fed6782",
+      "installMode": "copy"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "2782702b2cf69ace085ed30d067b6f8bfd2d777ad51770fc5bdae9cb5c1b5c04",
+      "installMode": "copy"
+    },
+    "typer": {
+      "source": "fastapi/typer",
+      "commit": "6d6383fca42f7f451cc04c49b7bf828e18245a53",
+      "sourceType": "github",
+      "skillPath": "typer/.agents/skills/typer/SKILL.md",
+      "computedHash": "7fca6ca4c608ed472c06083680e0ff8d7df454baefbac4c4e1b3f1bb7c9364c6",
+      "installMode": "copy"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "09b0e3a4689c1c38a3b8fc6ef57a1d4165aa33c0013d546dbde9dd348941a319",
+      "installMode": "copy"
+    }
+  }
+}
