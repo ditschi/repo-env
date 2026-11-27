@@ -1341,8 +1341,64 @@ silently ignores the suppression. The pre-commit hook <code>aihealth-suppression
 reason of at least 10 characters.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters</span>
 </span></code></pre></div>
-<p>Current suppressions (primitive_obsession): <code>src/repoenv/cli/commands/add.py</code> and <code>merge.py</code> (typer CLI
-boundary).</p>
+<p>Current suppressions (16, all in <code>src/</code>, none in tests):</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Smells</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cli/commands/{add,clone,create,init,merge,pr,run}.py</code></td>
+<td>primitive_obsession, excess_arguments</td>
+<td>typer: every CLI option is a command parameter</td>
+</tr>
+<tr>
+<td><code>cli/commands/{repair,rm}.py</code></td>
+<td>excess_arguments</td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>cli/commands/config.py</code></td>
+<td>primitive_obsession</td>
+<td>same (str/bool options, string parsers)</td>
+</tr>
+<tr>
+<td><code>adapters/git_adapter.py</code></td>
+<td>primitive_obsession</td>
+<td>thin git CLI wrapper: refs, branches, remotes, URLs are strings</td>
+</tr>
+<tr>
+<td><code>adapters/scm/pull_requests.py</code></td>
+<td>primitive_obsession</td>
+<td>REST boundary: raw provider JSON, query dicts, branch names</td>
+</tr>
+<tr>
+<td><code>adapters/scm/detect.py</code></td>
+<td>primitive_obsession</td>
+<td>keyed by hostnames/base URLs and <code>providers.&lt;host&gt;</code> settings</td>
+</tr>
+<tr>
+<td><code>adapters/state_store.py</code></td>
+<td>primitive_obsession</td>
+<td>registry API keyed by env-name strings, raw JSON</td>
+</tr>
+<tr>
+<td><code>domain/repo_url.py</code></td>
+<td>primitive_obsession</td>
+<td>URL parsing/building on raw URL strings</td>
+</tr>
+<tr>
+<td><code>domain/selection.py</code></td>
+<td>primitive_obsession</td>
+<td>glob matching/set operations on repo-name strings</td>
+</tr>
+</tbody>
+</table>
+<p>All other smells (complex methods, conditionals, duplication, nesting) were fixed, not suppressed.</p>
 <h3 id="one-source-per-smell">One source per smell<a class="headerlink" href="#one-source-per-smell" title="Permanent link">&para;</a></h3>
 <p>Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
 pylint has its design checks (too-many-*, too-many-lines) disabled and no <code>fail-under</code> score gate.
@@ -1435,52 +1491,44 @@ Fix findings instead of suppressing them. The output lists every new or worsened
 <li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche.</li>
 <li><strong>Suppressions:</strong></li>
 <li>nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>;</li>
-<li>aktuell 2, beide <code>primitive_obsession</code> an der typer-CLI-Grenze: <code>cli/commands/add.py</code> und <code>merge.py</code>.</li>
+<li>aktuell 16, alle in <code>src/</code>: 10 an der typer-CLI-Grenze (jede CLI-Option ist ein Parameter), 6 für Primitive Obsession in Modulen, die von Natur aus mit Strings arbeiten (Git-Wrapper, REST/JSON, Hostnamen, Registry-Namen, URL- und Glob-Verarbeitung). Liste und Begründungen: siehe „Suppressions“ oben.</li>
 </ul>
 <h3 id="7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells">7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells<a class="headerlink" href="#7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>Komponente</th>
-<th><code>main</code> (ai-health strict)</th>
-<th>Branch</th>
+<th><code>main</code> vor der Einführung</th>
+<th>nach Welle 1 (#34)</th>
+<th>nach Welle 2</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Repo, ohne Tests (<code>.aihealth.toml</code>)</td>
+<td>Produktivcode (<code>.</code>, ohne Tests)</td>
 <td>7.47</td>
-<td><strong>8.75</strong></td>
+<td>8.77</td>
+<td><strong>10.00</strong></td>
 </tr>
 <tr>
 <td><code>src</code></td>
 <td>7.32</td>
-<td><strong>8.66</strong></td>
+<td>8.69</td>
+<td><strong>10.00</strong></td>
 </tr>
 <tr>
 <td><code>tests</code> (<code>tests/.aihealth.toml</code>)</td>
 <td>6.47</td>
-<td><strong>9.95</strong></td>
+<td>9.95</td>
+<td><strong>10.00</strong></td>
 </tr>
 </tbody>
 </table>
-<p>Werte mit der aufgeteilten Konfiguration (Tests ohne Primitive Obsession); mit nur einer Config für alles lag das Repo bei 6.87 → 9.32.</p>
 <ul>
-<li><strong>Gate:</strong> <code>delta</code> gegen die Basis meldet IMPROVED, also keine Datei verschlechtert.</li>
-<li><strong>Welle 1 (Tests):</strong> fertig. 2 Testdateien haben noch Funde, alle übrigen stehen bei 10.</li>
+<li><strong>Alle Dateien stehen bei 10.00</strong>, es gibt keine Funde mehr. Schlechteste Datei: keine.</li>
+<li><strong>Welle 1 (Tests)</strong> und <strong>Welle 2 (<code>src</code>)</strong> sind abgeschlossen. Echt behoben wurden alle komplexen Methoden, Bedingungen, Verschachtelungen und Duplikate.</li>
+<li><strong>Suppressions:</strong> 16, nur Primitive Obsession bzw. Excess Arguments an Grenzen, wo Strings oder typer-Parameter vorgegeben sind (siehe oben).</li>
 <li><strong>Eigener Checker:</strong> wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).</li>
-<li><strong>Schlechteste Dateien (ai-health strict),</strong> alle in <code>src</code>:</li>
-<li><code>cli/commands/pr.py</code> 6.08, <code>add.py</code> 6.46, <code>repair.py</code> 6.63, <code>create.py</code> 6.74;</li>
-<li><code>domain/repo_url.py</code> 6.78.</li>
-<li><strong>Verbleibende Funde,</strong> fast alle in <code>src</code> (30 Dateien):</li>
-<li>Primitive Obsession 18×;</li>
-<li>Complex Method 15×;</li>
-<li>Complex Conditional 11×;</li>
-<li>Excess Arguments 10×;</li>
-<li>Duplikate 5×;</li>
-<li>Cognitive Complexity 1×.</li>
-<li><strong>Suppressions:</strong> 2, <code>primitive_obsession</code> in <code>add.py</code> und <code>merge.py</code> (typer-CLI-Grenze).</li>
-<li>Welle 2 (<code>src</code>) braucht die Freigabe des Owners.</li>
 </ul>
 <h3 id="8-skills-geprufte-und-ubernommene-skills">8. Skills: geprüfte und übernommene Skills<a class="headerlink" href="#8-skills-geprufte-und-ubernommene-skills" title="Permanent link">&para;</a></h3>
 <ul>
