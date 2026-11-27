@@ -1,5 +1,5 @@
 """``renv init`` — first-run setup wizard (also scriptable via flags)."""
-# aihealth: disable=primitive_obsession, excess_arguments -- typer CLI boundary: options are parameters
+# aihealth: disable=excess_arguments -- typer CLI boundary: options are parameters
 
 from __future__ import annotations
 

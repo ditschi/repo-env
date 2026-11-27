@@ -368,3 +368,19 @@ def test_malformed_listing(kind, tmp_path, monkeypatch):
 def test_malformed_url(kind, tmp_path):
     with pytest.raises(GitError, match="no valid web URL"):
         _client(kind, tmp_path)._url({"links": None, "_links": None, "html_url": []})
+
+
+@pytest.mark.parametrize(
+    ("item", "suffix"),
+    [
+        ({"_links": {"web": {"href": URL}}, "pullRequestId": 7}, None),
+        ({"pullRequestId": 7}, "/org/project/_git/r/pullrequest/7"),
+        ({"_links": {"web": {"href": ""}}, "pullRequestId": 7}, "/org/project/_git/r/pullrequest/7"),
+        ({"pullRequestId": "7"}, ""),
+    ],
+    ids=["reported-href", "missing-href", "empty-href", "non-int-id"],
+)
+def test_azure_web_url_falls_back_to_pull_request_id(tmp_path: Path, item: dict, suffix: str | None) -> None:
+    client = _client(ProviderKind.AZURE_DEVOPS, tmp_path)
+    expected = {None: URL, "": None}.get(suffix, f"{client.provider.base_url}{suffix}")
+    assert client._reported_url(item) == expected
