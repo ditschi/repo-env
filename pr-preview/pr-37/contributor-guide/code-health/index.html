@@ -1,0 +1,1658 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Build and operate isolated git-worktree environments across many repositories.">
+      
+      
+      
+        <link rel="canonical" href="https://ditschi.github.io/repo-env/contributor-guide/code-health/">
+      
+      
+        <link rel="prev" href="../quality-gates/">
+      
+      
+        <link rel="next" href="../commit-convention/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Code Health - repo-env</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#code-health" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repo-env" class="md-header__button md-logo" aria-label="repo-env" data-md-component="logo">
+      
+  <img src="../../assets/brand/renv-icon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repo-env
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Code Health
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ditschi/repo-env" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ditschi/repo-env
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/installation/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../dev-setup/" class="md-tabs__link">
+          
+  
+  
+  Contributor Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api-reference/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repo-env" class="md-nav__button md-logo" aria-label="repo-env" data-md-component="logo">
+      
+  <img src="../../assets/brand/renv-icon.svg" alt="logo">
+
+    </a>
+    repo-env
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ditschi/repo-env" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ditschi/repo-env
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/workflow-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributor Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributor Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dev-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quality-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Health
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profile-strict-aihealthtoml-testsaihealthtoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Profile "strict" (.aihealth.toml, tests/.aihealth.toml)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Gate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#suppressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suppressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-source-per-smell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One source per smell
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#working-with-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Working with agents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#steckbrief-code-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steckbrief Code Health
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Steckbrief Code Health">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-messumfang-was-zahlt-was-nicht-mit-begrundung" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Messumfang: was zählt, was nicht, mit Begründung
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-tools-und-versionen-je-sprache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Tools und Versionen, je Sprache
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-abgebildete-smells-mit-zuordnung-zu-den-codescene-kriterien-nicht-abgebildete-mit-grund" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Abgebildete Smells, mit Zuordnung zu den CodeScene-Kriterien; nicht abgebildete mit Grund
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-schwellen-gewichte-und-score-formel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Schwellen, Gewichte und Score-Formel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-gate-hook-ci-ratchet-und-baseline-suppressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Gate: Hook, CI, Ratchet und Baseline, Suppressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-skills-geprufte-und-ubernommene-skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Skills: geprüfte und übernommene Skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-erfahrungen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Erfahrungen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verbliebene-eigene-logik-und-warum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verbliebene eigene Logik (und warum)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commit-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commit Convention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/ditschi/repo-env/edit/main/docs/contributor-guide/code-health.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="code-health">Code Health<a class="headerlink" href="#code-health" title="Permanent link">&para;</a></h1>
+<p>Code health is measured with <strong><a href="https://github.com/epatel/ai-health">ai-health</a></strong> (MIT, deterministic,
+no AI involved) and gated in pre-commit and CI. ai-health estimates a CodeScene-style score from 1 to
+10 per file and per project. It is <strong>not</strong> the proprietary CodeScene score. The concepts come from
+<a href="https://codescene.io/docs/guides/technical/code-health.html">CodeScene Code Health</a> and the
+"AI-Ready Code" white paper (A. Tornhill, 2026). The paper reports that AI-generated changes to
+unhealthy code have at least 60 % more defects; it only studied code with health 7 or higher.
+Healthy code is a precondition for agents to work reliably. Tests, coverage and review are still
+required.</p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>healthy</td>
+<td>≥ 9</td>
+</tr>
+<tr>
+<td>warning</td>
+<td>4 – 9</td>
+</tr>
+<tr>
+<td>alert</td>
+<td>&lt; 4</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Goal: 10, meaning no findings.</strong> 9.5 is only the minimum on the way there.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w">                                  </span><span class="c1"># delta: working tree (incl. untracked) vs HEAD</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--base<span class="w"> </span>origin/main<span class="w">      </span><span class="c1"># all changes of a branch</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>delta<span class="w"> </span>--format<span class="w"> </span>json<span class="w">           </span><span class="c1"># machine-readable, for agents</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>src<span class="w"> </span>--format<span class="w"> </span>markdown<span class="w">    </span><span class="c1"># report for one component</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health<span class="w"> </span>--<span class="w"> </span>scan<span class="w"> </span>.<span class="w"> </span>--report<span class="w">               </span><span class="c1"># full report in AI-HEALTH.md</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-tests<span class="w">                            </span><span class="c1"># the same for tests/ (tests/.aihealth.toml), default `delta tests`</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>nox<span class="w"> </span>-s<span class="w"> </span>code-health-components<span class="w">                       </span><span class="c1"># component scores (repo/src/tests): merge-base vs working tree</span>
+</span></code></pre></div>
+<p>The nox sessions pass the matching <code>--config</code> to <code>scan</code> and <code>delta</code>: without it, <code>aihealth scan &lt;dir&gt;</code>
+would read <code>&lt;dir&gt;/.aihealth.toml</code> and silently fall back to the defaults, and tests use their own
+config. ai-health needs Python ≥ 3.11, so the session runs on 3.12.
+Its version is pinned to a commit in exactly one place: the <code>code-health</code> dependency group in
+<code>pyproject.toml</code>, locked in <code>uv.lock</code>.</p>
+<h2 id="profile-strict-aihealthtoml-testsaihealthtoml">Profile "strict" (<code>.aihealth.toml</code>, <code>tests/.aihealth.toml</code>)<a class="headerlink" href="#profile-strict-aihealthtoml-testsaihealthtoml" title="Permanent link">&para;</a></h2>
+<p>Production code uses <code>.aihealth.toml</code> (profile confirmed by the owner, Q15); it excludes <code>tests/</code>.
+Test code uses <code>tests/.aihealth.toml</code>: the same profile, but <strong>Primitive Obsession is off</strong>
+(<code>weights.primitive_obsession = 0</code>, owner decision Q18.1). ai-health has no config inheritance, so
+the shared values must be kept in sync in both files. All keys not listed use the ai-health
+defaults of the pinned release.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Value</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>thresholds.large_file</code></td>
+<td>600</td>
+<td>1000</td>
+<td>code lines per file</td>
+</tr>
+<tr>
+<td><code>thresholds.primitive_obsession</code></td>
+<td>0.3</td>
+<td>0.6</td>
+<td>share of typed params that are primitive</td>
+</tr>
+<tr>
+<td><code>score.decay</code></td>
+<td>8</td>
+<td>15</td>
+<td>steeper score curve</td>
+</tr>
+<tr>
+<td><code>score.symbol_cap</code></td>
+<td>4</td>
+<td>4</td>
+<td></td>
+</tr>
+<tr>
+<td><code>score.density_loc</code></td>
+<td>100000</td>
+<td>300</td>
+<td>large files are not relieved through finding density</td>
+</tr>
+<tr>
+<td><code>delta.tolerance</code></td>
+<td>0.0</td>
+<td>0.1</td>
+<td>any degradation fails the gate</td>
+</tr>
+<tr>
+<td><code>scan.exclude</code> (<code>.aihealth.toml</code>)</td>
+<td><code>tests/*</code></td>
+<td>–</td>
+<td>tests are scored with <code>tests/.aihealth.toml</code></td>
+</tr>
+<tr>
+<td><code>weights.primitive_obsession</code> (<code>tests/.aihealth.toml</code>)</td>
+<td>0</td>
+<td>0.75</td>
+<td>Primitive Obsession off in tests</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gate">Gate<a class="headerlink" href="#gate" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Command</th>
+<th>Fails when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pre-commit <code>code-health</code>, <code>code-health-tests</code></td>
+<td><code>aihealth delta --config .aihealth.toml --staged</code>, <code>… --config tests/.aihealth.toml --staged tests</code></td>
+<td>a staged file got worse, or a new file has a finding</td>
+</tr>
+<tr>
+<td>PR CI, quality job</td>
+<td><code>delta --base "$(git merge-base origin/&lt;base&gt; HEAD)" --head HEAD</code> (once per config)</td>
+<td>same, for the whole PR</td>
+</tr>
+<tr>
+<td>PR CI, quality job</td>
+<td><code>nox -s code-health-components -- origin/&lt;base&gt;</code></td>
+<td>the project score of <code>.</code>, <code>src</code> or <code>tests</code> drops</td>
+</tr>
+<tr>
+<td>PR CI, job summary</td>
+<td><code>scan . …</code> and <code>scan tests …</code></td>
+<td>report only</td>
+</tr>
+</tbody>
+</table>
+<p>The CI checks against the <strong>merge-base</strong>, so changes that landed on <code>main</code> later are not counted
+against the branch. The tree-sitter grammars (~30 MB, <code>~/.cache/tree-sitter-language-pack</code>) are
+cached in CI.</p>
+<h3 id="suppressions">Suppressions<a class="headerlink" href="#suppressions" title="Permanent link">&para;</a></h3>
+<p>ai-health only supports file-wide suppressions. Use them only where an interface imposes the
+signature (CLI/JSON boundaries). The reason must follow <code>--</code>; without that separator ai-health
+silently ignores the suppression. The pre-commit hook <code>aihealth-suppression-reason</code> enforces a
+reason of at least 10 characters.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># aihealth: disable=primitive_obsession -- typer CLI boundary: options are str/list[str] parameters</span>
+</span></code></pre></div>
+<p>Current suppressions (16, all in <code>src/</code>, none in tests):</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Smells</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cli/commands/{add,clone,create,merge,pr,run}.py</code></td>
+<td>primitive_obsession, excess_arguments</td>
+<td>typer: every CLI option is a command parameter</td>
+</tr>
+<tr>
+<td><code>cli/commands/{init,repair,rm}.py</code></td>
+<td>excess_arguments</td>
+<td>same</td>
+</tr>
+<tr>
+<td><code>cli/commands/config.py</code></td>
+<td>primitive_obsession</td>
+<td>same (str/bool options, string parsers)</td>
+</tr>
+<tr>
+<td><code>adapters/git_adapter.py</code></td>
+<td>primitive_obsession</td>
+<td>thin git CLI wrapper: refs, branches, remotes, URLs are strings</td>
+</tr>
+<tr>
+<td><code>adapters/scm/pull_requests.py</code></td>
+<td>primitive_obsession</td>
+<td>REST boundary: raw provider JSON, query dicts, branch names</td>
+</tr>
+<tr>
+<td><code>adapters/scm/detect.py</code></td>
+<td>primitive_obsession</td>
+<td>keyed by hostnames/base URLs and <code>providers.&lt;host&gt;</code> settings</td>
+</tr>
+<tr>
+<td><code>adapters/state_store.py</code></td>
+<td>primitive_obsession</td>
+<td>registry API keyed by env-name strings, raw JSON</td>
+</tr>
+<tr>
+<td><code>domain/repo_url.py</code></td>
+<td>primitive_obsession</td>
+<td>URL parsing/building on raw URL strings</td>
+</tr>
+<tr>
+<td><code>domain/selection.py</code></td>
+<td>primitive_obsession</td>
+<td>glob matching/set operations on repo-name strings</td>
+</tr>
+</tbody>
+</table>
+<p>All other smells (complex methods, conditionals, duplication, nesting) were fixed, not suppressed.</p>
+<p><strong>Trade-off of the six module-wide Primitive Obsession suppressions</strong> (<code>git_adapter</code>, <code>pull_requests</code>,
+<code>detect</code>, <code>state_store</code>, <code>repo_url</code>, <code>selection</code>): no interface imposes these signatures; the modules
+work on strings (refs, raw JSON, hostnames, env names, URLs, globs) by nature, and wrapping them in
+value objects would be churn without clearer code. The cost is that a file-wide suppression also hides
+future primitive-heavy helpers in these files. Review new helpers there with that in mind;
+<code>pull_requests</code> (owner/repo/branch) is the most likely candidate for a small value object later.</p>
+<h3 id="one-source-per-smell">One source per smell<a class="headerlink" href="#one-source-per-smell" title="Permanent link">&para;</a></h3>
+<p>Structural rules are switched off in the linters (owner decision Q9). ruff has no C90/PLR09xx, and
+pylint has its design checks (too-many-*, too-many-lines) disabled and no <code>fail-under</code> score gate.
+ruff is the single linter and formatter (Q8, replaces black/isort/flake8). The pylint sessions
+<code>duplicates</code> (R0801) and <code>cyclic_imports</code> still run; R0801 overlaps with ai-health's duplication
+smell and can go once the ai-health gate is established.</p>
+<h2 id="working-with-agents">Working with agents<a class="headerlink" href="#working-with-agents" title="Permanent link">&para;</a></h2>
+<p>Run <code>nox -s code-health -- delta --format json</code> (or the ai-health MCP server) before every commit.
+Fix findings instead of suppressing them. The output lists every new or worsened smell with
+<code>path:line</code> and a fix hint.</p>
+<h2 id="steckbrief-code-health">Steckbrief Code Health<a class="headerlink" href="#steckbrief-code-health" title="Permanent link">&para;</a></h2>
+<h3 id="1-messumfang-was-zahlt-was-nicht-mit-begrundung">1. Messumfang: was zählt, was nicht, mit Begründung<a class="headerlink" href="#1-messumfang-was-zahlt-was-nicht-mit-begrundung" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>ai-health bewertet</strong> alle von ihm unterstützten Dateien im Repo: Python unter <code>src/</code> und <code>tests/</code>, dazu <code>noxfile.py</code>, <code>vulture_whitelist.py</code> und <code>docs/assets/casts/*.py</code> (Shell-Skripte gibt es derzeit keine). Stand: 70 Dateien mit 5 104 Codezeilen ohne Tests, 72 Testdateien mit 4 655 Codezeilen. Tests zählen mit, weil Agents sie genauso ändern wie Produktivcode.</li>
+<li><strong>Ausgenommen sind:</strong></li>
+<li>nur die ai-health-Default-Excludes, also generierte Dateien und Build-Ordner.</li>
+<li><strong>Zwei Konfigurationen:</strong> Produktivcode mit <code>.aihealth.toml</code> (ohne <code>tests/</code>), Tests mit <code>tests/.aihealth.toml</code> (gleiches Profil, Primitive Obsession aus, Q18.1).</li>
+<li><strong>Komponenten</strong> für den Score-Vergleich: <code>.</code> (alles außer <code>tests/</code>), <code>src</code> und <code>tests</code>.</li>
+</ul>
+<h3 id="2-tools-und-versionen-je-sprache">2. Tools und Versionen, je Sprache<a class="headerlink" href="#2-tools-und-versionen-je-sprache" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Version</th>
+<th>Rolle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ai-health</td>
+<td>0.4.0, gepinnt auf Commit <code>033d186</code></td>
+<td><strong>einzige Quelle</strong> für Smells und Score (tree-sitter-basiert, Python ≥ 3.11)</td>
+</tr>
+<tr>
+<td>ruff</td>
+<td>0.15.x</td>
+<td>einziger Linter und Formatter (E/W/F/I und <code>ruff format</code>); keine Strukturregeln</td>
+</tr>
+<tr>
+<td>pylint</td>
+<td>4.0.x</td>
+<td>nur R0801 (Duplikate, auslaufend) und R0401 (zyklische Importe), kein Score-Gate</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>black, isort und flake8 sind entfallen (Q8).</li>
+<li>Die Versionsangabe für ai-health steht nur in der Dependency-Group <code>code-health</code> in <code>pyproject.toml</code> und ist in <code>uv.lock</code> festgeschrieben.</li>
+</ul>
+<h3 id="3-abgebildete-smells-mit-zuordnung-zu-den-codescene-kriterien-nicht-abgebildete-mit-grund">3. Abgebildete Smells, mit Zuordnung zu den CodeScene-Kriterien; nicht abgebildete mit Grund<a class="headerlink" href="#3-abgebildete-smells-mit-zuordnung-zu-den-codescene-kriterien-nicht-abgebildete-mit-grund" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Von ai-health abgebildet:</strong> Brain Method, Large Method, Complex Method, Cognitive Complexity, Deep Nesting, Bumpy Road, Excess Arguments, Complex Conditional, Large File, Low Cohesion (LCOM4), Primitive Obsession, Code Duplication.</li>
+<li><strong>Nicht abgebildet:</strong></li>
+<li><strong>Large/Duplicated Assertion Blocks:</strong> ai-health kennt sie nicht; duplizierte Tests fängt aber seine Duplikat-Erkennung. Bewusst kein eigener Check (keine zusätzliche Logik).</li>
+<li><strong>Developer Congestion und Complex Code by Former Contributors:</strong> Das sind Git-Verhaltensmetriken; in einem Ein-Personen-Repo sagen sie nichts aus.</li>
+<li><strong>Brain Class:</strong> ai-health hat dafür keinen eigenen Smell. Low Cohesion und Large File decken den Großteil ab.</li>
+</ul>
+<h3 id="4-schwellen-gewichte-und-score-formel">4. Schwellen, Gewichte und Score-Formel<a class="headerlink" href="#4-schwellen-gewichte-und-score-formel" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>ai-health, Profil strict</strong> (vom Owner bestätigt):</li>
+<li>eigene Werte: large_file 600, primitive_obsession 0.3, decay 8, symbol_cap 4, density_loc 100000, delta.tolerance 0;</li>
+<li>in Tests (<code>tests/.aihealth.toml</code>) zusätzlich <code>weights.primitive_obsession = 0</code> (Q18.1); ohne Config-Vererbung stehen die gemeinsamen Werte in beiden Dateien;</li>
+<li>ai-health-Defaults für den Rest: Methode &gt; 70 Zeilen, CC &gt; 9, kognitive Komplexität &gt; 15, Verschachtelung ≥ 4, Bumpy Road ≥ 2 Bumps, Argumente &gt; 4, Complex Conditional ≥ 2 Operatoren, LCOM4 ≥ 3, Duplikate ab 6 Zeilen bzw. 50 Tokens.</li>
+<li><strong>Formel ai-health:</strong></li>
+<li>Je Smell wird <code>weight × severity</code> aufsummiert, mit einem Deckel je Symbol (<code>symbol_cap</code>).</li>
+<li>Daraus folgt der Score über eine Abklingkurve: <code>decay</code> 8 macht sie steiler.</li>
+<li>Der Projekt-Score ist der LOC-gewichtete Mittelwert.</li>
+<li>Details stehen in <code>scoring.py</code> des gepinnten Releases.</li>
+</ul>
+<h3 id="5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit">5. Bedienung: Befehl, Ausgabeformat, --changed-Modus, Laufzeit<a class="headerlink" href="#5-bedienung-befehl-ausgabeformat-changed-modus-laufzeit" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Befehl:</strong> <code>nox -s code-health</code>. Die Session installiert die gepinnte Version und reicht Argumente an <code>aihealth</code> durch (Default <code>delta</code>); einzige Zutat ist <code>--config</code> für <code>scan</code>/<code>delta</code>.</li>
+<li><strong>Tests:</strong> <code>nox -s code-health-tests</code> (gleiche Session mit <code>tests/.aihealth.toml</code>, Default <code>delta tests</code>).</li>
+<li><strong>Komponenten-Vergleich:</strong> <code>nox -s code-health-components</code>.</li>
+<li><strong>Ausgabe:</strong> Text, Markdown oder JSON (<code>--format</code>); <code>scan . --report</code> erzeugt einen vollständigen Bericht.</li>
+<li><strong>Nur geänderte Dateien:</strong> <code>delta</code> (Working Tree gegen HEAD), <code>delta --staged</code> (pre-commit) oder <code>delta --base &lt;ref&gt; --head HEAD</code> (CI).</li>
+<li><strong>Laufzeit:</strong> <code>scan</code> ca. 1,6 s, <code>delta</code> gegen die Merge-Base ca. 4 s, pre-commit-Hook ca. 0,3 s (aus dem uv-Cache).</li>
+<li>Beim ersten Lauf lädt tree-sitter rund 30 MB Grammatiken; in der CI werden sie gecacht.</li>
+</ul>
+<h3 id="6-gate-hook-ci-ratchet-und-baseline-suppressions">6. Gate: Hook, CI, Ratchet und Baseline, Suppressions<a class="headerlink" href="#6-gate-hook-ci-ratchet-und-baseline-suppressions" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>pre-commit:</strong></li>
+<li><code>aihealth delta --staged</code>, je einmal pro Config (Toleranz 0; neue Dateien dürfen keinen Fund haben);</li>
+<li>pygrep-Hook für die Begründung bei Suppressions.</li>
+<li><strong>CI (PR-Quality-Job):</strong></li>
+<li><code>delta</code> gegen die Merge-Base;</li>
+<li>Komponenten-Score von Merge-Base und Arbeitsstand (in der CI identisch mit dem PR-Head); kein Score von <code>.</code>, <code>src</code> oder <code>tests</code> darf sinken;</li>
+<li><code>scan</code> als Bericht in der Job-Summary.</li>
+<li><strong>Ratchet:</strong> ai-health braucht keine Baseline-Datei. Das <code>delta</code> gegen die Basis ist die Ratsche.</li>
+<li><strong>Suppressions:</strong></li>
+<li>nur dateiweit als <code># aihealth: disable=&lt;smell&gt; -- &lt;Grund&gt;</code>;</li>
+<li>aktuell 16, alle in <code>src/</code>: 10 an der typer-CLI-Grenze (jede CLI-Option ist ein Parameter), 6 für Primitive Obsession in Modulen, die von Natur aus mit Strings arbeiten (Git-Wrapper, REST/JSON, Hostnamen, Registry-Namen, URL- und Glob-Verarbeitung). Liste und Begründungen: siehe „Suppressions“ oben.</li>
+</ul>
+<h3 id="7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells">7. Ergebnis: Score vorher und nachher, schlechteste Dateien, verbleibende Smells<a class="headerlink" href="#7-ergebnis-score-vorher-und-nachher-schlechteste-dateien-verbleibende-smells" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Komponente</th>
+<th><code>main</code> vor der Einführung</th>
+<th>nach Welle 1 (#34)</th>
+<th>nach Welle 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Produktivcode (<code>.</code>, ohne Tests)</td>
+<td>7.47</td>
+<td>8.77</td>
+<td><strong>10.00</strong></td>
+</tr>
+<tr>
+<td><code>src</code></td>
+<td>7.32</td>
+<td>8.69</td>
+<td><strong>10.00</strong></td>
+</tr>
+<tr>
+<td><code>tests</code> (<code>tests/.aihealth.toml</code>)</td>
+<td>6.47</td>
+<td>9.95</td>
+<td><strong>10.00</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Alle Dateien stehen bei 10.00</strong>, es gibt keine Funde mehr. Schlechteste Datei: keine.</li>
+<li><strong>Welle 1 (Tests)</strong> und <strong>Welle 2 (<code>src</code>)</strong> sind abgeschlossen. Echt behoben wurden alle komplexen Methoden, Bedingungen, Verschachtelungen und Duplikate.</li>
+<li><strong>Suppressions:</strong> 16, nur Primitive Obsession bzw. Excess Arguments an Grenzen, wo Strings oder typer-Parameter vorgegeben sind (siehe oben).</li>
+<li><strong>Eigener Checker:</strong> wurde zuerst gebaut (Score 8.93 → 9.97) und nach der Owner-Entscheidung für ai-health wieder entfernt (keine zusätzliche Logik).</li>
+</ul>
+<h3 id="8-skills-geprufte-und-ubernommene-skills">8. Skills: geprüfte und übernommene Skills<a class="headerlink" href="#8-skills-geprufte-und-ubernommene-skills" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Geprüft:</strong> Die SKILL.md-Dateien von 16 skills.sh-Treffern wurden gelesen.</li>
+<li><strong>Empfohlen:</strong></li>
+<li><code>l-mb/python-refactoring-skills@py-complexity</code>, ohne dessen Setup-Schritt, der Claude-Settings ändert;</li>
+<li><code>wondelai/skills@refactoring-patterns</code>.</li>
+<li><strong>Ausgeschieden:</strong> <code>*@codehealth-mcp</code>, weil es ein kostenpflichtiges Token braucht.</li>
+<li><strong>Übernommen:</strong> bisher keine, es fehlt noch die Freigabe.</li>
+<li>ai-health bringt selbst einen MCP-Server und Claude-Code-Hooks mit (<code>review_changes</code>, <code>preview_change</code>). Sie sind eine Alternative zu Skills, aber noch nicht eingerichtet.</li>
+</ul>
+<h3 id="9-erfahrungen">9. Erfahrungen<a class="headerlink" href="#9-erfahrungen" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Gut:</strong></li>
+<li>ai-health läuft deterministisch und schnell.</li>
+<li><code>delta</code> gegen die Merge-Base ersetzt die Baseline-Datei.</li>
+<li>Die Fix-Hinweise mit <code>path:line</code> helfen Agents direkt.</li>
+<li>Der Einbau über eine uv-Dependency-Group hält die Version an einer Stelle und läuft offline aus dem Cache.</li>
+<li><strong>Schwierig:</strong></li>
+<li><strong>Eigener Checker:</strong> Er war Aufwand, der mit ai-health überflüssig wurde, und widersprach ai-health bei Test-Assertions. Er ist wieder entfernt; besser gleich ein vorhandenes Werkzeug wählen.</li>
+<li><strong>Werkzeug-Abhängigkeit:</strong> Refactorings, die für den eigenen Checker gemacht wurden, waren unter ai-health teils schlechter. Beispiele: zusammengefasste Assertions erzeugten neue Duplikate, und ausgelagerte Helfer trieben die Primitive-Obsession-Quote über die Mindestzahl von 10 Parametern. Man sollte sich deshalb früh auf ein Werkzeug festlegen.</li>
+<li><strong>Stille Fallstricke:</strong> Ohne <code>--config</code> fällt <code>scan &lt;unterordner&gt;</code> still auf die Defaults zurück, und eine Suppression ohne <code>--</code> greift still nicht.</li>
+<li><strong>pytest-Fixtures:</strong> ai-health zählt sie als Argumente. Abhilfe ist <code>@pytest.mark.usefixtures</code> für Fixtures, die nur Seiteneffekte haben.</li>
+<li><strong>Metrik-Gaming durch Agents:</strong> Agents umgehen Metriken gern, etwa mit <code>**kwargs</code> oder Alias-Tricks. Ein Review bleibt nötig.</li>
+<li><strong>Übertragbar:</strong></li>
+<li>Pin auf einen Commit;</li>
+<li>dünne nox-Session, die nur durchreicht und <code>--config</code> setzt;</li>
+<li><code>delta</code> gegen die Merge-Base in der CI;</li>
+<li>Komponenten-Vergleich;</li>
+<li>pygrep-Hook für Suppressions;</li>
+<li>eine Quelle je Smell, also die Strukturregeln der Linter aus.</li>
+<li><strong>Projektspezifisch:</strong></li>
+<li>Suppressions für typer-CLI-Module;</li>
+<li>pfadgefilterte PR-Jobs: beide <code>.aihealth.toml</code> stehen im Filter.</li>
+</ul>
+<h3 id="verbliebene-eigene-logik-und-warum">Verbliebene eigene Logik (und warum)<a class="headerlink" href="#verbliebene-eigene-logik-und-warum" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>nox -s code-health</code> / <code>code-health-tests</code>:</strong> dieselbe Funktion mit der jeweiligen Config; installiert die gepinnte Gruppe und reicht an <code>aihealth</code> durch. Einzige Zutat: <code>--config</code> für <code>scan</code>/<code>delta</code>, weil ai-health sonst bei Unterordnern still auf die Defaults zurückfällt.</li>
+<li><strong><code>nox -s code-health-components</code></strong> (rund 35 Zeilen): ai-health vergleicht Dateien (<code>delta</code>), aber keine Komponenten-Scores zweier Commits. Der vom Owner beschlossene Komponenten-Vergleich (Q6) braucht deshalb einen Export der Basis und zwei <code>scan --format json</code>.</li>
+<li><strong>CI:</strong> <code>git merge-base</code> in der Shell. Im <code>pull_request</code>-Checkout (Merge-Commit) entspricht das der Basis-Spitze; der Ausdruck bleibt aber auch bei anderen Checkouts und lokal korrekt (ein Branch hinter <code>main</code> bekommt keine fremden Änderungen angerechnet).</li>
+<li><strong>pre-commit:</strong> ein pygrep-Hook (nur eine Regex, kein Code) für die Begründung bei Suppressions.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/ditschi/repo-env" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
