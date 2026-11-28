@@ -17,4 +17,7 @@ density_loc = 100000        # large files are not relieved through finding densi
 tolerance = 0.0             # any degradation fails the gate
 
 [scan]
-exclude = ["tests/*"]       # scored separately with tests/.aihealth.toml
+exclude = [
+    "tests/*",              # scored separately with tests/.aihealth.toml
+    ".claude/*",            # vendored third-party agent skills (skills-lock.json), not repo code
+]

@@ -64,3 +64,20 @@ findings; 9.5 is only the minimum.
   improves the code; otherwise leave the finding, or add a file-wide suppression with a real reason.
 - A formatter change alters physical line counts and therefore scores: format in its own commit
   first, then refactor affected files in the same PR until no file and no component is below `main`.
+
+## Agent skills (`.claude/skills/`)
+
+Project-local skills, installed with `npx skills add … -a claude-code --copy` and pinned in
+`skills-lock.json` (restore with `npx skills install`). Repo rules take precedence over skill text:
+
+- `test-driven-development`: write the failing test first for new behaviour and bug fixes. Pure
+  refactorings that existing tests already cover are exempt.
+- `verification-before-completion`: "done" needs fresh output from the relevant gates, i.e. tests,
+  `nox -s lint check_types` and both code-health deltas.
+- `systematic-debugging`: root cause before fix. Its `find-polluter.sh` (`npm test`) was removed;
+  bisect polluting tests with pytest instead (e.g. `-p no:randomly`, `--lf`).
+- `py-complexity`: use it for refactoring patterns only. Measure with ai-health, not radon, lizard,
+  xenon or wily, and do **not** run its `py-quality-setup` step (it edits Claude settings and adds tools).
+- `receiving-code-review`, `security-review`, `git-commit` (Conventional Commits; never `--no-verify`
+  or push unless asked), `typer` (CLI conventions), `grill-me`/`grilling` (interview to sharpen a plan
+  before implementing).
